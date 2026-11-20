@@ -24,21 +24,64 @@ export const LEAVE_SOUNDS: { value: SoundName; label: string }[] = [
   { value: "none", label: "No sound" },
 ];
 
-const cache = new Map<string, HTMLAudioElement>();
+/**
+ * Per-file gain (dB) so every sound plays at about -18 dBFS: measured RMS of the
+ * audible part, with boosts capped so peaks stay under -1 dBFS. Re-measure when
+ * adding a file (see docs/decisions.md for the method).
+ */
+const GAIN_DB: Record<Exclude<SoundName, "none">, number> = {
+  ding: -1.0,
+  doink: 5.0,
+  fart: 4.5,
+  "female-bye": 10.1,
+  hewya: -1.0,
+  "kiddo-bye": -6.9,
+  mmbye: -0.2,
+  quack: -4.2,
+  "yeah-boy": 3.6,
+};
 
+let ctx: AudioContext | null = null;
+const buffers = new Map<string, Promise<AudioBuffer | null>>();
+
+function context(): AudioContext {
+  if (!ctx) {
+    ctx = new AudioContext();
+    // Follow the chosen speakers where the web view allows it (not on macOS WKWebView).
+    const withSink = ctx as AudioContext & { setSinkId?: (id: string) => Promise<void> };
+    if (prefs.speaker && withSink.setSinkId) void withSink.setSinkId(prefs.speaker).catch(() => {});
+  }
+  return ctx;
+}
+
+function load(sound: string): Promise<AudioBuffer | null> {
+  let b = buffers.get(sound);
+  if (!b) {
+    b = fetch(`/sounds/${sound}.mp3`)
+      .then((r) => r.arrayBuffer())
+      .then((data) => context().decodeAudioData(data))
+      .catch(() => null);
+    buffers.set(sound, b);
+  }
+  return b;
+}
+
+/** Join, leave and test sounds: levelled per file, at your Sounds volume. Overlapping plays mix. */
 export function playSound(sound: SoundName | null | undefined) {
   if (!sound || sound === "none") return;
-  let base = cache.get(sound);
-  if (!base) {
-    base = new Audio(`/sounds/${sound}.mp3`);
-    base.preload = "auto";
-    cache.set(sound, base);
-  }
-  // A fresh element each time, so two people joining at once both play.
-  const a = base.cloneNode(true) as HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };
-  a.volume = Math.min(1, prefs.outputVolume / 100);
-  if (prefs.speaker && a.setSinkId) void a.setSinkId(prefs.speaker).catch(() => {});
-  void a.play().catch(() => { /* autoplay blocked or no output device */ });
+  const volume = prefs.soundsVolume / 100;
+  if (volume <= 0) return;
+  void load(sound).then((buffer) => {
+    if (!buffer) return;
+    const c = context();
+    void c.resume().catch(() => {});
+    const src = c.createBufferSource();
+    src.buffer = buffer;
+    const gain = c.createGain();
+    gain.gain.value = 10 ** (GAIN_DB[sound] / 20) * volume;
+    src.connect(gain).connect(c.destination);
+    src.start();
+  });
 }
 
 export const playJoinSound = playSound;

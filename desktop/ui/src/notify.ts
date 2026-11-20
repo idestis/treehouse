@@ -1,3 +1,4 @@
+import { prefs } from "./voice";
 // Notification preferences (per computer) and the mention chime.
 // "Busy" pauses notifications too; the in-app @ badge in the sidebar always shows.
 
@@ -14,7 +15,8 @@ export function setNotifications(on: boolean) {
 let ctx: AudioContext | null = null;
 
 /** A soft two-note chime, made in code (no audio files). */
-export function chime(volume = 1) {
+export function chime(volume = prefs.soundsVolume / 100) {
+  if (volume <= 0) return;
   try {
     ctx ??= new AudioContext();
     const t = ctx.currentTime;

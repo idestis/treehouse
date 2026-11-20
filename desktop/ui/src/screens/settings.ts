@@ -9,7 +9,6 @@ import { personAvatar, shrinkForUpload } from "../avatars";
 import { ACTIONS, type Action, conflicts, DEFAULTS as DEFAULT_KEYS, format as formatKey, fromEvent, load as loadHotkeys, problem as hotkeyProblem, save as saveHotkeys, globalAvailable } from "../hotkeys";
 import { dropdown, dropdownOpen } from "../dropdown";
 import { strengthMeter } from "../password";
-import { chime } from "../notify";
 import type { SoundName } from "../api/types";
 import { JOIN_SOUNDS, LEAVE_SOUNDS, playSound } from "../sounds";
 import { AUDIO_CAPTURE, prefs } from "../voice";
@@ -147,8 +146,9 @@ register("settings", (root, screen) => {
       if (micGainNode) micGainNode.gain.value = v / 100;
       call.setMicGain(v);
     });
-    const testSound = h("button", { class: "btn ghost sm", type: "button", onclick: () => chime(prefs.outputVolume / 100) }, "Play test sound");
-    const outVolume = slider("s-out-gain", "Output volume", prefs.outputVolume, (v) => { prefs.outputVolume = v; call.setOutputVolume(v); }, testSound, 100);
+    const outVolume = slider("s-out-gain", "Voices volume", prefs.outputVolume, (v) => { prefs.outputVolume = v; call.setOutputVolume(v); }, undefined, 100);
+    const testSound = h("button", { class: "btn ghost sm", type: "button", onclick: () => playSound(me.join_sound === "none" ? "ding" : me.join_sound) }, "Play");
+    const soundsVolume = slider("s-sounds-gain", "Sounds volume", prefs.soundsVolume, (v) => { prefs.soundsVolume = v; }, testSound, 100);
     const problem = h("div", { class: "mic-problem", role: "alert", hidden: true });
     let stream: MediaStream | null = null;
     let ctx: AudioContext | null = null;
@@ -229,6 +229,8 @@ register("settings", (root, screen) => {
         problem,
         h("div", { class: "field" }, h("label", { for: "s-out" }, "Speakers or headphones"), out.el),
         outVolume,
+        soundsVolume,
+        h("p", { class: "muted small" }, "Voices are the people in your call. Sounds are join, leave and mention sounds."),
         joinSoundField(),
         h("h3", { class: "subhead" }, "Screen sharing"),
         screenModeField(),

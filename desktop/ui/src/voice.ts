@@ -49,6 +49,9 @@ export const prefs = {
   /** Screen sharing: sharp text (1080p, 15 fps) or smooth motion for games (1080p, 30 fps). */
   get screenMode(): "text" | "motion" { return read("treehouse.screenMode") === "motion" ? "motion" : "text"; },
   set screenMode(v: "text" | "motion") { write("treehouse.screenMode", v); },
+  /** Join, leave and mention sounds, separate from people's voices (0–100, default 70). */
+  get soundsVolume() { const n = Number(read("treehouse.soundsVolume")); return read("treehouse.soundsVolume") !== "" && Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 70; },
+  set soundsVolume(v: number) { write("treehouse.soundsVolume", String(Math.round(v))); },
   /** Output volume in percent (0–100) for everyone you hear. */
   get outputVolume() { return percent(OUT_GAIN_KEY); },
   set outputVolume(v: number) { write(OUT_GAIN_KEY, String(Math.round(v))); },

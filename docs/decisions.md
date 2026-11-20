@@ -65,3 +65,8 @@ Choices made where the spec is silent. Newest last.
 
 - **Push to talk** is a system-wide shortcut (tauri-plugin-global-shortcut, accelerators built from KeyboardEvent.code): hold to talk, release to mute; with it bound you join muted. Mute and deafen stay window-only so their defaults (Ctrl+M, Ctrl+D) aren't taken from other apps.
 - **Known gap:** if LiveKit dies without sending leave webhooks, `voice_members` keeps stale rows until `room_finished`. A periodic reconcile against LiveKit's ListParticipants (one replica, advisory lock) would fix it; not built yet.
+
+## 2026-11-20: Levelled sounds, separate sounds volume
+
+- Join/leave sounds play through Web Audio with a per-file gain (`GAIN_DB` in desktop/ui/src/sounds.ts) so each lands near -18 dBFS: measured as the RMS of 50 ms windows above -50 dBFS with AVFoundation (no ffmpeg on the build Mac), boosts capped so the sample peak stays under -1 dBFS. The files stay as delivered. Re-measure when adding a sound.
+- "Sounds volume" (join, leave, mention chime; default 70%) is separate from "Voices volume" (people in calls).
