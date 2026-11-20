@@ -149,7 +149,9 @@ export const call = {
       report();
       startRefresh(id);
     } catch (e) {
-      if (room === r || room === null) await teardown();
+      // Left or switched to another room meanwhile: that choice wins, nothing to report.
+      if (roomId !== id) { await r?.disconnect().catch(() => {}); return; }
+      await teardown();
       throw isApiError(e) ? e : fail("Couldn’t join voice. Try again.");
     }
   },

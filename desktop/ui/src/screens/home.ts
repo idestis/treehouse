@@ -523,9 +523,9 @@ register("home", (root) => {
     if (!n) return "Nobody here yet";
     const names = call.speaking
       .filter((id) => members.some((m) => m.user_id === id))
-      .map((id) => (id === me.id ? "You" : person(id).display_name));
+      .map((id) => (id === me.id ? "you" : person(id).display_name));
     if (!names.length) return `${n} in voice`;
-    if (names.length === 1) return `${n} in voice, ${names[0]} ${names[0] === "You" ? "are" : "is"} talking`;
+    if (names.length === 1) return `${n} in voice, ${names[0]} ${names[0] === "you" ? "are" : "is"} talking`;
     return `${n} in voice, ${names.slice(0, -1).join(", ")} and ${names[names.length - 1]} are talking`;
   }
 

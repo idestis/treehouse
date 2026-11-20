@@ -276,7 +276,10 @@ fieldset.plain legend { padding: 0; margin-bottom: 10px; }
 /* Lantern ring on whoever is talking. */
 .tile.speaking { border-color: var(--lantern); box-shadow: 0 0 0 5px rgba(255, 179, 71, 0.16), 0 0 56px rgba(255, 179, 71, 0.3); }
 .tile.speaking .avatar.huge { box-shadow: 0 0 0 5px var(--lantern); }
-.avatar.huge { transition: box-shadow 0.15s ease; }
+/* The big avatar fits the tile both ways, so short tiles in a 2×2 or 3×2 grid don't hide it under the bar. */
+.tile { container-type: size; }
+.tile .avatar.huge { width: min(38cqw, 48cqh, 190px); max-width: none; font-size: min(17cqw, 22cqh, 84px); margin-bottom: 36px; transition: box-shadow 0.15s ease; }
+.tile.small .avatar.huge { width: min(34cqw, 46cqh); font-size: min(15cqw, 20cqh); margin-bottom: 26px; }
 .avatar.huge.dim { opacity: 0.7; }
 .tile-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #000; }
 .tile-video.mirror { transform: scaleX(-1); }
@@ -288,6 +291,7 @@ fieldset.plain legend { padding: 0; margin-bottom: 10px; }
 .stage.spotlight .spot { flex: 1; min-height: 0; background: #000; border-color: var(--line); }
 .strip { flex: none; display: flex; gap: 12px; height: 140px; overflow-x: auto; padding-bottom: 2px; }
 .tile.small { flex: 0 0 210px; height: 100%; border-radius: 16px; }
+.tile.small.speaking { box-shadow: inset 0 0 0 1px var(--lantern); } /* the strip scrolls, so an outer glow would be clipped */
 .tile.small .avatar.huge { width: 34%; max-width: 72px; font-size: 28px; }
 .tile.small .tile-bar { left: 8px; right: 8px; bottom: 8px; padding: 4px 6px; font-size: 14px; gap: 6px; }
 .tile.small .tile-ic { width: 26px; height: 26px; }
