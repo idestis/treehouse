@@ -208,6 +208,11 @@ fieldset.plain legend { padding: 0; margin-bottom: 10px; }
 .msg-head strong { font-size: 17px; }
 .body { font-size: 17px; line-height: 1.5; overflow-wrap: anywhere; }
 .body.action { font-style: italic; color: #d6dbee; }
+.msg.status { padding: 4px 12px 4px 70px; }
+.status-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: #d6dbee; font-size: 15px; }
+.status-line em { color: #c4cae0; }
+.status-line time { margin-left: 4px; }
+.roomchat .msg.status { padding-left: 58px; }
 .msg-actions { display: flex; gap: 2px; align-self: flex-start; opacity: 0; }
 .msg:hover .msg-actions, .msg:focus-within .msg-actions { opacity: 1; }
 .mention { background: rgba(255, 179, 71, 0.18); color: var(--lantern); font-weight: 700; padding: 1px 8px; border-radius: 6px; }
