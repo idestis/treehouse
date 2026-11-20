@@ -824,7 +824,7 @@ register("home", (root) => {
       h("button", { class: `call-btn ${cls}`, type: "button", title: label, "aria-label": label, "aria-pressed": pressed === null ? undefined : String(pressed), disabled, onclick }, icon(ic, 24));
     mount(barEl,
       btn(`${call.muted ? "Unmute" : "Mute"} (${formatKey(keys.mute)})`, call.muted ? "micOff" : "mic", call.muted ? "off" : "", call.muted, toggleMute),
-      btn(call.camera ? "Turn camera off" : "Turn camera on", call.camera ? "video" : "videoOff", call.camera ? "on" : "", call.camera, () => void call.setCamera(!call.camera), !live),
+      btn(call.camera ? "Turn camera off" : "Turn camera on", call.camera ? "video" : "videoOff", call.camera ? "on" : "off", call.camera, () => void call.setCamera(!call.camera), !live),
       btn(call.screen ? "Stop sharing" : "Share your screen", call.screen ? "monitorOff" : "monitor", call.screen ? "on" : "", call.screen, (e?: Event) => { if (call.screen) void call.setScreenShare(false); else shareMenu((e?.currentTarget as HTMLElement) ?? barEl!); }, !live),
       btn("Leave", "hangup", "leave", null, () => void leave()));
   }
