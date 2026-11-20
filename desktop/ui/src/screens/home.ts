@@ -719,8 +719,10 @@ register("home", (root) => {
 
   function screenTile(v: Video, large: boolean) {
     const label = v.userId === me.id ? "Your screen" : `${person(v.userId).display_name}’s screen`;
-    return cached(`s:${v.userId}:${v.track.sid ?? ""}:${large ? "big" : "small"}`, () => {
-      const bar = h("div", { class: "tile-bar" }, icon("monitor", 18, "lantern"), h("strong", { class: "grow ellipsis" }, label));
+    const sound = call.screenHasSound(v.userId);
+    return cached(`s:${v.userId}:${v.track.sid ?? ""}:${large ? "big" : "small"}:${sound}`, () => {
+      const bar = h("div", { class: "tile-bar" }, icon("monitor", 18, "lantern"), h("strong", { class: "grow ellipsis" }, label),
+        sound && h("span", { class: "sound-badge", title: "Everyone hears this screen’s sound" }, icon("volume", 16), "With sound"));
       if (large) return h("div", { class: "tile screen-tile spot", "aria-label": label }, videoEl(v), bar);
       return h("button", { class: "tile screen-tile small", type: "button", title: "Show large", "aria-label": `Show ${label.toLowerCase()} large`,
         onclick: () => { spotlight = v.userId; renderStage(); } }, videoEl(v), bar);
@@ -810,7 +812,11 @@ register("home", (root) => {
     mount(menu,
       h("p", { class: "share-title" }, "Share your screen for"),
       option("text", "Reading together", "Sharp text: docs, code, websites (1080p, 15 fps)"),
-      option("motion", "Watching or playing", "Smooth motion: videos and games (1080p, 30 fps)"));
+      option("motion", "Watching or playing", "Smooth motion: videos and games (1080p, 30 fps)"),
+      h("p", { class: "share-sound muted small" }, icon(navigator.userAgent.includes("Mac") ? "volumeOff" : "volume", 16),
+        navigator.userAgent.includes("Mac")
+          ? "Only the picture is shared. macOS doesn’t let apps send other apps’ sound."
+          : "Sound from what you share is included, so everyone hears it too."));
     document.body.appendChild(menu);
     setTimeout(() => { addEventListener("mousedown", outside, true); addEventListener("keydown", esc, true); });
   }

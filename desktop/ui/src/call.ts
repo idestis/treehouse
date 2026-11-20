@@ -99,6 +99,14 @@ export const call = {
     }));
   },
 
+  /** Whether someone's screen share carries sound (a screen-share audio track is published). */
+  screenHasSound(userId: number): boolean {
+    if (!room) return false;
+    const all: Participant[] = [room.localParticipant, ...room.remoteParticipants.values()];
+    const p = all.find((x) => idOf(x) === userId);
+    return !!p?.getTrackPublication(Track.Source.ScreenShareAudio);
+  },
+
   /** Cameras and screens that can be shown right now. */
   videos(): Video[] {
     if (!room) return [];
@@ -365,6 +373,8 @@ function wire(r: Room) {
   const mine = () => room === r;
   r.on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => {
     if (!mine()) return;
+    // A screen share's sound changes what the stage shows ("With sound").
+    if (track.source === Track.Source.ScreenShareAudio) emit({ type: "tracks" });
     if (track.kind === Track.Kind.Audio) {
       const el = track.attach() as HTMLAudioElement;
       el.muted = local.deafened;
@@ -375,6 +385,7 @@ function wire(r: Room) {
   })
     .on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack) => {
       if (track.kind === Track.Kind.Audio) track.detach().forEach((el) => el.remove());
+      if (track.source === Track.Source.ScreenShareAudio && mine()) emit({ type: "tracks" });
       else if (mine()) emit({ type: "tracks" });
     })
     .on(RoomEvent.TrackMuted, () => mine() && emit({ type: "tracks" }))
