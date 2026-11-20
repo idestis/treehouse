@@ -9,5 +9,4 @@ deploy/.env
 .task/
 .claude/worktrees/
 /build/
-.wrangler/
 .playwright-mcp/

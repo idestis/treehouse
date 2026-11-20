@@ -136,7 +136,7 @@ task server:image     # Docker image (linux/amd64 by default)
 task up               # full stack from deploy/.env (TREEHOUSE_REPLICAS=2 for two)
 task dmg              # universal, Developer ID signed DMG (task mac also notarizes)
 task windows          # Windows x64 NSIS installer, cross-built here
-task release -- 0.2.0 # bump, ship mac + windows, tag, publish to R2, GitHub release
+task release -- 0.2.0 # bump, ship mac + windows, tag, publish the GitHub release
 ```
 
 ## When unsure

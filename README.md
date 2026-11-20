@@ -25,9 +25,9 @@
 
 I grew up on Ventrilo. Someone in the crew ran a tiny server, you held a key to talk, and the rules were ours. Nobody else was in there.
 
-My kids live on Discord now. It works, but the notification sounds drive me up the wall, and as a parent I have no real say over who is in there or what gets kept, and for how long.
+My kids live on Discord now. It works, but the sound quality drives me up the wall, and as a parent I have no real say over who is in there or what gets kept, and for how long.
 
-So I built Treehouse: a small private voice and chat hangout for a crew of 3 to 15 kids, which a parent runs on one small server. It's invite-only. There are roles and moderation tools, and messages disappear after a few days. No ads, no strangers, no feed. And the sounds are nicer: everyone picks their own join sound (a ding, a quack, a "hewya!", or yes, a fart).
+So I built Treehouse: a small private voice and chat hangout for a crew of 3 to 15 kids, which a parent runs on one small server. It's invite-only. There are roles and moderation tools, and messages disappear after a few days. No ads, no strangers, no feed. And it sounds good: clean voice with echo, noise and level processing always on, Opus at 48 kbit/s, nothing to fiddle with. Even the join sounds are your own pick (a ding, a quack, a "hewya!", or yes, a fart).
 
 ## What it does
 
@@ -142,7 +142,7 @@ docker compose -f deploy/docker-compose.yml exec treehouse treehouse admin unblo
 - **macOS** (Apple silicon and Intel): `Treehouse.dmg`. It's signed and notarized.
 - **Windows** (x64): `Treehouse-setup.exe`. It isn't Authenticode-signed yet, so SmartScreen warns you the first time you run it.
 
-Both are downloaded from the releases page at `https://<releases-worker>/Treehouse.dmg` and `https://<releases-worker>/Treehouse-setup.exe`. Once installed, the app updates itself.
+Download them from [GitHub Releases](https://github.com/idestis/treehouse/releases/latest): [Treehouse.dmg](https://github.com/idestis/treehouse/releases/latest/download/Treehouse.dmg) for macOS and [Treehouse-setup.exe](https://github.com/idestis/treehouse/releases/latest/download/Treehouse-setup.exe) for Windows. Once installed, the app updates itself from the same releases.
 
 ## Develop
 
@@ -167,7 +167,7 @@ Other useful tasks:
 | `task up` / `task down` | Run the full production stack locally from `deploy/.env` |
 | `task dmg` | Universal, Developer ID–signed macOS DMG |
 | `task windows` | Windows x64 installer, cross-compiled from a Mac with `cargo-xwin` |
-| `task release` | Preview the notes, bump the version, build both platforms, tag, publish to R2, create a GitHub release |
+| `task release` | Preview the notes, bump the version, build both platforms, tag, and publish the GitHub release (the app's update feed) |
 
 Release tooling reads the root `.env` (copy [.env.example](.env.example)). [CLAUDE.md](CLAUDE.md) has the working rules, conventions and the build order.
 
@@ -176,7 +176,6 @@ treehouse/
 ├── server/          # Rust service: HTTP API, WebSocket events, jobs, migrations
 ├── desktop/         # Tauri 2 app (src-tauri/ is Rust, ui/ is TypeScript + Vite)
 ├── deploy/          # docker-compose, Caddyfile, LiveKit config, .env.example
-├── infra/releases/  # Cloudflare Worker that serves downloads and the update feed
 ├── docs/            # spec.md (start here) and decisions.md
 ├── mocks/           # clickable HTML design mocks and screenshots (not shipped)
 └── brand/           # logo, app icon and artwork

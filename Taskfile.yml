@@ -7,9 +7,11 @@
 #   Windows: cargo-xwin cross-compiles for x86_64-pc-windows-msvc and NSIS
 #            makes the -setup.exe; the updater installs that same .exe (signed
 #            with the updater key). No Authenticode, so SmartScreen warns once.
-#   Updates: `task publish` uploads the DMG, tarball, .exe and latest.json to a
-#            private R2 bucket served by the Worker in infra/releases.
-# One-time: `task setup`, `task notary:setup`, `task updater:keys`, `task r2:setup`.
+#   Updates: GitHub Releases. `task publish` creates a draft release with the
+#            DMG, .exe, update tarball, signatures and latest.json, then
+#            publishes it in one step. Apps read the feed from
+#            releases/latest/download/latest.json (needs the repo to be public).
+# One-time: `task setup`, `task notary:setup`, `task updater:keys`, `gh auth login`.
 version: "3"
 
 dotenv: [".env"]
@@ -19,6 +21,9 @@ vars:
   DESKTOP_DIR: desktop
   TAURI_DIR: desktop/src-tauri
   REPO: idestis/treehouse
+  RELEASES: https://github.com/{{.REPO}}/releases
+  # Baked into release builds: always the newest published (non-draft, non-prerelease) release.
+  FEED_URL: "{{.RELEASES}}/latest/download/latest.json"
   VERSION:
     sh: sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1
   MAC_TARGET: universal-apple-darwin
@@ -59,7 +64,7 @@ tasks:
       - test -x "{{.LLVM_BIN}}/llvm-rc" || brew install llvm
       - test -x "{{.LLVM_BIN}}/lld-link" || test -x "{{.LLD_BIN}}/lld-link" || brew install lld
       - |
-        for t in git-cliff gh wrangler; do command -v $t >/dev/null || echo "optional: brew install $t (releases)"; done
+        for t in git-cliff gh; do command -v $t >/dev/null || echo "optional: brew install $t (releases)"; done
       - npm --prefix {{.DESKTOP_DIR}} install
 
   dev:
@@ -216,7 +221,7 @@ tasks:
         id=$(security find-identity -v -p codesigning | grep "Developer ID Application" | grep "($TEAM_ID)" | head -1 | sed -E 's/.*"(.*)"/\1/')
         if [ -z "$id" ]; then echo "No 'Developer ID Application (… $TEAM_ID)' identity in the keychain"; exit 1; fi
         echo "Signing with: $id"
-        [ -n "$R2_PUBLIC_URL" ] && export TREEHOUSE_UPDATE_URL="${R2_PUBLIC_URL%/}/latest.json" || echo "R2_PUBLIC_URL not set: this build has updates off"
+        export TREEHOUSE_UPDATE_URL="{{.FEED_URL}}"
         # No APPLE_ID/APPLE_PASSWORD in env, so Tauri signs but does not notarize; `task notarize` does that.
         env -u APPLE_ID -u APPLE_PASSWORD -u APPLE_API_KEY APPLE_SIGNING_IDENTITY="$id" \
           npx tauri build --target {{.MAC_TARGET}} --bundles app,dmg
@@ -295,7 +300,7 @@ tasks:
     cmds:
       - |
         export PATH="{{.LLVM_BIN}}:{{.LLD_BIN}}:$PATH"
-        [ -n "$R2_PUBLIC_URL" ] && export TREEHOUSE_UPDATE_URL="${R2_PUBLIC_URL%/}/latest.json" || echo "R2_PUBLIC_URL not set: this build has updates off"
+        export TREEHOUSE_UPDATE_URL="{{.FEED_URL}}"
         npx tauri build --runner cargo-xwin --target {{.WIN_TARGET}} --bundles nsis
       - mkdir -p ../build
       - cp "$(ls ../{{.WIN_BUNDLE}}/*-setup.exe | head -1)" "../{{.EXE}}"
@@ -328,55 +333,39 @@ tasks:
 
   ship:
     desc: Notarized DMG + update tarball (macOS) and signed installer (Windows) in build/
-    preconditions:
-      - sh: echo "$R2_PUBLIC_URL" | grep -Eq '^https://[A-Za-z0-9.-]+(/[A-Za-z0-9._/-]*)?[^/]$'
-        msg: "R2_PUBLIC_URL must be a plain https URL without a trailing slash, got '$R2_PUBLIC_URL' (it is baked into the app as the update feed)"
     cmds:
       - task: mac
       - task: windows
       - echo "Ready — {{.DMG}}, {{.TARBALL}}, {{.EXE}}"
 
-  r2:setup:
-    desc: One-time — create the R2 bucket and deploy the releases Worker
-    interactive: true
-    cmds:
-      - wrangler whoami >/dev/null 2>&1 || wrangler login
-      - wrangler r2 bucket info "${R2_BUCKET:-treehouse-releases}" >/dev/null 2>&1 || wrangler r2 bucket create "${R2_BUCKET:-treehouse-releases}"
-      # Only the Worker serves files (country block, rate limits); no direct r2.dev access.
-      - wrangler r2 bucket dev-url disable "${R2_BUCKET:-treehouse-releases}" --force || true
-      - task: r2:deploy
-      - 'echo "Set R2_PUBLIC_URL in .env to the https://treehouse-releases.<subdomain>.workers.dev URL above (no trailing slash)."'
-
-  r2:deploy:
-    desc: Deploy the releases Worker (infra/releases) — blocks RU/BY, rate-limits per IP, GET/HEAD only
-    dir: infra/releases
-    cmds:
-      - wrangler deploy
-
   publish:
-    desc: Upload DMG, update tarball, Windows installer and latest.json to R2 (the in-app updater feed)
+    desc: "GitHub release vVERSION: DMG, .exe, update tarball, signatures and latest.json, created as a draft and published in one step"
     vars:
-      BASE: "{{.R2_PUBLIC_URL}}/v{{.VERSION}}"
-      BUCKET: '{{.R2_BUCKET | default "treehouse-releases"}}'
+      BASE: "{{.RELEASES}}/download/v{{.VERSION}}"
+      STAGE: build/gh-v{{.VERSION}}
     preconditions:
-      - sh: test -n "$R2_PUBLIC_URL"
-        msg: "R2_PUBLIC_URL is not set — run `task r2:setup`"
       - sh: test -f "{{.DMG}}" && test -f "{{.TARBALL}}.sig" && test -f "{{.EXE}}.sig"
         msg: "Missing {{.DMG}}, {{.TARBALL}}.sig or {{.EXE}}.sig — run `task ship` first"
+      - sh: git rev-parse -q --verify "refs/tags/v{{.VERSION}}" >/dev/null
+        msg: "Tag v{{.VERSION}} doesn't exist — run `task release:tag` first"
+      - sh: gh auth status >/dev/null 2>&1
+        msg: Run `gh auth login`
     cmds:
       - task: release:notes
+      # Stable asset names, so releases/latest/download/Treehouse.dmg always works.
+      - rm -rf "{{.STAGE}}" && mkdir -p "{{.STAGE}}"
+      - cp "{{.DMG}}" "{{.STAGE}}/{{.APP}}.dmg"
+      - cp "{{.EXE}}" "{{.STAGE}}/{{.APP}}-setup.exe" && cp "{{.EXE}}.sig" "{{.STAGE}}/{{.APP}}-setup.exe.sig"
+      - cp "{{.TARBALL}}" "{{.STAGE}}/{{.APP}}.app.tar.gz" && cp "{{.TARBALL}}.sig" "{{.STAGE}}/{{.APP}}.app.tar.gz.sig"
       - >-
-        python3 -I scripts/latest-json.py {{.VERSION}} "{{.BASE}}" "build/notes-{{.VERSION}}.md" build/latest.json
-        darwin-aarch64="{{.TARBALL}}" darwin-x86_64="{{.TARBALL}}" windows-x86_64="{{.EXE}}"
-      - wrangler r2 object put "{{.BUCKET}}/v{{.VERSION}}/{{.APP}}.app.tar.gz" --file "{{.TARBALL}}" --content-type application/gzip --remote
-      - wrangler r2 object put "{{.BUCKET}}/v{{.VERSION}}/{{.APP}}-{{.VERSION}}.dmg" --file "{{.DMG}}" --content-type application/x-apple-diskimage --remote
-      - wrangler r2 object put "{{.BUCKET}}/v{{.VERSION}}/{{.APP}}-{{.VERSION}}-setup.exe" --file "{{.EXE}}" --content-type application/vnd.microsoft.portable-executable --remote
-      # Stable download links for the newest version.
-      - wrangler r2 object put "{{.BUCKET}}/{{.APP}}.dmg" --file "{{.DMG}}" --content-type application/x-apple-diskimage --cache-control "no-cache" --remote
-      - wrangler r2 object put "{{.BUCKET}}/{{.APP}}-setup.exe" --file "{{.EXE}}" --content-type application/vnd.microsoft.portable-executable --cache-control "no-cache" --remote
-      # The feed goes last, so clients never see a version whose files aren't up yet.
-      - wrangler r2 object put "{{.BUCKET}}/latest.json" --file build/latest.json --content-type application/json --cache-control "no-cache" --remote
-      - 'echo "Published — {{.R2_PUBLIC_URL}}/{{.APP}}.dmg  {{.R2_PUBLIC_URL}}/{{.APP}}-setup.exe  feed: {{.R2_PUBLIC_URL}}/latest.json"'
+        python3 -I scripts/latest-json.py {{.VERSION}} "{{.BASE}}" "build/notes-{{.VERSION}}.md" "{{.STAGE}}/latest.json"
+        darwin-aarch64="{{.STAGE}}/{{.APP}}.app.tar.gz" darwin-x86_64="{{.STAGE}}/{{.APP}}.app.tar.gz"
+        windows-x86_64="{{.STAGE}}/{{.APP}}-setup.exe"
+      - '{ cat "build/notes-{{.VERSION}}.md"; printf "\n\n**Download:** [macOS (.dmg)](%s/latest/download/%s.dmg) · [Windows (.exe)](%s/latest/download/%s-setup.exe)\n" "{{.RELEASES}}" "{{.APP}}" "{{.RELEASES}}" "{{.APP}}"; } > "{{.STAGE}}/notes.md"'
+      # Draft first with every file attached, then publish: the feed never points at missing files.
+      - gh release create "v{{.VERSION}}" --repo {{.REPO}} --draft --verify-tag --title "{{.APP}} {{.VERSION}}" --notes-file "{{.STAGE}}/notes.md" "{{.STAGE}}"/{{.APP}}.dmg "{{.STAGE}}"/{{.APP}}-setup.exe "{{.STAGE}}"/{{.APP}}-setup.exe.sig "{{.STAGE}}"/{{.APP}}.app.tar.gz "{{.STAGE}}"/{{.APP}}.app.tar.gz.sig "{{.STAGE}}"/latest.json
+      - gh release edit "v{{.VERSION}}" --repo {{.REPO}} --draft=false --latest
+      - 'echo "Published — {{.RELEASES}}/tag/v{{.VERSION}}  feed: {{.FEED_URL}}"'
 
   # ───────────────────────── versioning and release ─────────────────────────
 
@@ -430,7 +419,7 @@ tasks:
       - echo "Version {{.NEXT}}"
 
   release:
-    desc: "Preview + confirm, then bump (or pin: task release -- 0.2.0), build mac + windows, tag, push, publish to R2, GitHub release"
+    desc: "Preview + confirm, then bump (or pin: task release -- 0.2.0), build mac + windows, tag, push, publish the GitHub release"
     preconditions:
       - sh: test -z "$(git status --porcelain)"
         msg: Working tree not clean
@@ -438,10 +427,6 @@ tasks:
         msg: Release from main
       - sh: gh auth status
         msg: Run `gh auth login`
-      - sh: test -n "$R2_PUBLIC_URL"
-        msg: "R2_PUBLIC_URL is not set — run `task r2:setup`"
-      - sh: wrangler whoami >/dev/null 2>&1
-        msg: "Not logged in to Cloudflare — run `wrangler login`"
     cmds:
       - task: release:preview
         vars: { CLI_ARGS: "{{.CLI_ARGS}}" }
@@ -452,7 +437,6 @@ tasks:
       - task ship
       - task release:tag
       - task publish
-      - task release:github
 
   release:confirm:
     internal: true
@@ -468,13 +452,6 @@ tasks:
       - 'git commit -m "chore(release): v{{.VERSION}}"'
       - git tag -a "v{{.VERSION}}" -m "{{.APP}} {{.VERSION}}"
       - git push origin main "v{{.VERSION}}"
-
-  release:github:
-    desc: GitHub release with notes, the DMG and the Windows installer (run by task release)
-    cmds:
-      - task: release:notes
-      - '{ cat "build/notes-{{.VERSION}}.md"; printf "\n\nDownload: %s/%s.dmg (macOS) · %s/%s-setup.exe (Windows)\n" "$R2_PUBLIC_URL" "{{.APP}}" "$R2_PUBLIC_URL" "{{.APP}}"; } > build/gh-notes.md'
-      - gh release create "v{{.VERSION}}" --repo {{.REPO}} --title "{{.APP}} {{.VERSION}}" --notes-file build/gh-notes.md "{{.DMG}}" "{{.EXE}}"
 
   release:notes:
     internal: true

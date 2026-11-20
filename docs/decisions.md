@@ -54,3 +54,9 @@ Choices made where the spec is silent. Newest last.
 - **One click previews** a voice room (Join voice top-right); **double-click or the button joins**. "Join voice when I open a room", "join muted" and "camera on when I join" are per-computer preferences (camera off by default, spec §10).
 - **Join sounds** play on each client when the server's `voice` event shows someone new in the room you're in (including you).
 - **Room admin** (admins only): create within `max_voice_rooms` under the treehouse-row lock, rename (the #slug follows the name), size 2–10, delete. Deleting an occupied room needs `?everyone=true`; it removes `voice_members`, writes a mod_log row, and queues a LiveKit `DeleteRoom` in the **outbox**, which a worker runs after commit with retries and backoff (one replica at a time via an advisory lock). Rooms carry `last_used_at` (migration 0006).
+
+## 2026-11-20: Releases on GitHub (no R2)
+
+- Releases, downloads and the update feed all live on GitHub Releases for `idestis/treehouse`. Assets have stable names (`Treehouse.dmg`, `Treehouse-setup.exe`, `Treehouse.app.tar.gz` + `.sig`, `latest.json`), so `releases/latest/download/<name>` always serves the newest. Release builds bake `TREEHOUSE_UPDATE_URL=https://github.com/idestis/treehouse/releases/latest/download/latest.json`.
+- `task publish` creates the release as a draft with every file attached, then publishes it, so the feed never points at missing files. The Cloudflare Worker (infra/releases) and R2 variables are gone.
+- The feed needs the repo to be public: private release assets require authentication, so installed apps can't update while it's private.

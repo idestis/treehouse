@@ -1,7 +1,7 @@
 //! Self-update through `tauri-plugin-updater`.
 //!
-//! The feed (`latest.json` on R2) is baked in at build time from
-//! `TREEHOUSE_UPDATE_URL`, which the release tasks set from `R2_PUBLIC_URL`.
+//! The feed (`latest.json` on the newest GitHub release) is baked in at build
+//! time from `TREEHOUSE_UPDATE_URL`, which the release tasks set.
 //! Dev and local builds don't set it, so they never check for updates.
 //! macOS replaces the .app in place and we restart; on Windows the NSIS
 //! installer runs (passive) and the app exits by itself.

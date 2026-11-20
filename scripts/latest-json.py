@@ -2,7 +2,7 @@
 """Write the tauri-plugin-updater feed (latest.json) for one release.
 
 Usage: latest-json.py VERSION BASE_URL NOTES_FILE OUT PLATFORM=FILE [PLATFORM=FILE ...]
-  BASE_URL  public URL of the release folder, e.g. https://treehouse-releases.x.workers.dev/v0.2.0
+  BASE_URL  public URL of the release folder, e.g. https://github.com/idestis/treehouse/releases/download/v0.2.0
   PLATFORM  updater target, e.g. darwin-aarch64, darwin-x86_64, windows-x86_64
   FILE      update payload; its signature is read from FILE.sig and its URL is
             BASE_URL/<basename of FILE>
