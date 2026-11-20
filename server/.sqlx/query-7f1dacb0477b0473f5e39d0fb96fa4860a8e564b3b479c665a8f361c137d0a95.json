@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO outbox (kind, payload) VALUES ('delete_room', $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7f1dacb0477b0473f5e39d0fb96fa4860a8e564b3b479c665a8f361c137d0a95"
+}

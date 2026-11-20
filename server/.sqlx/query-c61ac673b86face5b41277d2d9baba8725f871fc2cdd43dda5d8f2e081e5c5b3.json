@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO mod_log (action, actor_id, actor_name, details) VALUES ('delete_room_with_people', $1, $2, $3)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c61ac673b86face5b41277d2d9baba8725f871fc2cdd43dda5d8f2e081e5c5b3"
+}

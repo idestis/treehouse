@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE outbox SET next_try_at = now() + interval '60 seconds', attempts = attempts + 1\n             WHERE id IN (SELECT id FROM outbox WHERE done_at IS NULL AND next_try_at <= now()\n                          ORDER BY id LIMIT $1 FOR UPDATE SKIP LOCKED)\n             RETURNING id, kind, payload, attempts",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "kind",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "payload",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 3,
+        "name": "attempts",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "a63d6e107b0930a519cc8f1ccaaaaac3ce3eace127145d5fc6e415393dd1ffff"
+}

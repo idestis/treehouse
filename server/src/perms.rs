@@ -96,6 +96,15 @@ pub fn can_invite_as(actor: Actor, role: Role) -> Result<(), Denied> {
     }
 }
 
+/// Rooms (create, rename, resize, delete) are admin-only (spec §2).
+pub fn can_manage_rooms(actor: Actor) -> Result<(), Denied> {
+    if actor.role == Role::Admin {
+        Ok(())
+    } else {
+        Err(Denied)
+    }
+}
+
 /// Two-step sign-in is mandatory for admins, and for moderators when the
 /// treehouse turns that on.
 pub fn mfa_required(role: Role, mods_require_mfa: bool) -> bool {

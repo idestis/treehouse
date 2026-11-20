@@ -2,6 +2,7 @@ mod account;
 mod avatars;
 mod chat;
 mod invites;
+mod rooms;
 mod session;
 mod treehouse;
 mod voice;
@@ -12,7 +13,7 @@ use axum::{
     Json, Router,
     extract::{DefaultBodyLimit, State},
     http::StatusCode,
-    routing::{delete, get, post, put},
+    routing::{delete, get, patch, post, put},
 };
 use serde_json::{Value, json};
 use sqlx::PgPool;
@@ -53,7 +54,8 @@ pub fn router(state: AppState) -> Router {
         .route("/me/devices", get(account::devices))
         .route("/me/devices/{id}", delete(account::sign_out_device))
         .route("/people", get(treehouse::people))
-        .route("/rooms", get(treehouse::rooms))
+        .route("/rooms", get(treehouse::rooms).post(rooms::create))
+        .route("/rooms/{id}", patch(rooms::update).delete(rooms::delete))
         .route("/rooms/{id}/voice-token", post(voice::voice_token))
         .route("/rooms/{id}/voice-state", post(voice::voice_state))
         .route("/livekit/webhook", post(voice::webhook))

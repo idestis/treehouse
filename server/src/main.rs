@@ -17,6 +17,7 @@ mod gifs;
 mod http;
 mod jobs;
 mod livekit;
+mod outbox;
 mod perms;
 mod setup;
 mod util;
@@ -134,6 +135,7 @@ async fn serve() -> Result<()> {
     let (events_tx, _) = tokio::sync::broadcast::channel(1024);
     tokio::spawn(events::run_listener(db.clone(), events_tx.clone()));
     tokio::spawn(jobs::run(db.clone()));
+    tokio::spawn(outbox::run(db.clone(), cfg.livekit.clone()));
 
     let state = http::AppState {
         db: db.clone(),
