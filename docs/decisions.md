@@ -26,3 +26,7 @@ Choices made where the spec is silent. Newest last.
 - **Tray**: mentions-only badge (Telegram style) drawn in Rust; macOS template icon when clear, lantern + red bubble with a count; Dock badge (macOS) and taskbar overlay (Windows). Closing the window hides it to the tray; Quit is in the tray menu.
 - **Dev server port is 8090** (`task server:dev`), because 8080 is often taken locally.
 - **Not done yet**: voice (`voice-token` answers 503 until LiveKit, milestone 7), moderation actions and admin screens, the `/join` web page for invite links, GIF search without `GIPHY_API_KEY`, and the required concurrency tests.
+
+## 2026-11-20: Avatars (spec change)
+
+- Spec §6 says "no file uploads in v1"; profile pictures were requested anyway. They are the only upload: the app shrinks the picture to 512px, the server decodes it with size limits, center-crops to 256×256 and re-encodes as JPEG (≈10–25 KB, EXIF such as GPS dropped). Stored in Postgres (`avatars`, ≤100 KB per row, migration 0002). Served only to signed-in members as a data URL (`GET /api/avatars/{id}`); people and me carry an `avatar` version so clients refetch only on change.

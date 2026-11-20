@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO avatars (user_id, image) VALUES ($1, $2)\n         ON CONFLICT (user_id) DO UPDATE SET image = $2, version = avatars.version + 1, updated_at = now()\n         RETURNING version",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "version",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "026ff283c26ab43e0497514a5899d4692581248a9315598ebc1e24dababf538c"
+}

@@ -34,3 +34,4 @@ totp-rs = { version = "5", features = ["otpauth", "qr", "gen_secret"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 zxcvbn = "3.1.1"
+image = { version = "0.25.10", default-features = false, features = ["jpeg", "png", "webp", "gif"] }

@@ -1,4 +1,5 @@
 mod account;
+mod avatars;
 mod chat;
 mod invites;
 mod session;
@@ -8,7 +9,7 @@ use std::{sync::Arc, time::Duration};
 
 use axum::{
     Json, Router,
-    extract::State,
+    extract::{DefaultBodyLimit, State},
     http::StatusCode,
     routing::{delete, get, post, put},
 };
@@ -39,6 +40,13 @@ pub fn router(state: AppState) -> Router {
         .route("/logout", post(session::logout))
         .route("/me", get(account::me).patch(account::update_me))
         .route("/me/password", post(account::change_password))
+        .route(
+            "/me/avatar",
+            put(avatars::upload)
+                .delete(avatars::remove)
+                .layer(DefaultBodyLimit::max(5 * 1024 * 1024)),
+        )
+        .route("/avatars/{id}", get(avatars::get))
         .route("/me/mfa/setup", post(account::mfa_setup))
         .route("/me/mfa/confirm", post(account::mfa_confirm))
         .route("/me/devices", get(account::devices))

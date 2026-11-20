@@ -162,6 +162,7 @@ pub struct User {
     pub session_id: i64,
     pub mfa_enabled: bool,
     pub mods_require_mfa: bool,
+    pub avatar: Option<i32>,
 }
 
 impl User {
@@ -185,6 +186,7 @@ impl User {
             is_owner: self.is_owner,
             mfa_enabled: self.mfa_enabled,
             mfa_setup_needed: self.mfa_setup_needed(),
+            avatar: self.avatar,
         }
     }
 }
@@ -200,12 +202,15 @@ pub struct MeOut {
     pub mfa_enabled: bool,
     /// Admins (and moderators, if required) must turn on two-step sign-in first.
     pub mfa_setup_needed: bool,
+    /// Avatar version, or null for initials. Fetch with GET /api/avatars/{id}.
+    pub avatar: Option<i32>,
 }
 
 pub async fn load_user_by_token(conn: &mut PgConnection, token: &str) -> AppResult<Option<User>> {
     let row = sqlx::query!(
         r#"SELECT u.id, u.username::text AS "username!", u.display_name, u.color, u.role, u.is_owner,
-                  s.id AS session_id, (m.confirmed_at IS NOT NULL) AS "mfa_enabled!", t.mods_require_mfa
+                  s.id AS session_id, (m.confirmed_at IS NOT NULL) AS "mfa_enabled!", t.mods_require_mfa,
+                  (SELECT a.version FROM avatars a WHERE a.user_id = u.id) AS avatar
            FROM sessions s
            JOIN users u ON u.id = s.user_id
            LEFT JOIN mfa m ON m.user_id = u.id
@@ -232,6 +237,7 @@ pub async fn load_user_by_token(conn: &mut PgConnection, token: &str) -> AppResu
         session_id: r.session_id,
         mfa_enabled: r.mfa_enabled,
         mods_require_mfa: r.mods_require_mfa,
+        avatar: r.avatar,
     }))
 }
 
