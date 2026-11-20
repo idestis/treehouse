@@ -1,7 +1,9 @@
 // The main window: screens, tray menu commands and update checks.
+import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { go, session, start } from "./app";
 import { toast } from "./dom";
+import { onLang, t } from "./i18n";
 import "./screens/auth";
 import "./screens/home";
 import "./screens/settings";
@@ -25,11 +27,16 @@ addEventListener("keydown", (e) => {
 start(root, { name: "find" });
 if ("__TAURI_INTERNALS__" in window) {
   void initUpdates();
+  // The tray menu is native; send it labels in the current language.
+  onLang(() => {
+    const labels = { open: t("tray.open"), settings: t("tray.settings"), updates: t("tray.updates"), quit: t("tray.quit") };
+    void invoke("tray_labels", { labels }).catch(() => {});
+  });
   // Tray menu commands.
   void listen<string>("menu-command", (e) => {
     if (e.payload === "settings") {
       if (session.me && !session.me.mfa_setup_needed) go({ name: "settings" });
-      else toast("Sign in first, then open settings.");
+      else toast(t("shell.signInFirst"));
     } else if (e.payload === "check-updates") {
       void checkForUpdates();
     }

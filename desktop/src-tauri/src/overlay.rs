@@ -105,10 +105,15 @@ pub fn remember<R: Runtime>(window: &Window<R>) {
 }
 
 /// Open the overlay for a voice room. If it's already open, it just
-/// switches rooms; it never takes focus.
+/// switches rooms; it never takes focus. `title` is the window title in the
+/// app's language (the UI translates it).
 // Async: creating a window from a sync command can deadlock on Windows.
 #[tauri::command]
-pub async fn overlay_open(app: AppHandle, room_id: i64) -> Result<(), String> {
+pub async fn overlay_open(
+    app: AppHandle,
+    room_id: i64,
+    title: Option<String>,
+) -> Result<(), String> {
     if app.get_webview_window(LABEL).is_some() {
         return app
             .emit_to(LABEL, "overlay-room", room_id)
@@ -117,7 +122,7 @@ pub async fn overlay_open(app: AppHandle, room_id: i64) -> Result<(), String> {
     let g = saved(&app).unwrap_or_else(|| default_place(&app));
     let url = WebviewUrl::App(format!("index.html#overlay={room_id}").into());
     WebviewWindowBuilder::new(&app, LABEL, url)
-        .title("Treehouse: people")
+        .title(title.as_deref().unwrap_or("Treehouse: people"))
         .inner_size(g.width, g.height)
         .min_inner_size(200.0, 220.0)
         .position(g.x, g.y)

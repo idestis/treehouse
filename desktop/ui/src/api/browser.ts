@@ -21,7 +21,7 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
     throw { error: "offline", message: "Can’t reach the treehouse. Is the local server running (task server:dev)?", status: 0 } satisfies ApiError;
   }
   const data = res.status === 204 ? null : await res.json().catch(() => null);
-  if (!res.ok) throw { error: data?.error ?? "http_error", message: data?.message ?? `Server error ${res.status}.`, status: res.status } satisfies ApiError;
+  if (!res.ok) throw { error: data?.error ?? "http_error", message: data?.message ?? `Server error ${res.status}.`, status: res.status, params: data?.params } satisfies ApiError;
   // Only sign-in answers carry the session token (like TOKEN_PATHS in client.rs);
   // a voice token must reach the UI untouched.
   if (TOKEN_PATHS.includes(path) && data && typeof data === "object" && "token" in data) {

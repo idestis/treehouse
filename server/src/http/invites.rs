@@ -114,6 +114,7 @@ pub async fn cancel(
     .await?;
     if done.rows_affected() == 0 {
         return Err(AppError::not_found(
+            "invite_gone",
             "That invite was already used or cancelled.",
         ));
     }

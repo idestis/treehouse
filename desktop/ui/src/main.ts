@@ -2,6 +2,10 @@ import "@fontsource-variable/bricolage-grotesque";
 import "@fontsource/atkinson-hyperlegible/400.css";
 import "@fontsource/atkinson-hyperlegible/700.css";
 import "./style.css";
+import { initI18n } from "./i18n";
+
+// Pick the interface language before anything renders.
+await initI18n();
 
 // One bundle, two windows: `index.html#overlay=<room id>` is the small
 // "people on top" window (desktop app only); everything else is the app.

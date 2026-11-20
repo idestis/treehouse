@@ -1,4 +1,5 @@
 // Shapes returned by the treehouse server (spec §9.3). The client only renders these.
+import { currentLang, has, t } from "../i18n";
 
 export type Role = "member" | "moderator" | "admin";
 
@@ -138,15 +139,46 @@ export type LiveEvent =
   /** Who is in a voice room, from LiveKit webhooks (channel "treehouse"). */
   | { type: "voice"; room_id: number; members: VoiceMember[] };
 
-export interface ApiError { error: string; message: string; status: number }
+export interface ApiError {
+  error: string;
+  /** English sentence from the server (or the desktop shell). */
+  message: string;
+  status: number;
+  /** Values for the translated sentence, e.g. { room: "Hangout" }. */
+  params?: Record<string, string | number>;
+}
 
 export function isApiError(e: unknown): e is ApiError {
   return typeof e === "object" && e !== null && "message" in e && "error" in e;
 }
 
+/**
+ * Sentence for a server or shell code in the current language. English
+ * shows the server's own sentence; other languages look up `err.<code>`
+ * and fall back to that sentence for codes they don't know.
+ */
+export function codeText(code: string, message: string, params?: Record<string, string | number>): string {
+  const key = `err.${code}`;
+  if (currentLang() === "en" || !has(key)) return message;
+  const p = { ...params };
+  if (typeof p.until === "string") p.until = until(p.until);
+  return t(key, p);
+}
+
+/** What to show for a failed request. */
 export function errorText(e: unknown): string {
-  if (isApiError(e)) return e.message;
-  return "Something went wrong. Try again.";
+  if (isApiError(e)) return codeText(e.error, e.message, e.params);
+  return t("err.generic");
+}
+
+/** Timeout end in local time: "18:30", or "21 nov, 18:30" on another day. */
+function until(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const sameDay = d.toDateString() === new Date().toDateString();
+  return d.toLocaleString(currentLang(), sameDay
+    ? { hour: "2-digit", minute: "2-digit", hour12: false }
+    : { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
 export type SoundName = "ding" | "doink" | "fart" | "quack" | "hewya" | "yeah-boy" | "female-bye" | "kiddo-bye" | "mmbye" | "none";

@@ -33,6 +33,8 @@ pub fn run() {
             live::events_start,
             live::events_stop,
             tray::set_unread,
+            tray::tray_labels,
+            system::system_languages,
             system::open_privacy_settings,
             overlay::overlay_open,
             overlay::overlay_close,

@@ -42,3 +42,11 @@ pub fn open_privacy_settings(kind: String) -> Result<(), String> {
     };
     result.map(|_| ()).map_err(|e| e.to_string())
 }
+
+/// The person's preferred languages from the OS (BCP 47 tags, best first).
+/// The web view can't be trusted for this: on macOS it only reports
+/// languages the app bundle declares.
+#[tauri::command]
+pub fn system_languages() -> Vec<String> {
+    sys_locale::get_locales().collect()
+}

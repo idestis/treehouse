@@ -14,7 +14,7 @@ export interface Api {
   loginMfa(mfa_token: string, code: string, backup: boolean): Promise<Me>;
   join(input: { code: string; display_name: string; username: string; password: string; color: string }): Promise<Me>;
   logout(): Promise<void>;
-  passwordCheck(input: { password: string; username?: string; display_name?: string }): Promise<{ score: number; ok: boolean; message: string }>;
+  passwordCheck(input: { password: string; username?: string; display_name?: string }): Promise<{ score: number; ok: boolean; message: string; code?: string; min?: number }>;
   forgetLogin(): Promise<void>;
 
   me(): Promise<Me>;

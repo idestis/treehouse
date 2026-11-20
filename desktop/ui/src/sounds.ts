@@ -1,28 +1,34 @@
 // Voice room join and leave sounds (files in ui/public/sounds). Played on top of the
 // conversation at your output volume, through your chosen speakers.
 import type { SoundName } from "./api/types";
+import { type Key, t } from "./i18n";
 import { prefs } from "./voice";
 
 export type JoinSound = SoundName;
 
+/** A sound choice whose label follows the current language. */
+function sound(value: SoundName, key: Key): { value: SoundName; label: string } {
+  return { value, get label() { return t(key); } };
+}
+
 /** Greetings to come in… */
 export const JOIN_SOUNDS: { value: SoundName; label: string }[] = [
-  { value: "ding", label: "Ding" },
-  { value: "doink", label: "Doink" },
-  { value: "quack", label: "Quack" },
-  { value: "hewya", label: "Hewya!" },
-  { value: "yeah-boy", label: "Yeah boy!" },
-  { value: "fart", label: "Fart" },
-  { value: "none", label: "No sound" },
+  sound("ding", "sounds.ding"),
+  sound("doink", "sounds.doink"),
+  sound("quack", "sounds.quack"),
+  sound("hewya", "sounds.hewya"),
+  sound("yeah-boy", "sounds.yeahBoy"),
+  sound("fart", "sounds.fart"),
+  sound("none", "sounds.none"),
 ];
 
 /** …goodbyes to go. */
 export const LEAVE_SOUNDS: { value: SoundName; label: string }[] = [
-  { value: "mmbye", label: "Mm-bye" },
-  { value: "female-bye", label: "Bye!" },
-  { value: "kiddo-bye", label: "Bye bye (kiddo)" },
-  { value: "fart", label: "Fart" },
-  { value: "none", label: "No sound" },
+  sound("mmbye", "sounds.mmbye"),
+  sound("female-bye", "sounds.femaleBye"),
+  sound("kiddo-bye", "sounds.kiddoBye"),
+  sound("fart", "sounds.fart"),
+  sound("none", "sounds.none"),
 ];
 
 /**

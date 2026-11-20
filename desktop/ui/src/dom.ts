@@ -1,4 +1,5 @@
 // Tiny DOM helpers: h("div", { class: "x", onclick }, child, …).
+import { relative, t } from "./i18n";
 
 type Child = Node | string | number | null | undefined | false | Child[];
 type Attrs = Record<string, unknown>;
@@ -82,10 +83,10 @@ export function time(iso: string): string {
 
 export function ago(iso: string): string {
   const s = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (s < 90) return "just now";
-  if (s < 3600) return `${Math.round(s / 60)} minutes ago`;
-  if (s < 86400 * 1.5) return `${Math.round(s / 3600)} hours ago`;
-  return `${Math.round(s / 86400)} days ago`;
+  if (s < 90) return t("time.justNow");
+  if (s < 3600) return relative(-Math.round(s / 60), "minute");
+  if (s < 86400 * 1.5) return relative(-Math.round(s / 3600), "hour");
+  return relative(-Math.round(s / 86400), "day");
 }
 
 let toastTimer = 0;

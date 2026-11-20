@@ -2,6 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+  <!-- Interface languages (the UI picks its own; this localizes system
+       prompts and dialogs, and the strings in locales/*.lproj). -->
+  <key>CFBundleLocalizations</key>
+  <array>
+    <string>en</string>
+    <string>es</string>
+    <string>uk</string>
+  </array>
   <key>NSMicrophoneUsageDescription</key>
   <string>Treehouse uses your microphone so your friends can hear you.</string>
   <key>NSCameraUsageDescription</key>

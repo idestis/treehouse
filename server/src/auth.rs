@@ -124,6 +124,11 @@ pub struct Strength {
     /// 0 (guessed instantly) to 4 (very hard to guess).
     pub score: u8,
     pub ok: bool,
+    /// password_short, password_long, password_weak, password_good or
+    /// password_strong: the app translates by this code.
+    pub code: &'static str,
+    /// Shortest allowed length, for the password_short sentence.
+    pub min: usize,
     pub message: String,
 }
 
@@ -137,6 +142,8 @@ pub fn password_strength(pw: &str, avoid: &[&str]) -> Strength {
         return Strength {
             score: 0,
             ok: false,
+            code: "password_short",
+            min: MIN_PASSWORD,
             message: format!("Use at least {MIN_PASSWORD} characters."),
         };
     }
@@ -144,6 +151,8 @@ pub fn password_strength(pw: &str, avoid: &[&str]) -> Strength {
         return Strength {
             score: 0,
             ok: false,
+            code: "password_long",
+            min: MIN_PASSWORD,
             message: "That password is too long.".into(),
         };
     }
@@ -156,14 +165,16 @@ pub fn password_strength(pw: &str, avoid: &[&str]) -> Strength {
     let e = zxcvbn::zxcvbn(pw, &avoid);
     let score = u8::from(e.score());
     if score >= MIN_SCORE {
-        let message = if score == 4 {
-            "Strong password."
+        let (code, message) = if score == 4 {
+            ("password_strong", "Strong password.")
         } else {
-            "Good password."
+            ("password_good", "Good password.")
         };
         return Strength {
             score,
             ok: true,
+            code,
+            min: MIN_PASSWORD,
             message: message.into(),
         };
     }
@@ -175,6 +186,8 @@ pub fn password_strength(pw: &str, avoid: &[&str]) -> Strength {
     Strength {
         score,
         ok: false,
+        code: "password_weak",
+        min: MIN_PASSWORD,
         message: format!(
             "{warning}Add another word or two. A few unrelated words make a strong password."
         )
@@ -186,7 +199,7 @@ pub fn password_strength(pw: &str, avoid: &[&str]) -> Strength {
 pub fn check_new_password(pw: &str, avoid: &[&str]) -> AppResult<()> {
     let s = password_strength(pw, avoid);
     if !s.ok {
-        return Err(AppError::bad("weak_password", s.message));
+        return Err(AppError::bad(s.code, s.message).with(serde_json::json!({ "min": s.min })));
     }
     Ok(())
 }

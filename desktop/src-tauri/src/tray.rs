@@ -14,24 +14,50 @@ const N: usize = 36; // 18 pt at 2x
 const LANTERN: [u8; 3] = [0xFF, 0xB3, 0x47];
 const BADGE: [u8; 3] = [0xE5, 0x48, 0x4D];
 
-pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
-    let menu = Menu::with_items(
+/// Menu item labels. English until the UI sends its language (`tray_labels`).
+#[derive(serde::Deserialize)]
+pub struct Labels {
+    open: String,
+    settings: String,
+    updates: String,
+    quit: String,
+}
+
+impl Default for Labels {
+    fn default() -> Self {
+        Self {
+            open: "Open Treehouse".into(),
+            settings: "Settings…".into(),
+            updates: "Check for Updates…".into(),
+            quit: "Quit Treehouse".into(),
+        }
+    }
+}
+
+fn menu<R: Runtime>(app: &AppHandle<R>, l: &Labels) -> tauri::Result<Menu<R>> {
+    Menu::with_items(
         app,
         &[
-            &MenuItem::with_id(app, "tray.open", "Open Treehouse", true, None::<&str>)?,
+            &MenuItem::with_id(app, "tray.open", &l.open, true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "tray.settings", "Settings…", true, None::<&str>)?,
-            &MenuItem::with_id(
-                app,
-                "tray.updates",
-                "Check for Updates…",
-                true,
-                None::<&str>,
-            )?,
+            &MenuItem::with_id(app, "tray.settings", &l.settings, true, None::<&str>)?,
+            &MenuItem::with_id(app, "tray.updates", &l.updates, true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "tray.quit", "Quit Treehouse", true, None::<&str>)?,
+            &MenuItem::with_id(app, "tray.quit", &l.quit, true, None::<&str>)?,
         ],
-    )?;
+    )
+}
+
+/// The UI's language changed: rebuild the menu with its labels.
+#[tauri::command]
+pub fn tray_labels(app: AppHandle, labels: Labels) -> Result<(), String> {
+    let tray = app.tray_by_id(TRAY_ID).ok_or("No tray icon.")?;
+    let m = menu(&app, &labels).map_err(|e| e.to_string())?;
+    tray.set_menu(Some(m)).map_err(|e| e.to_string())
+}
+
+pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
+    let menu = menu(app, &Labels::default())?;
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(icon(0))
         .icon_as_template(cfg!(target_os = "macos"))
@@ -74,18 +100,19 @@ pub fn show<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
-/// Unread mentions, from the UI. 0 clears every badge.
+/// Unread mentions, from the UI. 0 clears every badge. `tooltip` is the
+/// hover text in the UI's language; English is the fallback.
 #[tauri::command]
-pub fn set_unread(app: AppHandle, count: u32) {
+pub fn set_unread(app: AppHandle, count: u32, tooltip: Option<String>) {
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
         let _ = tray.set_icon(Some(icon(count)));
         // Template images are tinted by macOS, so the coloured badge needs a plain image.
         let _ = tray.set_icon_as_template(cfg!(target_os = "macos") && count == 0);
-        let tip = match count {
+        let tip = tooltip.unwrap_or_else(|| match count {
             0 => "Treehouse".to_string(),
             1 => "Treehouse: 1 mention".to_string(),
             n => format!("Treehouse: {n} mentions"),
-        };
+        });
         let _ = tray.set_tooltip(Some(tip));
     }
     if let Some(w) = app.get_webview_window("main") {

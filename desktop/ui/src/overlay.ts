@@ -16,6 +16,7 @@ import { api } from "./api";
 import { isApiError, type Person, type VoiceGrant } from "./api/types";
 import { personAvatar, type HasAvatar } from "./avatars";
 import { h, icon, mount } from "./dom";
+import { t } from "./i18n";
 
 /** The call as the main window sees it (it owns the microphone and the share). */
 export interface CallState { muted: boolean; deafened: boolean; screen: boolean; camera: boolean }
@@ -53,14 +54,14 @@ export function startOverlay(root: HTMLElement, firstRoom: number) {
   let problem = "";
   const videoEls = new Map<Track, HTMLVideoElement>();
 
-  const title = h("span", { class: "ov-title ellipsis" }, "Voice");
+  const title = h("span", { class: "ov-title ellipsis" }, t("overlay.voice"));
   const count = h("span", { class: "ov-count" });
   const bar = h("div", { class: "ov-bar", "data-tauri-drag-region": "deep" },
     h("span", { class: "ov-live", "aria-hidden": "true" }), title, count,
-    h("button", { class: "ov-close", type: "button", title: "Close", "aria-label": "Close the people window", onclick: () => void close() }, icon("close", 15)));
+    h("button", { class: "ov-close", type: "button", title: t("common.close"), "aria-label": t("overlay.closeWindow"), onclick: () => void close() }, icon("close", 15)));
   // Drag the window from anywhere on the tiles.
   const grid = h("div", { class: "ov-grid", "data-tauri-drag-region": "deep" });
-  const controls = h("div", { class: "ov-controls", role: "toolbar", "aria-label": "Call controls" });
+  const controls = h("div", { class: "ov-controls", role: "toolbar", "aria-label": t("overlay.controls") });
   mount(root, h("div", { class: "ov-card" }, bar, grid, controls));
   new ResizeObserver(layout).observe(grid);
 
@@ -71,10 +72,10 @@ export function startOverlay(root: HTMLElement, firstRoom: number) {
     const btn = (label: string, ic: Parameters<typeof icon>[0], cls: string, action: Parameters<typeof command>[0]) =>
       h("button", { class: `ov-btn ${cls}`, type: "button", title: label, "aria-label": label, onclick: () => command(action) }, icon(ic, 18));
     mount(controls,
-      btn(state.muted ? "Unmute" : "Mute", state.muted ? "micOff" : "mic", state.muted ? "off" : "", "mute"),
-      btn(state.deafened ? "Undeafen" : "Deafen", state.deafened ? "headphonesOff" : "headphones", state.deafened ? "off" : "", "deafen"),
-      state.screen && h("button", { class: "ov-btn share", type: "button", title: "Stop sharing", "aria-label": "Stop sharing", onclick: () => command("stop-share") }, icon("monitorOff", 18)),
-      btn("Leave", "hangup", "leave", "leave"));
+      btn(state.muted ? t("call.unmute") : t("call.mute"), state.muted ? "micOff" : "mic", state.muted ? "off" : "", "mute"),
+      btn(state.deafened ? t("call.undeafen") : t("call.deafen"), state.deafened ? "headphonesOff" : "headphones", state.deafened ? "off" : "", "deafen"),
+      state.screen && h("button", { class: "ov-btn share", type: "button", title: t("call.stopSharing"), "aria-label": t("call.stopSharing"), onclick: () => command("stop-share") }, icon("monitorOff", 18)),
+      btn(t("call.leave"), "hangup", "leave", "leave"));
   }
   void listen<CallState>("overlay-state", (e) => {
     state = e.payload;
@@ -130,7 +131,7 @@ export function startOverlay(root: HTMLElement, firstRoom: number) {
     } catch (e) {
       if (roomId !== id || closing) return;
       if (callOver(e)) return void close();
-      problem = "Can’t reach the treehouse. Trying again…";
+      problem = t("overlay.noTreehouse");
       render();
       return retry(id);
     }
@@ -144,7 +145,7 @@ export function startOverlay(root: HTMLElement, firstRoom: number) {
     } catch {
       if (lk !== r) return;
       lk = null;
-      problem = "Can’t reach voice. Trying again…";
+      problem = t("overlay.noVoice");
       render();
       return retry(id);
     }
@@ -207,7 +208,7 @@ export function startOverlay(root: HTMLElement, firstRoom: number) {
         lk = null;
         if (reason === DisconnectReason.ROOM_DELETED || reason === DisconnectReason.PARTICIPANT_REMOVED) return void close();
         // Anything else (network, server restart): ask the server again; it closes us if the call is over.
-        problem = "Voice disconnected. Trying again…";
+        problem = t("overlay.disconnected");
         render();
         retry(roomId);
       });
@@ -218,14 +219,14 @@ export function startOverlay(root: HTMLElement, firstRoom: number) {
   let noteEl: HTMLElement | null = null;
 
   function render() {
-    title.textContent = roomName || "Voice";
+    title.textContent = roomName || t("overlay.voice");
     const r = lk;
-    if (!r) { note(problem || "Connecting…"); count.textContent = ""; return; }
+    if (!r) { note(problem || t("overlay.connecting")); count.textContent = ""; return; }
     // Everyone in the call, you last.
     const all = [...r.remoteParticipants.values()].filter(isPerson)
       .sort((a, b) => Number(Number(a.identity) === me) - Number(Number(b.identity) === me));
     count.textContent = all.length ? String(all.length) : "";
-    if (!all.length) { note("Nobody here yet."); return; }
+    if (!all.length) { note(t("overlay.empty")); return; }
     const used = new Set<Track>();
     const keep = new Set<string>();
     const wanted = all.map((p) => tile(p, used, keep));
@@ -257,7 +258,7 @@ export function startOverlay(root: HTMLElement, firstRoom: number) {
   function tile(p: RemoteParticipant, used: Set<Track>, keep: Set<string>) {
     const id = Number(p.identity);
     const you = id === me;
-    const person: HasAvatar = people.get(id) ?? { id, display_name: p.name || "Someone", color: "#2a3757", avatar: null };
+    const person: HasAvatar = people.get(id) ?? { id, display_name: p.name || t("call.someone"), color: "#2a3757", avatar: null };
     const pub = p.getTrackPublication(Track.Source.Camera);
     const track = pub?.track && pub.isSubscribed && !pub.isMuted ? pub.track : undefined;
     const muted = you ? state.muted : !p.isMicrophoneEnabled;
@@ -277,8 +278,8 @@ export function startOverlay(root: HTMLElement, firstRoom: number) {
     const label = `${muted}|${you}`;
     if (name instanceof HTMLElement && name.dataset.state !== label) {
       name.dataset.state = label;
-      mount(name, muted && h("span", { class: "ov-muted", title: "Muted" }, icon("micOff", 12)),
-        h("span", { class: "ellipsis" }, you ? "You" : person.display_name));
+      mount(name, muted && h("span", { class: "ov-muted", title: t("call.muted") }, icon("micOff", 12)),
+        h("span", { class: "ellipsis" }, you ? t("call.you") : person.display_name));
     }
     return el;
   }

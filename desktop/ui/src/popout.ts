@@ -5,6 +5,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { call } from "./call";
+import { t } from "./i18n";
 import { prefs } from "./voice";
 
 const inApp = "__TAURI_INTERNALS__" in window;
@@ -25,7 +26,7 @@ function show(roomId: number, auto: boolean) {
   open = true;
   byShare = auto;
   changed();
-  void invoke("overlay_open", { roomId }).catch(() => { open = false; byShare = false; changed(); });
+  void invoke("overlay_open", { roomId, title: t("overlay.windowTitle") }).catch(() => { open = false; byShare = false; changed(); });
 }
 
 function hide() {

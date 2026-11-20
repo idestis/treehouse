@@ -224,7 +224,7 @@ pub async fn login_mfa(
         .await?;
         tx.commit().await?;
         return Err(if ch.fresh {
-            AppError::too_many("locked", "Too many wrong codes. Sign in again.")
+            AppError::too_many("mfa_locked", "Too many wrong codes. Sign in again.")
         } else {
             expired()
         });

@@ -4,6 +4,7 @@ import { errorText } from "../api/types";
 import { afterSignIn, go, register, session } from "../app";
 import { h, icon, initial, mount, toast } from "../dom";
 import { strengthMeter } from "../password";
+import { type Key, t } from "../i18n";
 
 function logo() {
   return h("div", { class: "brand" }, h("img", { src: "/logo.png", alt: "", width: 36, height: 36 }), "treehouse");
@@ -54,7 +55,7 @@ const BULBS: [number, number][] = [[30.66, 57.18], [35.36, 57.27], [40.4, 58.47]
 function scene() {
   const pos = (l: number, t: number) => ({ left: `${l}%`, top: `${t}%` });
   return h("div", { class: "scene" },
-    h("img", { src: "/left-side-pic.jpg", alt: "A lit treehouse in a tree at night, with a crescent moon, string lights and a voice bubble" }),
+    h("img", { src: "/left-side-pic.jpg", alt: t("auth.sceneAlt") }),
     h("span", { class: "tw tw-window-electric", style: { ...pos(33.8, 43.3), width: "6.1%", height: "7.9%" } }),
     h("span", { class: "tw tw-window-candle", style: { ...pos(41.7, 42.8), width: "8.5%", height: "9.6%" } }),
     h("span", { class: "tw tw-ring", style: pos(59.25, 39.8) }),
@@ -67,7 +68,7 @@ function scene() {
 register("find", (root) => {
   const input = h("input", { id: "server", placeholder: "owls.example.net", spellcheck: "false", autocomplete: "url", autofocus: true });
   const err = errorLine();
-  const btn = h("button", { class: "btn primary", type: "submit" }, "Continue");
+  const btn = h("button", { class: "btn primary", type: "submit" }, t("common.continue"));
   const known = h("div", { class: "known" });
 
   const open = (address: string) => busy(btn, async () => {
@@ -88,7 +89,7 @@ register("find", (root) => {
   api.servers().then((list) => {
     if (!list.length) return;
     mount(known,
-      h("p", { class: "muted small" }, "Been here before"),
+      h("p", { class: "muted small" }, t("auth.find.known")),
       list.map((s) => h("button", { class: "server-row", type: "button", onclick: () => open(s.address) },
         serverBadge(s.name),
         h("span", { class: "grow col" }, h("strong", null, s.name), h("span", { class: "muted small" }, s.address)),
@@ -104,11 +105,11 @@ register("find", (root) => {
         h("div", { class: "stack-28" },
           logo(),
           h("div", { class: "stack-10" },
-            h("h1", { class: "display" }, "Find your treehouse"),
-            h("p", { class: "lead" }, "Type the address your friend gave you. You only do this once."),
+            h("h1", { class: "display" }, t("auth.find.title")),
+            h("p", { class: "lead" }, t("auth.find.lead")),
           ),
           h("form", { class: "stack-14", onsubmit: (e: Event) => { e.preventDefault(); void open(input.value); } },
-            h("label", { for: "server", class: "label" }, "Server address"), input, err, btn),
+            h("label", { for: "server", class: "label" }, t("auth.find.address")), input, err, btn),
           known,
         ),
       ),
@@ -123,7 +124,7 @@ function serverChip() {
   return h("div", { class: "server-chip" },
     serverBadge(s.name, 44),
     h("span", { class: "grow col" }, h("strong", null, s.name), h("span", { class: "muted small" }, s.address)),
-    h("button", { class: "link", type: "button", onclick: () => go({ name: "find" }) }, "Change"),
+    h("button", { class: "link", type: "button", onclick: () => go({ name: "find" }) }, t("auth.signin.change")),
   );
 }
 
@@ -133,7 +134,7 @@ register("signin", (root) => {
   const pass = h("input", { id: "pass", type: "password", autocomplete: "current-password" });
   const remember = h("input", { type: "checkbox", checked: true });
   const err = errorLine();
-  const btn = h("button", { class: "btn primary", type: "submit" }, "Sign in");
+  const btn = h("button", { class: "btn primary", type: "submit" }, t("auth.signin.submit"));
 
   const submit = (e: Event) => {
     e.preventDefault();
@@ -155,18 +156,18 @@ register("signin", (root) => {
       h("div", { class: "narrow stack-28" },
         serverChip(),
         h("div", { class: "stack-8" },
-          h("h1", { class: "display sm" }, "Climb back in"),
-          h("p", { class: "lead" }, "Sign in to hang out with your crew."),
+          h("h1", { class: "display sm" }, t("auth.signin.title")),
+          h("p", { class: "lead" }, t("auth.signin.lead")),
         ),
         h("form", { class: "stack-16", onsubmit: submit },
-          field("Username", user),
-          field("Password", pass),
-          h("label", { class: "check" }, remember, "Keep me signed in on this computer"),
+          field(t("auth.username"), user),
+          field(t("auth.password"), pass),
+          h("label", { class: "check" }, remember, t("auth.signin.remember")),
           err,
           btn,
         ),
-        h("div", { class: "divider" }, h("span"), "New here?", h("span")),
-        h("button", { class: "btn ghost", type: "button", onclick: () => go({ name: "join" }) }, "I have an invite code"),
+        h("div", { class: "divider" }, h("span"), t("auth.signin.newHere"), h("span")),
+        h("button", { class: "btn ghost", type: "button", onclick: () => go({ name: "join" }) }, t("auth.signin.haveInvite")),
       ),
     ),
   );
@@ -179,9 +180,9 @@ register("twostep", (root, screen) => {
   const mfa = screen.mfa_token;
   let backup = false;
   const err = errorLine();
-  const btn = h("button", { class: "btn primary", type: "submit" }, "Continue");
+  const btn = h("button", { class: "btn primary", type: "submit" }, t("common.continue"));
   const digits = Array.from({ length: 6 }, (_, i) =>
-    h("input", { class: "digit", "aria-label": `Digit ${i + 1}`, maxlength: 1, inputmode: "numeric", autocomplete: i === 0 ? "one-time-code" : "off", autofocus: i === 0 }));
+    h("input", { class: "digit", "aria-label": t("auth.twostep.digit", { n: i + 1 }), maxlength: 1, inputmode: "numeric", autocomplete: i === 0 ? "one-time-code" : "off", autofocus: i === 0 }));
   const backupInput = h("input", { id: "backup", class: "code-input", spellcheck: "false", placeholder: "xxxx-xxxx" });
   const codeArea = h("div");
   const toggle = h("button", { class: "link", type: "button" });
@@ -217,10 +218,10 @@ register("twostep", (root, screen) => {
   });
 
   const renderCode = () => {
-    toggle.textContent = backup ? "Use the 6-digit code instead" : "Use a backup code instead";
+    toggle.textContent = backup ? t("auth.twostep.useTotp") : t("auth.twostep.useBackup");
     mount(codeArea, backup
-      ? field("Backup code", backupInput)
-      : h("fieldset", { class: "digits" }, h("legend", { class: "label" }, "6-digit code"), digits));
+      ? field(t("auth.twostep.backup"), backupInput)
+      : h("fieldset", { class: "digits" }, h("legend", { class: "label" }, t("auth.twostep.code")), digits));
     (backup ? backupInput : digits[0]).focus();
   };
   toggle.onclick = () => { backup = !backup; err.hidden = true; renderCode(); };
@@ -230,11 +231,11 @@ register("twostep", (root, screen) => {
       h("div", { class: "narrow wide-440 stack-28" },
         h("div", { class: "icon-tile" }, icon("phone", 30)),
         h("div", { class: "stack-8" },
-          h("h1", { class: "display sm" }, "Check your phone"),
-          h("p", { class: "lead" }, `Open your authenticator app and type the 6-digit code for ${session.server.name}.`),
+          h("h1", { class: "display sm" }, t("auth.twostep.title")),
+          h("p", { class: "lead" }, t("auth.twostep.lead", { server: session.server.name })),
         ),
         h("form", { class: "stack-18", onsubmit: (e: Event) => { e.preventDefault(); void submit(); } }, codeArea, err, btn),
-        h("div", { class: "row between wrap" }, toggle, h("button", { class: "link muted", type: "button", onclick: () => go({ name: "signin" }) }, "Back")),
+        h("div", { class: "row between wrap" }, toggle, h("button", { class: "link muted", type: "button", onclick: () => go({ name: "signin" }) }, t("common.back"))),
       ),
     ),
   );
@@ -243,9 +244,14 @@ register("twostep", (root, screen) => {
 
 // ─── Join with an invite ───────────────────────────────────────────
 
+/** [hex, name]; the name is read in the current language each time. */
+const swatch = (hex: string, key: Key): [string, string] =>
+  Object.defineProperty([hex, ""], 1, { get: () => t(key), enumerable: true }) as [string, string];
+
 export const PALETTE: [string, string][] = [
-  ["#3F8EFC", "Sky"], ["#12A594", "Teal"], ["#2FA84F", "Leaf"], ["#E8A317", "Sun"],
-  ["#F0663A", "Tangerine"], ["#E5487D", "Berry"], ["#8B5CF6", "Grape"], ["#7C8BA8", "Slate"],
+  swatch("#3F8EFC", "auth.color.sky"), swatch("#12A594", "auth.color.teal"), swatch("#2FA84F", "auth.color.leaf"),
+  swatch("#E8A317", "auth.color.sun"), swatch("#F0663A", "auth.color.tangerine"), swatch("#E5487D", "auth.color.berry"),
+  swatch("#8B5CF6", "auth.color.grape"), swatch("#7C8BA8", "auth.color.slate"),
 ];
 
 export function colorPicker(initialColor: string, onPick: (c: string) => void) {
@@ -265,18 +271,24 @@ export function tilePreview(name: string, color: string, face?: HTMLElement) {
   );
 }
 
+/** "Joining <strong>name</strong> at address", with the name wherever the language puts it. */
+function joiningLine(name: string, address: string) {
+  const [before, after = ""] = t("auth.join.joining", { address }).split("{server}");
+  return h("p", { class: "muted" }, before, h("strong", { class: "bright" }, name), after);
+}
+
 register("join", (root, screen) => {
   if (!session.server) return go({ name: "find" });
   let color = PALETTE[5][0];
   const code = h("input", { id: "code", class: "code-input", spellcheck: "false", autofocus: true, value: screen.name === "join" ? screen.code ?? "" : "", placeholder: "XXXXX-XXXXX" });
   const nick = h("input", { id: "nick", maxlength: 24 });
   const uname = h("input", { id: "uname", spellcheck: "false", autocomplete: "username" });
-  const pw = h("input", { id: "pw", type: "password", placeholder: "A few unrelated words", autocomplete: "new-password" });
+  const pw = h("input", { id: "pw", type: "password", placeholder: t("auth.join.pwPlaceholder"), autocomplete: "new-password" });
   const err = errorLine();
-  const btn = h("button", { class: "btn primary", type: "submit" }, "Create account and climb in");
+  const btn = h("button", { class: "btn primary", type: "submit" }, t("auth.join.submit"));
   const preview = h("div", { class: "preview-col" });
 
-  const renderPreview = () => mount(preview, tilePreview(nick.value || "You", color), h("p", { class: "muted small" }, "This is how friends see you in a room."));
+  const renderPreview = () => mount(preview, tilePreview(nick.value || t("auth.join.you"), color), h("p", { class: "muted small" }, t("auth.join.previewNote")));
   nick.addEventListener("input", renderPreview);
 
   const submit = (e: Event) => {
@@ -296,18 +308,18 @@ register("join", (root, screen) => {
       h("div", { class: "join" },
         h("div", { class: "join-form stack-22" },
           h("div", { class: "stack-8" },
-            h("p", { class: "muted" }, "Joining ", h("strong", { class: "bright" }, session.server.name), ` at ${session.server.address}`),
-            h("h1", { class: "display sm" }, "You’re invited"),
+            joiningLine(session.server.name, session.server.address),
+            h("h1", { class: "display sm" }, t("auth.join.title")),
           ),
           h("form", { class: "stack-14", onsubmit: submit },
-            field("Invite code", code),
-            h("div", { class: "row wrap gap-14" }, h("div", { class: "grow-180" }, field("Name your crew sees", nick)), h("div", { class: "grow-180" }, field("Username", uname))),
-            h("div", { class: "stack-8" }, field("Password", pw), strengthMeter(pw, () => ({ username: uname.value, display_name: nick.value }))),
-            h("fieldset", { class: "plain" }, h("legend", { class: "label" }, "Your color"), colorPicker(color, (c) => { color = c; renderPreview(); })),
+            field(t("auth.join.code"), code),
+            h("div", { class: "row wrap gap-14" }, h("div", { class: "grow-180" }, field(t("auth.join.nick"), nick)), h("div", { class: "grow-180" }, field(t("auth.username"), uname))),
+            h("div", { class: "stack-8" }, field(t("auth.password"), pw), strengthMeter(pw, () => ({ username: uname.value, display_name: nick.value }))),
+            h("fieldset", { class: "plain" }, h("legend", { class: "label" }, t("auth.join.color")), colorPicker(color, (c) => { color = c; renderPreview(); })),
             err,
             btn,
           ),
-          h("button", { class: "link muted", type: "button", onclick: () => go({ name: "signin" }) }, "I already have an account"),
+          h("button", { class: "link muted", type: "button", onclick: () => go({ name: "signin" }) }, t("auth.join.haveAccount")),
         ),
         preview,
       ),
@@ -322,12 +334,12 @@ register("mfasetup", (root, screen) => {
   if (!session.me || !session.server) return go({ name: "find" });
   const back = screen.name === "mfasetup" ? screen.back : undefined;
   const required = session.me.mfa_setup_needed;
-  const body = h("div", { class: "stack-22" }, h("p", { class: "muted" }, "Getting a code ready…"));
+  const body = h("div", { class: "stack-22" }, h("p", { class: "muted" }, t("auth.mfa.preparing")));
   const err = errorLine();
 
   const showCodes = (codes: string[]) => {
     root.querySelector<HTMLElement>(".mfa-signout")?.remove();
-    const done = h("button", { class: "btn primary", type: "button" }, "I saved them");
+    const done = h("button", { class: "btn primary", type: "button" }, t("auth.mfa.saved"));
     done.onclick = () => void busy(done, async () => {
       session.me = await api.me();
       go(back ?? { name: "home" });
@@ -336,22 +348,22 @@ register("mfasetup", (root, screen) => {
       h("div", { class: "mfa-body" },
         h("ul", { class: "backup-codes" }, codes.map((c) => h("li", null, c))),
         h("div", { class: "stack-14" },
-          h("h2", { class: "subhead" }, "Save your backup codes"),
-          h("p", { class: "muted" }, "Each one works once if you lose your phone. Keep them somewhere safe, like a note on another device. You won’t see them again."),
+          h("h2", { class: "subhead" }, t("auth.mfa.codesTitle")),
+          h("p", { class: "muted" }, t("auth.mfa.codesHelp")),
           h("div", { class: "row gap-10 wrap" },
             h("button", { class: "btn ghost", type: "button", onclick: async () => {
-              try { await navigator.clipboard.writeText(codes.join("\n")); toast("Backup codes copied."); }
-              catch { toast("Couldn’t copy. Write them down instead.", "error"); }
-            } }, "Copy codes"),
+              try { await navigator.clipboard.writeText(codes.join("\n")); toast(t("auth.mfa.codesCopied")); }
+              catch { toast(t("auth.mfa.copyFailed"), "error"); }
+            } }, t("auth.mfa.copyCodes")),
             done))));
   };
 
   api.mfaSetup().then((s) => {
     const code = h("input", { id: "mfa-code", class: "code-input", inputmode: "numeric", autocomplete: "one-time-code", maxlength: 7, placeholder: "123456", autofocus: true });
-    const btn = h("button", { class: "btn primary", type: "submit" }, "Turn on");
+    const btn = h("button", { class: "btn primary", type: "submit" }, t("auth.mfa.turnOn"));
     mount(body,
       h("div", { class: "mfa-body" },
-        h("img", { class: "qr", src: s.qr, alt: "QR code for your authenticator app", width: 200, height: 200 }),
+        h("img", { class: "qr", src: s.qr, alt: t("auth.mfa.qrAlt"), width: 200, height: 200 }),
         h("form", { class: "stack-14", onsubmit: (e: Event) => {
           e.preventDefault();
           void busy(btn, async () => {
@@ -360,10 +372,10 @@ register("mfasetup", (root, screen) => {
             catch (x) { showError(err, x); code.select(); }
           });
         } },
-          h("p", null, h("strong", null, "1. "), "Scan the code with an authenticator app (Google Authenticator, Authy, 1Password…)."),
-          h("details", { class: "mfa-key" }, h("summary", { class: "muted small" }, "Can’t scan? Type a key instead"),
+          h("p", null, h("strong", null, "1. "), t("auth.mfa.step1")),
+          h("details", { class: "mfa-key" }, h("summary", { class: "muted small" }, t("auth.mfa.cantScan")),
             h("code", { class: "secret" }, s.secret.replace(/(.{4})/g, "$1 ").trim())),
-          h("label", { for: "mfa-code" }, h("strong", null, "2. "), "Type the 6-digit code it shows"),
+          h("label", { for: "mfa-code" }, h("strong", null, "2. "), t("auth.mfa.step2")),
           h("div", { class: "row gap-10" }, code, btn),
           err)));
     code.focus();
@@ -375,17 +387,17 @@ register("mfasetup", (root, screen) => {
         h("div", { class: "mfa-head" },
           h("div", { class: "icon-tile" }, icon("phone", 30)),
           h("div", { class: "stack-8" },
-            h("h1", { class: "display xs" }, "Turn on two-step sign-in"),
+            h("h1", { class: "display xs" }, t("auth.mfa.title")),
             h("p", { class: "muted" }, required
-              ? "Admins need a code from their phone to sign in, so nobody else can take over your treehouse."
-              : "Signing in will also ask for a code from your phone."))),
+              ? t("auth.mfa.required")
+              : t("auth.mfa.optional")))),
         body,
-        !required && h("button", { class: "link muted", type: "button", onclick: () => go(back ?? { name: "home" }) }, "Not now"),
+        !required && h("button", { class: "link muted", type: "button", onclick: () => go(back ?? { name: "home" }) }, t("auth.mfa.notNow")),
         required && h("button", { class: "link muted mfa-signout", type: "button", onclick: async () => {
           try { await api.logout(); } catch { await api.forgetLogin().catch(() => {}); }
           session.me = null;
           go({ name: "signin" });
-        } }, "Sign out"),
+        } }, t("auth.mfa.signOut")),
       ),
     ),
   );

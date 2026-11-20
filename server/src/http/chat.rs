@@ -37,10 +37,10 @@ async fn channel_for(conn: &mut PgConnection, user_id: i64, room_id: i64) -> App
     )
     .fetch_optional(&mut *conn)
     .await?
-    .ok_or_else(|| AppError::not_found("That room is gone."))?;
+    .ok_or_else(|| AppError::not_found("room_gone", "That room is gone."))?;
     if r.kind == "voice" && !r.inside {
         return Err(AppError::forbidden(
-            "not_in_room",
+            "room_chat_members_only",
             "Room chat is only for people in the room. Join it first.",
         ));
     }
@@ -137,7 +137,7 @@ fn draft(inp: &SendIn, gif: Option<Value>) -> AppResult<Draft> {
             roll: None,
         }),
         Some("me") => Err(AppError::bad(
-            "empty",
+            "empty_me",
             "Say what you're doing, like “/me grabs snacks”.",
         )),
         Some("giphy") => Err(AppError::bad(
@@ -340,7 +340,7 @@ pub async fn delete(
     )
     .fetch_optional(&mut *tx)
     .await?
-    .ok_or_else(|| AppError::not_found("That message is gone."))?;
+    .ok_or_else(|| AppError::not_found("message_gone", "That message is gone."))?;
     perms::can_delete_message(user.actor(), m.author_id, m.role.parse::<Role>()?)?;
     sqlx::query!("DELETE FROM messages WHERE id = $1", id)
         .execute(&mut *tx)
@@ -421,7 +421,7 @@ async fn set_reaction(
     )
     .fetch_optional(&mut *tx)
     .await?
-    .ok_or_else(|| AppError::not_found("That message is gone."))?;
+    .ok_or_else(|| AppError::not_found("message_gone", "That message is gone."))?;
     channel_for(&mut tx, user.id, channel).await?;
     if on {
         let s = sqlx::query!(
@@ -433,7 +433,7 @@ async fn set_reaction(
         .await?;
         if !s.has && s.kinds >= MAX_EMOJI_KINDS {
             return Err(AppError::bad(
-                "too_many",
+                "too_many_reactions",
                 "That message has 20 different emoji already.",
             ));
         }

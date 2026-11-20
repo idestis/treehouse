@@ -14,11 +14,13 @@ import { call, type CallEvent, type Capture, type Video } from "../call";
 import { popout } from "../popout";
 import { format as formatKey, load as loadHotkeys, matches, toAccelerator } from "../hotkeys";
 import { ago, h, icon, icons, mount, time, toast } from "../dom";
+import { t, tn } from "../i18n";
 
 const EMOJI = ["😂", "😭", "💀", "🔥", "💯", "❤️", "👍", "👎", "😎", "🥲", "😴", "🤔", "😤", "🙃", "😅", "🤯", "🥳", "😈", "👀", "🙏", "🫡", "🤝", "👋", "🎮", "🕹️", "🏆", "⚡", "✨", "🎉", "🍕", "🍿", "🥤", "🌙", "⭐", "🦉", "🌲", "🎧", "🎤", "📣", "✅", "❌", "⏰"];
 
-const PRESENCE_LABEL: Record<Presence, string> = { online: "Online", away: "Away", busy: "Busy", brb: "Be right back" };
-const STATUS_PRESETS: [string, string][] = [["🎮", "In a game"], ["📚", "Homework"], ["🍕", "Eating"], ["🎧", "Listening to music"], ["😴", "Sleeping"]];
+const PRESENCES: Presence[] = ["online", "away", "busy", "brb"];
+const presenceLabel = (p: Presence) => t(`presence.${p}`);
+const statusPresets = (): [string, string][] => [["🎮", t("home.preset.game")], ["📚", t("home.preset.homework")], ["🍕", t("home.preset.eating")], ["🎧", t("home.preset.music")], ["😴", t("home.preset.sleeping")]];
 
 // Last reactions you used, for the hover toolbar (a per-computer convenience).
 const RECENT_KEY = "treehouse.recentEmoji";
@@ -34,11 +36,11 @@ function rememberEmoji(e: string) {
   try { localStorage.setItem(RECENT_KEY, JSON.stringify(list)); } catch { /* preference only */ }
 }
 
-const COMMANDS = [
-  { name: "giphy", arg: "search words", help: "Pick and send a GIF" },
-  { name: "shrug", arg: "message", help: "Add ¯\\_(ツ)_/¯ to your message" },
-  { name: "roll", arg: "", help: "Roll a number from 1 to 100, for picking who goes first" },
-  { name: "me", arg: "action", help: "Say what you’re doing, like “/me grabs snacks”" },
+const commands = () => [
+  { name: "giphy", arg: t("home.cmd.giphyArg"), help: t("home.cmd.giphyHelp") },
+  { name: "shrug", arg: t("home.cmd.shrugArg"), help: t("home.cmd.shrugHelp") },
+  { name: "roll", arg: "", help: t("home.cmd.rollHelp") },
+  { name: "me", arg: t("home.cmd.meArg"), help: t("home.cmd.meHelp") },
 ];
 
 type View = { kind: "deck" } | { kind: "voice"; roomId: number };
@@ -65,16 +67,16 @@ register("home", (root) => {
   const voiceRooms = () => rooms.filter((r) => r.kind === "voice");
   /** The room your call is in (connecting, connected or reconnecting). */
   const myVoiceRoom = () => voiceRooms().find((r) => r.id === call.roomId);
-  const person = (id: number): Person => people.get(id) ?? { id, username: "gone", display_name: "Someone", color: "#7C8BA8", role: "member", online: false, avatar: null, status: "online", status_emoji: null, status_text: null, join_sound: "none", leave_sound: "none" };
+  const person = (id: number): Person => people.get(id) ?? { id, username: "gone", display_name: t("home.someone"), color: "#7C8BA8", role: "member", online: false, avatar: null, status: "online", status_emoji: null, status_text: null, join_sound: "none", leave_sound: "none" };
 
   // ── layout ──
   const sidebar = h("aside", { class: "sidebar" });
   const main = h("main", { class: "main" });
   const side = h("aside", { class: "roomchat", hidden: true });
-  const crew = h("aside", { class: "crew", "aria-label": "People" });
+  const crew = h("aside", { class: "crew", "aria-label": t("home.people") });
   mount(root, h("div", { class: "home" }, sidebar, main, crew, side));
 
-  const ROLE_TAG: Record<string, string> = { admin: "Admin", moderator: "Mod" };
+  const ROLE_TAG: Record<string, string> = { admin: t("role.admin"), moderator: t("home.roleTagMod") };
 
   /** Right column in The Deck: who's here, online first. */
   function renderCrew() {
@@ -86,20 +88,20 @@ register("home", (root) => {
       return h("li", { class: `crew-row ${p.online ? "" : "away"}` },
         h("span", { class: "me-avatar" }, personAvatar(p, 32), p.online && h("span", { class: `online-dot sm ${p.status}` })),
         h("span", { class: "grow col min0" },
-          h("span", { class: "crew-name" }, p.display_name, p.id === me.id ? " (you)" : ""),
-          inVoice ? h("span", { class: "leaf small" }, `In ${inVoice.name}`)
+          h("span", { class: "crew-name" }, p.display_name, p.id === me.id ? t("home.youSuffix") : ""),
+          inVoice ? h("span", { class: "leaf small" }, t("home.inRoom", { room: inVoice.name }))
             : p.status_text || p.status_emoji ? h("span", { class: "muted small ellipsis" }, `${p.status_emoji ?? ""} ${p.status_text ?? ""}`.trim())
-            : p.online && p.status !== "online" ? h("span", { class: `small presence-${p.status}` }, PRESENCE_LABEL[p.status])
+            : p.online && p.status !== "online" ? h("span", { class: `small presence-${p.status}` }, presenceLabel(p.status))
             : h("span", { class: "muted small" }, `@${p.username}`)),
         ROLE_TAG[p.role] && h("span", { class: `role-tag ${p.role}` }, ROLE_TAG[p.role]));
     };
     const online = all.filter((p) => p.online);
     const away = all.filter((p) => !p.online);
     mount(crew,
-      h("h2", { class: "crew-title" }, "People"),
-      h("p", { class: "sb-label" }, `Online — ${online.length}`),
+      h("h2", { class: "crew-title" }, t("home.people")),
+      h("p", { class: "sb-label" }, t("home.onlineCount", { n: online.length })),
       h("ul", { class: "crew-list" }, online.map(row)),
-      away.length > 0 && h("p", { class: "sb-label" }, `Offline — ${away.length}`),
+      away.length > 0 && h("p", { class: "sb-label" }, t("home.offlineCount", { n: away.length })),
       away.length > 0 && h("ul", { class: "crew-list" }, away.map(row)));
   }
 
@@ -116,21 +118,21 @@ register("home", (root) => {
     mount(sidebar,
       h("header", { class: "sb-head" },
         h("img", { src: "/logo.png", alt: "", width: 44, height: 44, class: "sb-logo" }),
-        h("div", { class: "grow col min0" }, h("strong", { class: "sb-title" }, treehouse.name), offline ? h("span", { class: "lantern small" }, "Reconnecting…") : h("span", { class: "muted small" }, `${online} online, ${inVoice} in voice`)),
-        h("button", { class: "icon-btn", "aria-label": "Settings", title: "Settings", onclick: () => go({ name: "settings" }) }, icon("gear", 22)),
+        h("div", { class: "grow col min0" }, h("strong", { class: "sb-title" }, treehouse.name), offline ? h("span", { class: "lantern small" }, t("home.reconnecting")) : h("span", { class: "muted small" }, t("home.headerCounts", { online, voice: inVoice }))),
+        h("button", { class: "icon-btn", "aria-label": t("home.settings"), title: t("home.settings"), onclick: () => go({ name: "settings" }) }, icon("gear", 22)),
       ),
       h("nav", { class: "sb-scroll" },
-        h("p", { class: "sb-label" }, "Chat"),
+        h("p", { class: "sb-label" }, t("home.chat")),
         d && (renaming === d.id ? renameRow(d) : h("div", { class: "sb-row-wrap" },
           h("button", { class: `sb-row ${view.kind === "deck" ? "active" : ""}`, onclick: () => show({ kind: "deck" }) },
             icon("hash", 20, "muted"), h("span", { class: "grow" }, d.slug),
             deckMentions > 0 && view.kind !== "deck" && h("span", { class: "badge lantern" }, `@${deckMentions}`)),
           me.role === "admin" && roomMenuButton(d))),
-        h("p", { class: "sb-label" }, "Voice rooms"),
+        h("p", { class: "sb-label" }, t("home.voiceRooms")),
         voiceRooms().map((r) => [
           renaming === r.id ? renameRow(r) : h("div", { class: "sb-row-wrap" },
             h("button", { class: `sb-row ${view.kind === "voice" && view.roomId === r.id ? "active" : ""}`,
-              title: r.id === call.roomId ? r.name : `${r.name}: double-click to join`,
+              title: r.id === call.roomId ? r.name : t("home.dblClickToJoin", { room: r.name }),
               onclick: () => previewRoom(r), ondblclick: () => void joinRoom(r) },
               icon("speaker", 20, "muted"), h("span", { class: "grow" }, r.name),
               r.members.length > 0 && h("span", { class: "badge leaf" }, String(r.members.length))),
@@ -140,28 +142,28 @@ register("home", (root) => {
             const talking = r.id === call.roomId && call.speaking.includes(m.user_id);
             return h("li", { "data-user": String(m.user_id), class: talking ? "speaking" : "" },
               personAvatar(p, 24, "sb-av"),
-              h("span", { class: "grow" }, p.display_name, p.id === me.id ? " (you)" : ""),
-              m.screen && h("span", { title: "Sharing their screen", class: "row" }, icon("monitor", 18, "lantern")),
-              m.muted && h("span", { title: "Muted", class: "row" }, icon("micOff", 18, "ember")),
-              m.camera && h("span", { title: "Camera on", class: "row" }, icon("video", 18, "leaf")));
+              h("span", { class: "grow" }, p.display_name, p.id === me.id ? t("home.youSuffix") : ""),
+              m.screen && h("span", { title: t("home.sharingScreen"), class: "row" }, icon("monitor", 18, "lantern")),
+              m.muted && h("span", { title: t("home.muted"), class: "row" }, icon("micOff", 18, "ember")),
+              m.camera && h("span", { title: t("home.cameraOn"), class: "row" }, icon("video", 18, "leaf")));
           })),
         ]),
         me.role === "admin" && newRoomControl(),
       ),
       current && h("div", { class: "sb-voice" },
-        h("button", { class: "grow col sb-voice-info", title: "Open the room", onclick: () => show({ kind: "voice", roomId: current.id }) },
+        h("button", { class: "grow col sb-voice-info", title: t("home.openTheRoom"), onclick: () => show({ kind: "voice", roomId: current.id }) },
           call.status === "connected"
-            ? h("span", { class: "leaf strong" }, h("span", { class: "dot" }), "Voice connected")
-            : h("span", { class: "lantern strong" }, h("span", { class: "dot" }), call.status === "connecting" ? "Connecting…" : "Reconnecting…"),
+            ? h("span", { class: "leaf strong" }, h("span", { class: "dot" }), t("home.voiceConnected"))
+            : h("span", { class: "lantern strong" }, h("span", { class: "dot" }), call.status === "connecting" ? t("home.connecting") : t("home.reconnecting")),
           h("span", { class: "small" }, current.name)),
-        h("button", { class: "icon-btn danger", "aria-label": "Leave voice", title: "Leave voice", onclick: () => leave() }, icon("hangup", 22))),
+        h("button", { class: "icon-btn danger", "aria-label": t("home.leaveVoice"), title: t("home.leaveVoice"), onclick: () => leave() }, icon("hangup", 22))),
       h("footer", { class: "sb-me" },
-        h("button", { class: "me-button", type: "button", "aria-haspopup": "menu", "aria-label": "Your status and settings", onclick: (e: Event) => statusMenu(e.currentTarget as HTMLElement) },
+        h("button", { class: "me-button", type: "button", "aria-haspopup": "menu", "aria-label": t("home.statusAndSettings"), onclick: (e: Event) => statusMenu(e.currentTarget as HTMLElement) },
           h("span", { class: "me-avatar" }, personAvatar(me, 40), h("span", { class: `online-dot ${me.status}` })),
           h("span", { class: "grow col min0" }, h("strong", null, me.display_name),
-            h("span", { class: "muted small ellipsis" }, me.status_text || me.status_emoji ? `${me.status_emoji ?? ""} ${me.status_text ?? ""}`.trim() : PRESENCE_LABEL[me.status]))),
-        h("button", { class: `icon-btn ${call.muted ? "ember" : ""}`, "aria-pressed": String(call.muted), "aria-label": `${call.muted ? "Unmute" : "Mute"} (${formatKey(keys.mute)})`, title: `${call.muted ? "Unmute" : "Mute"} (${formatKey(keys.mute)})`, onclick: toggleMute }, icon(call.muted ? "micOff" : "mic", 22)),
-        h("button", { class: `icon-btn ${call.deafened ? "ember" : ""}`, "aria-pressed": String(call.deafened), "aria-label": `${call.deafened ? "Undeafen" : "Deafen"} (${formatKey(keys.deafen)})`, title: `${call.deafened ? "Undeafen" : "Deafen"} (${formatKey(keys.deafen)})`, onclick: toggleDeafen }, icon(call.deafened ? "headphonesOff" : "headphones", 22)),
+            h("span", { class: "muted small ellipsis" }, me.status_text || me.status_emoji ? `${me.status_emoji ?? ""} ${me.status_text ?? ""}`.trim() : presenceLabel(me.status)))),
+        h("button", { class: `icon-btn ${call.muted ? "ember" : ""}`, "aria-pressed": String(call.muted), "aria-label": t(call.muted ? "home.unmute" : "home.mute", { key: formatKey(keys.mute) }), title: t(call.muted ? "home.unmute" : "home.mute", { key: formatKey(keys.mute) }), onclick: toggleMute }, icon(call.muted ? "micOff" : "mic", 22)),
+        h("button", { class: `icon-btn ${call.deafened ? "ember" : ""}`, "aria-pressed": String(call.deafened), "aria-label": t(call.deafened ? "home.undeafen" : "home.deafen", { key: formatKey(keys.deafen) }), title: t(call.deafened ? "home.undeafen" : "home.deafen", { key: formatKey(keys.deafen) }), onclick: toggleDeafen }, icon(call.deafened ? "headphonesOff" : "headphones", 22)),
       ),
     );
   }
@@ -192,7 +194,7 @@ register("home", (root) => {
   function roomChip(r: Room) {
     const chip = h("button", { class: "room-chip", type: "button" },
       icon(r.kind === "voice" ? "speaker" : "hash", 16), r.name,
-      r.kind === "voice" && r.members.length > 0 && h("span", { class: "badge leaf sm" }, `${r.members.length} in voice`));
+      r.kind === "voice" && r.members.length > 0 && h("span", { class: "badge leaf sm" }, t("home.inVoice", { n: r.members.length })));
     chip.onclick = () => (r.kind === "voice" ? roomPreview(r, chip) : show({ kind: "deck" }));
     return chip;
   }
@@ -204,10 +206,10 @@ register("home", (root) => {
     const inIt = r.id === call.roomId;
     const pop = h("div", { class: "popover", role: "dialog", "aria-label": r.name, style: { left: `${Math.min(rect.left, innerWidth - 320)}px`, top: `${rect.bottom + 8}px` } },
       h("div", { class: "row gap-10" }, icon("speaker", 20, "lantern"), h("strong", { class: "grow" }, r.name),
-        h("button", { class: "icon-btn sm", "aria-label": "Close", onclick: () => pop.remove() }, icon("close", 18))),
-      h("p", { class: "muted small" }, r.members.length ? `${r.members.length} in voice${r.capacity ? ` of ${r.capacity}` : ""}` : "Nobody here yet"),
+        h("button", { class: "icon-btn sm", "aria-label": t("common.close"), onclick: () => pop.remove() }, icon("close", 18))),
+      h("p", { class: "muted small" }, r.members.length ? (r.capacity ? t("home.inVoiceOf", { n: r.members.length, cap: r.capacity }) : t("home.inVoice", { n: r.members.length })) : t("home.nobodyYet")),
       r.members.length > 0 && h("div", { class: "row gap-6 wrap" }, r.members.map((m) => { const p = person(m.user_id); return h("span", { class: "chip" }, personAvatar(p, 20), p.display_name); })),
-      h("button", { class: "btn primary sm", disabled: full && !inIt, onclick: () => { pop.remove(); void openRoom(r); } }, inIt ? "Open room" : full ? "Room is full" : "Join"),
+      h("button", { class: "btn primary sm", disabled: full && !inIt, onclick: () => { pop.remove(); void openRoom(r); } }, inIt ? t("home.openRoom") : full ? t("home.roomFull") : t("home.join")),
     );
     document.body.appendChild(pop);
     const close = (e: MouseEvent) => { if (!pop.contains(e.target as Node)) { pop.remove(); removeEventListener("mousedown", close); } };
@@ -224,14 +226,14 @@ register("home", (root) => {
         h("div", { class: "gif-frame" }, h("img", { src: m.gif.url, alt: m.gif.title, loading: "lazy" }), h("span", { class: "gif-tag" }, "GIF")),
         m.gif.query && h("span", { class: "muted small" }, `/giphy ${m.gif.query}`));
     } else if (m.kind === "roll" && m.roll) {
-      content = h("div", { class: "roll" }, icon("dice", 20, "lantern"), "rolled ", h("strong", { class: "roll-n" }, String(m.roll.value)), h("span", { class: "muted small" }, ` out of ${m.roll.max}`));
+      content = h("div", { class: "roll" }, icon("dice", 20, "lantern"), `${t("home.rolled")} `, h("strong", { class: "roll-n" }, String(m.roll.value)), h("span", { class: "muted small" }, t("home.outOf", { max: m.roll.max })));
     } else if (m.kind === "action") {
       content = h("p", { class: "body action" }, `${p.display_name} ${m.body ?? ""}`);
     } else {
       content = h("p", { class: "body" }, renderBody(m.body ?? "", m.mentions));
     }
     // Inline "add" chip only after existing reactions (Slack-style); otherwise use the hover toolbar.
-    const reactBtn = m.reactions.length > 0 && h("button", { class: "reaction add", type: "button", "aria-label": "Add reaction", title: "Add reaction" }, icon("smilePlus", 18));
+    const reactBtn = m.reactions.length > 0 && h("button", { class: "reaction add", type: "button", "aria-label": t("home.addReaction"), title: t("home.addReaction") }, icon("smilePlus", 18));
     if (reactBtn) reactBtn.onclick = () => emojiPicker(reactBtn, (e) => void react(m, e, true));
     const tools = messageTools(m, p, canDelete);
     // `/me` is a status line, like "joined" or "muted": one row, no repeated header.
@@ -262,17 +264,17 @@ register("home", (root) => {
 
   /** Slack-style hover toolbar: recent reactions, add reaction, reply, delete. */
   function messageTools(m: Message, author: Person, canDelete: boolean) {
-    const bar = h("div", { class: "msg-tools", role: "toolbar", "aria-label": "Message actions" });
+    const bar = h("div", { class: "msg-tools", role: "toolbar", "aria-label": t("home.messageActions") });
     const quick = recentEmoji().map((e) => {
       const mine = m.reactions.some((r) => r.emoji === e && r.user_ids.includes(me.id));
-      return h("button", { class: `tool emoji-tool ${mine ? "on" : ""}`, type: "button", title: mine ? `Remove ${e}` : `React ${e}`, "aria-label": mine ? `Remove ${e}` : `React with ${e}`,
+      return h("button", { class: `tool emoji-tool ${mine ? "on" : ""}`, type: "button", title: mine ? t("home.removeReaction", { emoji: e }) : t("home.react", { emoji: e }), "aria-label": mine ? t("home.removeReaction", { emoji: e }) : t("home.reactWith", { emoji: e }),
         onclick: () => void react(m, e, !mine) }, e);
     });
-    const add = h("button", { class: "tool", type: "button", title: "Add reaction", "aria-label": "Add reaction" }, icon("smilePlus", 18));
+    const add = h("button", { class: "tool", type: "button", title: t("home.addReaction"), "aria-label": t("home.addReaction") }, icon("smilePlus", 18));
     add.onclick = () => emojiPicker(add, (e) => void react(m, e, true));
-    const reply = h("button", { class: "tool", type: "button", title: `Reply to ${author.display_name}`, "aria-label": `Reply to ${author.display_name}`,
+    const reply = h("button", { class: "tool", type: "button", title: t("home.replyTo", { name: author.display_name }), "aria-label": t("home.replyTo", { name: author.display_name }),
       onclick: () => replyTo(m.channel_id, author) }, icon("reply", 18));
-    const del = canDelete && h("button", { class: "tool danger", type: "button", title: "Delete", "aria-label": "Delete message" }, icon("trash", 18));
+    const del = canDelete && h("button", { class: "tool danger", type: "button", title: t("common.delete"), "aria-label": t("home.deleteMessage") }, icon("trash", 18));
     if (del) del.onclick = () => confirmDelete(m, bar);
     mount(bar, quick, h("span", { class: "tool-sep" }), add, author.id !== me.id && reply, del);
     return bar;
@@ -291,14 +293,14 @@ register("home", (root) => {
   /** "You", "Ana and Leo", "You, Ana and 3 others" — who reacted, you first. */
   function reactedBy(userIds: number[]): string {
     const names = [...userIds].sort((a, b) => Number(b === me.id) - Number(a === me.id))
-      .map((id) => (id === me.id ? "You" : person(id).display_name));
-    if (names.length > 4) return `${names.slice(0, 3).join(", ")} and ${names.length - 3} others`;
-    return names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names[0] ?? "";
+      .map((id) => (id === me.id ? t("home.youCap") : person(id).display_name));
+    if (names.length > 4) return tn("home.andOthers", names.length - 3, { list: names.slice(0, 3).join(", ") });
+    return names.length > 1 ? t("home.andList", { list: names.slice(0, -1).join(", "), last: names[names.length - 1] }) : names[0] ?? "";
   }
 
   function reactionChip(m: Message, emoji: string, userIds: number[]) {
     const mine = userIds.includes(me.id);
-    const who = `${reactedBy(userIds)} reacted`;
+    const who = userIds.length === 1 && mine ? t("home.youReacted") : tn("home.reacted", userIds.length, { who: reactedBy(userIds) });
     return h("button", { class: `reaction ${mine ? "mine" : ""}`, "aria-pressed": String(mine), "aria-label": `${emoji} ${userIds.length}: ${who}`,
       "data-tip": who, onclick: () => void react(m, emoji, !mine) },
       h("span", { class: "emoji" }, emoji), String(userIds.length));
@@ -317,7 +319,7 @@ register("home", (root) => {
     const kids = [...actions.childNodes];
     const restore = () => { actions.classList.remove("confirming"); mount(actions, kids); document.removeEventListener("keydown", onEsc, true); };
     const onEsc = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); restore(); } };
-    const yes = h("button", { class: "btn danger sm", type: "button" }, "Delete");
+    const yes = h("button", { class: "btn danger sm", type: "button" }, t("common.delete"));
     yes.onclick = async () => {
       yes.disabled = true;
       try {
@@ -328,9 +330,9 @@ register("home", (root) => {
     };
     actions.classList.add("confirming");
     mount(actions,
-      h("span", { class: "small" }, m.author_id === me.id ? "Delete for everyone?" : "Delete their message?"),
+      h("span", { class: "small" }, m.author_id === me.id ? t("home.deleteForEveryone") : t("home.deleteTheirs")),
       yes,
-      h("button", { class: "btn ghost sm", type: "button", onclick: restore }, "Cancel"));
+      h("button", { class: "btn ghost sm", type: "button", onclick: restore }, t("common.cancel")));
     document.addEventListener("keydown", onEsc, true);
     yes.focus();
   }
@@ -349,7 +351,7 @@ register("home", (root) => {
     lists.set(channel, { el, compact });
     if (cache.has(channel)) fillList(channel);
     else {
-      mount(el, h("p", { class: "muted center pad" }, "Loading…"));
+      mount(el, h("p", { class: "muted center pad" }, t("common.loading")));
       api.messages(channel).then((ms) => { cache.set(channel, ms); fillList(channel); })
         .catch((e) => mount(el, h("p", { class: "muted center pad" }, errorText(e))));
     }
@@ -362,7 +364,7 @@ register("home", (root) => {
     const stick = l.el.dataset.stick !== "false";
     const top = l.el.scrollTop;
     const ms = cache.get(channel) ?? [];
-    mount(l.el, ms.length ? ms.map((m) => messageEl(m, l.compact)) : h("p", { class: "muted center pad" }, "No messages yet. Say hi."));
+    mount(l.el, ms.length ? ms.map((m) => messageEl(m, l.compact)) : h("p", { class: "muted center pad" }, t("home.noMessages")));
     requestAnimationFrame(() => (l.el.scrollTop = stick ? l.el.scrollHeight : top));
   }
 
@@ -397,8 +399,8 @@ register("home", (root) => {
     const input = h("input", { class: "composer-input", placeholder, "aria-label": placeholder, maxlength: 2000, autocomplete: "off" });
     composerInputs.set(channel, input);
     const pop = h("div", { class: "composer-pop", hidden: true });
-    const emojiBtn = h("button", { class: "icon-btn square", type: "button", "aria-label": "Emoji", title: "Emoji" }, icon("smile", 24));
-    const sendBtn = h("button", { class: "icon-btn square send", type: "submit", "aria-label": "Send", title: "Send" }, icon("send", 24));
+    const emojiBtn = h("button", { class: "icon-btn square", type: "button", "aria-label": t("home.emoji"), title: t("home.emoji") }, icon("smile", 24));
+    const sendBtn = h("button", { class: "icon-btn square send", type: "submit", "aria-label": t("home.send"), title: t("home.send") }, icon("send", 24));
     let slashIndex = 0;
 
     const closePop = () => { pop.hidden = true; pop.replaceChildren(); };
@@ -406,7 +408,7 @@ register("home", (root) => {
     const slashMatches = () => {
       const v = input.value;
       if (!v.startsWith("/") || v.includes(" ")) return [];
-      return COMMANDS.filter((c) => c.name.startsWith(v.slice(1).toLowerCase()));
+      return commands().filter((c) => c.name.startsWith(v.slice(1).toLowerCase()));
     };
 
     const renderSlash = () => {
@@ -415,7 +417,7 @@ register("home", (root) => {
       slashIndex = Math.min(slashIndex, list.length - 1);
       pop.dataset.kind = "slash";
       pop.hidden = false;
-      mount(pop, h("p", { class: "pop-title" }, "Commands"), list.map((c, i) =>
+      mount(pop, h("p", { class: "pop-title" }, t("home.commands")), list.map((c, i) =>
         h("button", { type: "button", class: `cmd ${i === slashIndex ? "active" : ""}`, onmousedown: (e: Event) => { e.preventDefault(); pick(c.name); } },
           h("span", null, h("strong", { class: "lantern" }, `/${c.name}`), c.arg && h("span", { class: "muted" }, ` ${c.arg}`)),
           h("span", { class: "cmd-help" }, c.help))));
@@ -436,19 +438,19 @@ register("home", (root) => {
       return m ? { sigil: m[1], query: m[2].toLowerCase(), start: upto.length - m[1].length - m[2].length } : null;
     };
     const suggestions = (): Suggestion[] => {
-      const t = tokenAtCursor();
-      if (!t) return [];
-      if (t.sigil === "@") {
+      const tok = tokenAtCursor();
+      if (!tok) return [];
+      if (tok.sigil === "@") {
         return [...people.values()]
-          .filter((p) => p.id !== me.id && (p.username.toLowerCase().startsWith(t.query) || p.display_name.toLowerCase().includes(t.query)))
+          .filter((p) => p.id !== me.id && (p.username.toLowerCase().startsWith(tok.query) || p.display_name.toLowerCase().includes(tok.query)))
           .sort((a, b) => Number(b.online) - Number(a.online) || a.display_name.localeCompare(b.display_name))
           .slice(0, 6)
-          .map((p) => ({ insert: `@${p.username}`, title: p.display_name, hint: `@${p.username}${p.online ? "" : " · offline"}`, face: personAvatar(p, 24) }));
+          .map((p) => ({ insert: `@${p.username}`, title: p.display_name, hint: `@${p.username}${p.online ? "" : t("home.offlineHint")}`, face: personAvatar(p, 24) }));
       }
       return rooms
-        .filter((r) => r.slug.toLowerCase().startsWith(t.query) || r.name.toLowerCase().includes(t.query))
+        .filter((r) => r.slug.toLowerCase().startsWith(tok.query) || r.name.toLowerCase().includes(tok.query))
         .slice(0, 6)
-        .map((r) => ({ insert: `#${r.slug}`, title: r.name, hint: r.kind === "voice" ? (r.members.length ? `#${r.slug} · ${r.members.length} in voice` : `#${r.slug}`) : `#${r.slug}` }));
+        .map((r) => ({ insert: `#${r.slug}`, title: r.name, hint: r.kind === "voice" ? (r.members.length ? `#${r.slug} · ${t("home.inVoice", { n: r.members.length })}` : `#${r.slug}`) : `#${r.slug}` }));
     };
     const renderSuggest = () => {
       const list = suggestions();
@@ -457,17 +459,17 @@ register("home", (root) => {
       pop.dataset.kind = "suggest";
       pop.hidden = false;
       const sigil = tokenAtCursor()?.sigil;
-      mount(pop, h("p", { class: "pop-title" }, sigil === "@" ? "People" : "Rooms"), list.map((s, i) =>
+      mount(pop, h("p", { class: "pop-title" }, sigil === "@" ? t("home.people") : t("home.rooms")), list.map((s, i) =>
         h("button", { type: "button", class: `cmd suggest ${i === suggestIndex ? "active" : ""}`, onmousedown: (e: Event) => { e.preventDefault(); takeSuggestion(s); } },
           s.face ?? icon(s.insert.startsWith("#") ? "speaker" : "hash", 20, "muted"),
           h("span", { class: "grow col" }, h("strong", null, s.title), h("span", { class: "muted small" }, s.hint)))));
     };
     const takeSuggestion = (s: Suggestion) => {
-      const t = tokenAtCursor();
-      if (!t) return;
+      const tok = tokenAtCursor();
+      if (!tok) return;
       const end = input.selectionStart ?? input.value.length;
-      input.value = `${input.value.slice(0, t.start)}${s.insert} ${input.value.slice(end)}`;
-      const caret = t.start + s.insert.length + 1;
+      input.value = `${input.value.slice(0, tok.start)}${s.insert} ${input.value.slice(end)}`;
+      const caret = tok.start + s.insert.length + 1;
       input.setSelectionRange(caret, caret);
       closePop();
       input.focus();
@@ -476,7 +478,7 @@ register("home", (root) => {
     const gifPicker = async (q: string) => {
       pop.dataset.kind = "gif";
       pop.hidden = false;
-      const grid = h("div", { class: "gif-grid" }, h("p", { class: "muted pad" }, "Looking for GIFs…"));
+      const grid = h("div", { class: "gif-grid" }, h("p", { class: "muted pad" }, t("home.lookingGifs")));
       // The server sends one batch; Shuffle deals the next 6 from it in random order.
       let all: Gif[] = [];
       let dealt = 0;
@@ -488,7 +490,7 @@ register("home", (root) => {
         const gifs = all.slice(dealt, dealt + 6);
         dealt += 6;
         shuffleBtn.hidden = all.length <= 6;
-        mount(grid, gifs.length ? gifs.map((g) => h("button", { type: "button", class: "gif-pick", "aria-label": `Send ${g.title}`, onclick: () => void sendGif(g) }, h("img", { src: g.preview_url, alt: g.title }))) : h("p", { class: "muted pad" }, "No GIFs for that. Try other words."));
+        mount(grid, gifs.length ? gifs.map((g) => h("button", { type: "button", class: "gif-pick", "aria-label": t("home.sendGif", { title: g.title }), onclick: () => void sendGif(g) }, h("img", { src: g.preview_url, alt: g.title }))) : h("p", { class: "muted pad" }, t("home.noGifs")));
       };
       const load = async () => {
         try {
@@ -497,13 +499,13 @@ register("home", (root) => {
           show();
         } catch (e) { mount(grid, h("p", { class: "muted pad" }, errorText(e))); }
       };
-      const shuffleBtn = h("button", { class: "btn ghost sm", type: "button", hidden: true, onclick: show }, "Shuffle");
+      const shuffleBtn = h("button", { class: "btn ghost sm", type: "button", hidden: true, onclick: show }, t("home.shuffle"));
       mount(pop,
-        h("div", { class: "row between pop-head" }, h("strong", null, `GIFs for “${q}”`),
+        h("div", { class: "row between pop-head" }, h("strong", null, t("home.gifsFor", { q })),
           h("div", { class: "row gap-10" }, shuffleBtn,
-            h("button", { class: "icon-btn sm", type: "button", "aria-label": "Close", onclick: closePop }, icon("close", 20)))),
+            h("button", { class: "icon-btn sm", type: "button", "aria-label": t("common.close"), onclick: closePop }, icon("close", 20)))),
         grid,
-        h("p", { class: "giphy-credit" }, "Powered by GIPHY"));
+        h("p", { class: "giphy-credit" }, t("home.poweredGiphy")));
       await load();
     };
 
@@ -525,7 +527,7 @@ register("home", (root) => {
       if (!text) return;
       const giphy = text.match(/^\/giphy\s+(.+)/i);
       if (giphy) return gifPicker(giphy[1]);
-      if (/^\/giphy$/i.test(text)) { toast("Add some words after /giphy, like “/giphy gg”."); return; }
+      if (/^\/giphy$/i.test(text)) { toast(t("home.giphyNeedsWords")); return; }
       input.value = "";
       closePop();
       await post({ client_id: crypto.randomUUID(), text });
@@ -578,7 +580,7 @@ register("home", (root) => {
   function emojiPicker(anchor: HTMLElement, onPick: (e: string) => void) {
     document.querySelector(".emoji-pop")?.remove();
     const rect = anchor.getBoundingClientRect();
-    const pop = h("div", { class: "emoji-pop", role: "dialog", "aria-label": "Pick an emoji" },
+    const pop = h("div", { class: "emoji-pop", role: "dialog", "aria-label": t("home.pickEmoji") },
       EMOJI.map((e) => h("button", { type: "button", class: "emoji-btn", onclick: () => { onPick(e); pop.remove(); } }, e)));
     const top = rect.top > 300 ? rect.top - 8 : rect.bottom + 8;
     Object.assign(pop.style, { left: `${Math.max(12, Math.min(rect.right - 320, innerWidth - 332))}px`, top: `${top}px`, transform: rect.top > 300 ? "translateY(-100%)" : "none" });
@@ -591,29 +593,29 @@ register("home", (root) => {
 
   function ttlText() {
     const hrs = treehouse.message_ttl_hours;
-    return hrs % 24 === 0 ? `${hrs / 24} day${hrs === 24 ? "" : "s"}` : `${hrs} hours`;
+    return hrs % 24 === 0 ? tn("home.days", hrs / 24) : tn("home.hours", hrs);
   }
 
   function renderMain() {
     lists.clear();
     if (view.kind === "deck") {
       const d = deck();
-      if (!d) { mount(main, h("p", { class: "muted center pad" }, "Loading…")); return; }
+      if (!d) { mount(main, h("p", { class: "muted center pad" }, t("common.loading"))); return; }
       mount(main,
         h("header", { class: "main-head" },
           h("span", { class: "head-hash" }, icon("hash", 32)),
-          h("div", { class: "col" }, h("h1", { class: "title" }, d.slug), h("p", { class: "muted" }, `Everyone’s hangout chat. Messages disappear after ${ttlText()}.`))),
+          h("div", { class: "col" }, h("h1", { class: "title" }, d.slug), h("p", { class: "muted" }, t("home.deckIntro", { ttl: ttlText() })))),
         messageList(d.id, false),
-        composer(d.id, "Message #the-deck"));
+        composer(d.id, t("home.messageChannel", { slug: d.slug })));
       side.hidden = true;
       return;
     }
     const room = rooms.find((r) => r.id === (view as { roomId: number }).roomId);
-    if (!room && !rooms.length) { mount(main, h("p", { class: "muted center pad" }, "Loading…")); return; }
+    if (!room && !rooms.length) { mount(main, h("p", { class: "muted center pad" }, t("common.loading"))); return; }
     if (!room) { show({ kind: "deck" }); return; }
     stageSub = h("p", { class: "muted" });
-    stageEl = h("section", { class: "stage", "aria-label": `People in ${room.name}` });
-    barEl = h("div", { class: "call-bar", role: "toolbar", "aria-label": "Call controls" });
+    stageEl = h("section", { class: "stage", "aria-label": t("home.peopleIn", { room: room.name }) });
+    barEl = h("div", { class: "call-bar", role: "toolbar", "aria-label": t("home.callControls") });
     problemEl = h("div", { class: "call-problem", role: "alert", hidden: true });
     // Previewing: just "Join voice" top-right. In the call: room chat and Leave.
     const inCall = call.roomId === room.id;
@@ -623,9 +625,9 @@ register("home", (root) => {
       h("header", { class: "main-head" },
         h("div", { class: "col grow" }, h("h1", { class: "title" }, room.name), stageSub),
         inCall
-          ? [h("button", { class: `btn outline-lantern ${roomChatOpen ? "on" : ""}`, "aria-pressed": String(roomChatOpen), onclick: () => { roomChatOpen = !roomChatOpen; renderMain(); } }, icon("chat", 20), "Room chat"),
-             h("button", { class: "btn outline-ember", onclick: () => void leave() }, "Leave")]
-          : h("button", { class: "btn primary", disabled: full, title: full ? undefined : "Or double-click the room", onclick: () => void joinRoom(room) }, icon("speaker", 20), full ? "Room is full" : "Join voice")),
+          ? [h("button", { class: `btn outline-lantern ${roomChatOpen ? "on" : ""}`, "aria-pressed": String(roomChatOpen), onclick: () => { roomChatOpen = !roomChatOpen; renderMain(); } }, icon("chat", 20), t("home.roomChat")),
+             h("button", { class: "btn outline-ember", onclick: () => void leave() }, t("home.leave"))]
+          : h("button", { class: "btn primary", disabled: full, title: full ? undefined : t("home.orDblClick"), onclick: () => void joinRoom(room) }, icon("speaker", 20), full ? t("home.roomFull") : t("home.joinVoice"))),
       stageEl, problemEl, barEl);
     renderStage();
     renderBar();
@@ -634,10 +636,10 @@ register("home", (root) => {
     if (roomChatOpen && inCall) {
       mount(side,
         h("header", { class: "rc-head" },
-          h("div", { class: "col grow" }, h("h2", { class: "rc-title" }, "Room chat"), h("p", { class: "muted small" }, `Only for people in ${room.name}. Cleared when everyone leaves.`)),
-          h("button", { class: "icon-btn", "aria-label": "Close room chat", onclick: () => { roomChatOpen = false; renderMain(); } }, icon("close", 22))),
+          h("div", { class: "col grow" }, h("h2", { class: "rc-title" }, t("home.roomChat")), h("p", { class: "muted small" }, t("home.roomChatNote", { room: room.name }))),
+          h("button", { class: "icon-btn", "aria-label": t("home.closeRoomChat"), onclick: () => { roomChatOpen = false; renderMain(); } }, icon("close", 22))),
         messageList(room.id, true),
-        composer(room.id, "Message the room"));
+        composer(room.id, t("home.messageRoom")));
     }
   }
 
@@ -681,13 +683,12 @@ register("home", (root) => {
   /** "4 in voice, Ana is talking" */
   function talkingText(members: VoiceMember[]): string {
     const n = members.length;
-    if (!n) return "Nobody here yet";
-    const names = call.speaking
-      .filter((id) => members.some((m) => m.user_id === id))
-      .map((id) => (id === me.id ? "you" : person(id).display_name));
-    if (!names.length) return `${n} in voice`;
-    if (names.length === 1) return `${n} in voice, ${names[0]} ${names[0] === "you" ? "are" : "is"} talking`;
-    return `${n} in voice, ${names.slice(0, -1).join(", ")} and ${names[names.length - 1]} are talking`;
+    if (!n) return t("home.nobodyYet");
+    const ids = call.speaking.filter((id) => members.some((m) => m.user_id === id));
+    if (!ids.length) return t("home.inVoice", { n });
+    if (ids.length === 1) return ids[0] === me.id ? t("home.talkingYou", { n }) : t("home.talkingOne", { n, name: person(ids[0]).display_name });
+    const names = ids.map((id) => (id === me.id ? t("common.you") : person(id).display_name));
+    return t("home.talkingMany", { n, names: t("home.andList", { list: names.slice(0, -1).join(", "), last: names[names.length - 1] }) });
   }
 
   // Tiles are keyed and reused: an update changes icons and classes in place and
@@ -714,7 +715,7 @@ register("home", (root) => {
     const key = `p:${m.user_id}:${cam ? cam.track.sid ?? "cam" : "-"}:${strip ? "s" : "b"}:${p.display_name}:${p.avatar ?? ""}:${p.color}`;
     const el = cached(key, () => h("div", { class: "tile", "data-user": String(m.user_id), style: { background: `color-mix(in srgb, ${p.color} 22%, #182238)` } },
       cam ? videoEl(cam) : personAvatar(p, 0, "huge"),
-      cam && !strip && h("span", { class: "live" }, h("span", { class: "dot" }), "Live"),
+      cam && !strip && h("span", { class: "live" }, h("span", { class: "dot" }), t("home.live")),
       h("div", { class: "tile-bar" })));
     const speaking = call.roomId !== null && call.speaking.includes(m.user_id);
     el.className = `tile ${cam ? "camera" : ""} ${speaking ? "speaking" : ""} ${strip ? "small" : ""}`;
@@ -725,22 +726,22 @@ register("home", (root) => {
       bar.dataset.state = state;
       mount(bar,
         personAvatar(p, strip ? 22 : 28),
-        h("strong", { class: "grow ellipsis" }, p.display_name, you ? " (you)" : ""),
-        m.screen && h("span", { class: "tile-ic on", title: "Sharing their screen" }, icon("monitor", 18)),
-        h("span", { class: `tile-ic ${m.muted ? "off" : ""}`, title: m.muted ? "Muted" : "Mic on" }, icon(m.muted ? "micOff" : "mic", 18)),
-        !strip && h("span", { class: `tile-ic ${m.camera ? "on" : ""}`, title: m.camera ? "Camera on" : "Camera off" }, icon(m.camera ? "video" : "videoOff", 18)));
+        h("strong", { class: "grow ellipsis" }, p.display_name, you ? t("home.youSuffix") : ""),
+        m.screen && h("span", { class: "tile-ic on", title: t("home.sharingScreen") }, icon("monitor", 18)),
+        h("span", { class: `tile-ic ${m.muted ? "off" : ""}`, title: m.muted ? t("home.muted") : t("home.micOn") }, icon(m.muted ? "micOff" : "mic", 18)),
+        !strip && h("span", { class: `tile-ic ${m.camera ? "on" : ""}`, title: m.camera ? t("home.cameraOn") : t("home.cameraOff") }, icon(m.camera ? "video" : "videoOff", 18)));
     }
     return el;
   }
 
   function screenTile(v: Video, large: boolean) {
-    const label = v.userId === me.id ? "Your screen" : `${person(v.userId).display_name}’s screen`;
+    const label = v.userId === me.id ? t("home.yourScreen") : t("home.theirScreen", { name: person(v.userId).display_name });
     const sound = call.screenHasSound(v.userId);
     return cached(`s:${v.userId}:${v.track.sid ?? ""}:${large ? "big" : "small"}:${sound}`, () => {
       const bar = h("div", { class: "tile-bar" }, icon("monitor", 18, "lantern"), h("strong", { class: "grow ellipsis" }, label),
-        sound && h("span", { class: "sound-badge", title: "Everyone hears this screen’s sound" }, icon("volume", 16), "With sound"));
+        sound && h("span", { class: "sound-badge", title: t("home.screenSoundTip") }, icon("volume", 16), t("home.withSound")));
       if (large) return h("div", { class: "tile screen-tile spot", "aria-label": label }, videoEl(v), bar);
-      return h("button", { class: "tile screen-tile small", type: "button", title: "Show large", "aria-label": `Show ${label.toLowerCase()} large`,
+      return h("button", { class: "tile screen-tile small", type: "button", title: t("home.showLarge"), "aria-label": `${t("home.showLarge")}: ${label}`,
         onclick: () => { spotlight = v.userId; renderStage(); } }, videoEl(v), bar);
     });
   }
@@ -765,9 +766,9 @@ register("home", (root) => {
     usedTiles = new Set();
 
     const noteText = !here ? ""
-      : call.status === "connecting" ? "Connecting…"
-      : call.status === "reconnecting" ? "Connection lost. Reconnecting…"
-      : call.weak ? "Your connection is weak. Video may look blurry."
+      : call.status === "connecting" ? t("home.connecting")
+      : call.status === "reconnecting" ? t("home.lostReconnecting")
+      : call.weak ? t("home.weak")
       : "";
     noteEl ??= h("p", { class: "stage-note" });
     noteEl.textContent = noteText;
@@ -790,7 +791,7 @@ register("home", (root) => {
       const rowsN = Math.max(1, Math.ceil(n / cols));
       stageEl.className = "stage";
       Object.assign(stageEl.style, { gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${rowsN}, minmax(0, 1fr))` });
-      emptyEl ??= h("p", { class: "muted center" }, "Nobody here yet.");
+      emptyEl ??= h("p", { class: "muted center" }, t("home.nobodyYetDot"));
       syncChildren(stageEl, [note, ...members.map((m) => personTile(m, cams.get(m.user_id))), n === 0 ? emptyEl : null].filter((x): x is HTMLElement => !!x));
     }
     for (const key of [...tileCache.keys()]) if (!usedTiles.has(key)) tileCache.delete(key);
@@ -828,8 +829,8 @@ register("home", (root) => {
     const soundNote = h("span", null);
     const showNote = () => {
       soundNote.textContent = !canSound
-        ? "Only the picture is shared on this Mac."
-        : box.checked ? "Everyone hears what you share." : "Only the picture is shared.";
+        ? t("home.share.picOnlyMac")
+        : box.checked ? t("home.share.everyoneHears") : t("home.share.picOnly");
     };
     box.addEventListener("change", () => { touched = true; showNote(); });
     const preview = (mode: "text" | "motion") => { if (!touched) { box.checked = prefs.screenSound(mode); showNote(); } };
@@ -846,14 +847,14 @@ register("home", (root) => {
         h("span", { class: "grow col" }, h("strong", null, title), h("span", { class: "muted small" }, hint)),
         prefs.screenMode === mode && h("span", { class: "lantern" }, "✓"));
     mount(menu,
-      h("p", { class: "share-title" }, "Share your screen for"),
-      option("text", "Reading together", "Sharp text: docs, code, websites (1080p, 15 fps)"),
-      option("motion", "Watching or playing", "Smooth motion: videos and games (1080p, 30 fps)"),
+      h("p", { class: "share-title" }, t("home.share.title")),
+      option("text", t("home.share.text"), t("home.share.textHint")),
+      option("motion", t("home.share.motion"), t("home.share.motionHint")),
       canSound && h("label", { class: "toggle-row share-sound-toggle" },
-        h("span", { class: "grow col" }, h("span", null, "Include my computer’s sound"), h("span", { class: "muted small" }, soundNote)),
+        h("span", { class: "grow col" }, h("span", null, t("home.share.sound")), h("span", { class: "muted small" }, soundNote)),
         box, h("span", { class: "switch", "aria-hidden": "true" })),
       !canSound && h("p", { class: "share-sound muted small" }, icon("volumeOff", 16), soundNote),
-      h("p", { class: "share-sound muted small" }, icon("monitorOff", 16), "Streaming services like Netflix show a black picture when shared."));
+      h("p", { class: "share-sound muted small" }, icon("monitorOff", 16), t("home.share.drm")));
     document.body.appendChild(menu);
     setTimeout(() => { addEventListener("mousedown", outside, true); addEventListener("keydown", esc, true); });
   }
@@ -866,11 +867,11 @@ register("home", (root) => {
     const btn = (label: string, ic: keyof typeof icons, cls: string, pressed: boolean | null, onclick: () => void, disabled = false) =>
       h("button", { class: `call-btn ${cls}`, type: "button", title: label, "aria-label": label, "aria-pressed": pressed === null ? undefined : String(pressed), disabled, onclick }, icon(ic, 24));
     mount(barEl,
-      btn(`${call.muted ? "Unmute" : "Mute"} (${formatKey(keys.mute)})`, call.muted ? "micOff" : "mic", call.muted ? "off" : "", call.muted, toggleMute),
-      btn(call.camera ? "Turn camera off" : "Turn camera on", call.camera ? "video" : "videoOff", call.camera ? "on" : "off", call.camera, () => void call.setCamera(!call.camera), !live),
-      btn(call.screen ? "Stop sharing" : "Share your screen", call.screen ? "monitorOff" : "monitor", call.screen ? "on" : "", call.screen, (e?: Event) => { if (call.screen) void call.setScreenShare(false); else shareMenu((e?.currentTarget as HTMLElement) ?? barEl!); }, !live),
-      popout.available && btn(popout.open ? "Close the people window" : "Pop out people", "popout", popout.open ? "on" : "", popout.open, () => popout.toggle(), !live && !popout.open),
-      btn("Leave", "hangup", "leave", null, () => void leave()));
+      btn(t(call.muted ? "home.unmute" : "home.mute", { key: formatKey(keys.mute) }), call.muted ? "micOff" : "mic", call.muted ? "off" : "", call.muted, toggleMute),
+      btn(call.camera ? t("home.cameraTurnOff") : t("home.cameraTurnOn"), call.camera ? "video" : "videoOff", call.camera ? "on" : "off", call.camera, () => void call.setCamera(!call.camera), !live),
+      btn(call.screen ? t("home.stopSharing") : t("home.shareScreen"), call.screen ? "monitorOff" : "monitor", call.screen ? "on" : "", call.screen, (e?: Event) => { if (call.screen) void call.setScreenShare(false); else shareMenu((e?.currentTarget as HTMLElement) ?? barEl!); }, !live),
+      popout.available && btn(popout.open ? t("home.closePeopleWindow") : t("home.popOut"), "popout", popout.open ? "on" : "", popout.open, () => popout.toggle(), !live && !popout.open),
+      btn(t("home.leave"), "hangup", "leave", null, () => void leave()));
   }
 
   // ─── Room admin (admins only; the server checks too) ─────────────
@@ -879,7 +880,7 @@ register("home", (root) => {
   let creating = false;
 
   function renameRow(r: Room) {
-    const input = h("input", { class: "sb-input", value: r.name, maxlength: 40, "aria-label": `New name for ${r.name}` });
+    const input = h("input", { class: "sb-input", value: r.name, maxlength: 40, "aria-label": t("home.newNameFor", { room: r.name }) });
     let finished = false;
     const done = async (save: boolean) => {
       if (finished) return;
@@ -898,7 +899,7 @@ register("home", (root) => {
   }
 
   function roomMenuButton(r: Room) {
-    const btn = h("button", { class: "sb-more", type: "button", "aria-label": `${r.name} options`, title: "Room options" }, icon("more", 18));
+    const btn = h("button", { class: "sb-more", type: "button", "aria-label": t("home.roomOptionsFor", { room: r.name }), title: t("home.roomOptions") }, icon("more", 18));
     btn.onclick = (e) => { e.stopPropagation(); roomMenu(r, btn); };
     return btn;
   }
@@ -913,20 +914,20 @@ register("home", (root) => {
     const busy = r.members.length;
     const draw = (confirming = false) => mount(menu,
       h("div", { class: "sm-head col start" }, h("strong", null, r.name),
-        r.kind === "voice" && h("span", { class: "muted small" }, r.last_used_at ? `Last used ${ago(r.last_used_at)}` : "Not used yet")),
+        r.kind === "voice" && h("span", { class: "muted small" }, r.last_used_at ? t("home.lastUsed", { ago: ago(r.last_used_at) }) : t("home.notUsed"))),
       r.kind === "voice" && sizeSlider(r),
-      h("button", { class: "sm-item", type: "button", role: "menuitem", onclick: () => { close(); renaming = r.id; renderSidebar(); } }, "Rename"),
+      h("button", { class: "sm-item", type: "button", role: "menuitem", onclick: () => { close(); renaming = r.id; renderSidebar(); } }, t("home.rename")),
       r.kind === "voice" && (confirming
         ? h("div", { class: "sm-confirm" },
-            h("p", { class: "small" }, busy ? `${busy} ${busy === 1 ? "person is" : "people are"} in ${r.name}. They’ll be moved to The Deck.` : `Delete ${r.name}? Its chat goes too.`),
+            h("p", { class: "small" }, busy ? tn("home.deleteBusy", busy, { room: r.name }) : t("home.deleteRoomQ", { room: r.name })),
             h("div", { class: "row gap-6" },
               h("button", { class: "btn danger sm", type: "button", onclick: async () => {
                 try { await api.deleteRoom(r.id, busy > 0); close(); if (view.kind === "voice" && view.roomId === r.id) show({ kind: "deck" }); }
                 catch (e) { toast(errorText(e), "error"); }
-              } }, busy ? "Move everyone and delete" : "Delete"),
-              h("button", { class: "btn ghost sm", type: "button", onclick: () => draw(false) }, "Cancel")))
+              } }, busy ? t("home.moveAndDelete") : t("common.delete")),
+              h("button", { class: "btn ghost sm", type: "button", onclick: () => draw(false) }, t("common.cancel"))))
         : h("button", { class: "sm-item danger", type: "button", role: "menuitem", onclick: () => draw(true) },
-            busy ? "Move everyone to The Deck and delete…" : "Delete room…")));
+            busy ? t("home.moveAllDelete") : t("home.deleteRoom"))));
     draw();
     document.body.appendChild(menu);
     setTimeout(() => { addEventListener("mousedown", outside, true); addEventListener("keydown", esc, true); });
@@ -935,9 +936,9 @@ register("home", (root) => {
   /** Room size 2–10: shows the number while dragging, saves on release. */
   function sizeSlider(r: Room) {
     const value = r.capacity ?? 10;
-    const out = h("strong", { class: "lantern" }, `${value} people`);
-    const input = h("input", { type: "range", class: "range", min: 2, max: 10, step: 1, value, "aria-label": "Room size" });
-    const paint = () => { input.style.setProperty("--fill", `${((Number(input.value) - 2) / 8) * 100}%`); out.textContent = `${input.value} people`; };
+    const out = h("strong", { class: "lantern" }, tn("home.peopleCount", value));
+    const input = h("input", { type: "range", class: "range", min: 2, max: 10, step: 1, value, "aria-label": t("home.roomSize") });
+    const paint = () => { input.style.setProperty("--fill", `${((Number(input.value) - 2) / 8) * 100}%`); out.textContent = tn("home.peopleCount", Number(input.value)); };
     input.addEventListener("input", paint);
     input.addEventListener("change", async () => {
       const n = Number(input.value);
@@ -947,20 +948,20 @@ register("home", (root) => {
     });
     paint();
     return h("div", { class: "sm-group size-group" },
-      h("div", { class: "row between sm-sub" }, h("span", { class: "muted small" }, "Room size"), out),
+      h("div", { class: "row between sm-sub" }, h("span", { class: "muted small" }, t("home.roomSize")), out),
       h("div", { class: "size-row" }, input),
-      r.members.length > 0 && h("span", { class: "muted small sm-sub" }, `${r.members.length} in the room now`));
+      r.members.length > 0 && h("span", { class: "muted small sm-sub" }, t("home.inRoomNow", { n: r.members.length })));
   }
 
   function newRoomControl() {
     const count = voiceRooms().length;
     if (count >= treehouse.max_voice_rooms) {
-      return h("p", { class: "muted small sb-note" }, `You have ${count} rooms. Delete one to add another.`);
+      return h("p", { class: "muted small sb-note" }, t("err.room_limit", { count }));
     }
     if (!creating) {
-      return h("button", { class: "sb-add", type: "button", onclick: () => { creating = true; renderSidebar(); } }, "+ New room");
+      return h("button", { class: "sb-add", type: "button", onclick: () => { creating = true; renderSidebar(); } }, t("home.newRoom"));
     }
-    const input = h("input", { class: "sb-input", maxlength: 40, placeholder: "Room name", "aria-label": "New room name" });
+    const input = h("input", { class: "sb-input", maxlength: 40, placeholder: t("home.roomName"), "aria-label": t("home.newRoomName") });
     const done = async (save: boolean) => {
       const name = input.value.trim();
       if (!creating) return;
@@ -982,29 +983,33 @@ register("home", (root) => {
   const inApp = "__TAURI_INTERNALS__" in window;
 
   function problemText(p: NonNullable<typeof problem>): { title: string; body: string } {
-    const thing = p.kind === "screen" ? "screen share" : p.kind;
     if (p.sound) {
       // The picture is shared; only the computer's sound isn't.
       return p.problem === "denied"
-        ? { title: "Your screen is shared without sound", body: "Allow Treehouse in System Settings → Privacy & Security → Screen & System Audio Recording, restart Treehouse, then share again." }
-        : { title: "Your screen is shared without sound", body: "Only the picture is shared on this Mac." };
+        ? { title: t("home.problem.noSoundTitle"), body: t("home.problem.noSoundDenied") }
+        : { title: t("home.problem.noSoundTitle"), body: t("home.share.picOnlyMac") };
     }
-    if (p.problem === "unsupported") return { title: "Screen sharing doesn’t work here yet", body: "This system doesn’t let apps share the screen. Update it, then try again." };
+    if (p.problem === "unsupported") return { title: t("home.problem.unsupportedTitle"), body: t("home.problem.unsupportedBody") };
     if (p.problem === "missing") {
       return p.kind === "microphone"
-        ? { title: "No microphone found", body: "Plug one in or pick another in Settings → Sound, then unmute." }
-        : { title: "No camera found", body: "Plug one in, then turn the camera on again." };
+        ? { title: t("home.problem.noMic"), body: t("home.problem.noMicBody") }
+        : { title: t("home.problem.noCam"), body: t("home.problem.noCamBody") };
     }
-    if (p.problem === "failed") return { title: `Couldn’t start your ${thing}`, body: "Close other apps that may be using it, then try again." };
+    if (p.problem === "failed") {
+      const title = p.kind === "screen" ? t("home.problem.failedScreen") : p.kind === "camera" ? t("home.problem.failedCamera") : t("home.problem.failedMicrophone");
+      return { title, body: t("home.problem.failedBody") };
+    }
     if (p.kind === "screen") {
       return isMac
-        ? { title: "Treehouse can’t share your screen", body: "Allow it in System Settings → Privacy & Security → Screen & System Audio Recording, restart Treehouse, then share again." }
-        : { title: "Screen sharing didn’t start", body: "Try again and pick a screen or window to share." };
+        ? { title: t("home.problem.screenMacTitle"), body: t("home.problem.screenMacBody") }
+        : { title: t("home.problem.screenOtherTitle"), body: t("home.problem.screenOtherBody") };
     }
-    const pane = p.kind === "camera" ? "Camera" : "Microphone";
+    const cam = p.kind === "camera";
     return {
-      title: `Treehouse can’t use your ${p.kind}`,
-      body: isMac ? `Allow it in System Settings → Privacy & Security → ${pane}, then try again.` : `Allow it in Settings → Privacy → ${pane}, then try again.`,
+      title: cam ? t("home.problem.cantUseCamera") : t("home.problem.cantUseMicrophone"),
+      body: isMac
+        ? (cam ? t("home.problem.allowMacCamera") : t("home.problem.allowMacMicrophone"))
+        : (cam ? t("home.problem.allowWinCamera") : t("home.problem.allowWinMicrophone")),
     };
   }
 
@@ -1019,9 +1024,9 @@ register("home", (root) => {
       icon(p.kind === "camera" ? "videoOff" : p.kind === "screen" ? "monitorOff" : "micOff", 22, "ember"),
       h("div", { class: "grow col" }, h("strong", null, title), h("span", { class: "muted small" }, body)),
       canOpen && h("button", { class: "btn primary sm", type: "button", onclick: () =>
-        void invoke("open_privacy_settings", { kind: p.kind }).catch(() => toast("Couldn’t open settings. Open them yourself.", "error")) },
-        isMac ? "Open System Settings" : "Open Windows settings"),
-      h("button", { class: "icon-btn sm", type: "button", "aria-label": "Dismiss", title: "Dismiss", onclick: () => { problem = null; renderProblem(); } }, icon("close", 18)));
+        void invoke("open_privacy_settings", { kind: p.kind }).catch(() => toast(t("home.problem.openFailed"), "error")) },
+        isMac ? t("home.problem.openMac") : t("home.problem.openWin")),
+      h("button", { class: "icon-btn sm", type: "button", "aria-label": t("home.dismiss"), title: t("home.dismiss"), onclick: () => { problem = null; renderProblem(); } }, icon("close", 18)));
   }
 
   function onCall(e: CallEvent) {
@@ -1053,7 +1058,7 @@ register("home", (root) => {
   const notifying = () => notificationsOn() && me.status !== "busy";
 
   function reportUnread() {
-    if ("__TAURI_INTERNALS__" in window) void invoke("set_unread", { count: notifying() ? deckMentions : 0 }).catch(() => {});
+    if ("__TAURI_INTERNALS__" in window) { const count = notifying() ? deckMentions : 0; void invoke("set_unread", { count, tooltip: count ? tn("home.trayMentions", count) : "Treehouse" }).catch(() => {}); }
   }
 
   /** Drop-up from your name: custom status, presence, notifications, settings, sign out. */
@@ -1079,9 +1084,9 @@ register("home", (root) => {
     const draw = (editing = false) => {
       const custom = me.status_text || me.status_emoji;
       let emoji = me.status_emoji ?? "💬";
-      const emojiBtn = h("button", { class: "status-emoji", type: "button", "aria-label": "Pick an emoji" }, emoji);
+      const emojiBtn = h("button", { class: "status-emoji", type: "button", "aria-label": t("home.pickEmoji") }, emoji);
       emojiBtn.onclick = () => emojiPicker(emojiBtn, (e) => { emoji = e; emojiBtn.textContent = e; });
-      const text = h("input", { class: "status-input", maxlength: 60, placeholder: "What’s happening?", value: me.status_text ?? "" });
+      const text = h("input", { class: "status-input", maxlength: 60, placeholder: t("home.whatsHappening"), value: me.status_text ?? "" });
       const commit = async () => { await save({ status_emoji: emoji, status_text: text.value }); draw(); };
       text.addEventListener("keydown", (e) => { if (e.key === "Enter") void commit(); });
       mount(menu,
@@ -1089,30 +1094,30 @@ register("home", (root) => {
         editing
           ? h("div", { class: "sm-edit" },
               h("div", { class: "row gap-6" }, emojiBtn, text),
-              h("div", { class: "sm-presets" }, STATUS_PRESETS.map(([e, t]) => h("button", { class: "chip", type: "button", onclick: () => { emoji = e; emojiBtn.textContent = e; text.value = t; text.focus(); } }, `${e} ${t}`))),
+              h("div", { class: "sm-presets" }, statusPresets().map(([e, label]) => h("button", { class: "chip", type: "button", onclick: () => { emoji = e; emojiBtn.textContent = e; text.value = label; text.focus(); } }, `${e} ${label}`))),
               h("div", { class: "row gap-6" },
-                h("button", { class: "btn primary sm", type: "button", onclick: () => void commit() }, "Save"),
-                custom && h("button", { class: "btn ghost sm", type: "button", onclick: async () => { await save({ status_emoji: "", status_text: "" }); draw(); } }, "Clear"),
-                h("button", { class: "link muted", type: "button", onclick: () => draw() }, "Cancel")))
+                h("button", { class: "btn primary sm", type: "button", onclick: () => void commit() }, t("common.save")),
+                custom && h("button", { class: "btn ghost sm", type: "button", onclick: async () => { await save({ status_emoji: "", status_text: "" }); draw(); } }, t("home.clear")),
+                h("button", { class: "link muted", type: "button", onclick: () => draw() }, t("common.cancel"))))
           : h("button", { class: "sm-status", type: "button", role: "menuitem", onclick: () => { draw(true); menu.querySelector<HTMLInputElement>(".status-input")?.focus(); } },
               h("span", { class: "status-emoji static" }, me.status_emoji ?? "😀"),
-              h("span", { class: "grow" }, custom ? (me.status_text || "Status set") : "Update your status")),
-        h("div", { class: "sm-group", role: "group", "aria-label": "Presence" },
-          (Object.keys(PRESENCE_LABEL) as Presence[]).map((p) =>
+              h("span", { class: "grow" }, custom ? (me.status_text || t("home.statusSet")) : t("home.updateStatus"))),
+        h("div", { class: "sm-group", role: "group", "aria-label": t("home.presence") },
+          PRESENCES.map((p) =>
             h("button", { class: `sm-item ${me.status === p ? "on" : ""}`, type: "button", role: "menuitemradio", "aria-checked": String(me.status === p), onclick: () => void save({ status: p }).then(() => draw()) },
-              h("span", { class: `online-dot inline ${p}` }), h("span", { class: "grow" }, PRESENCE_LABEL[p]),
-              p === "busy" && h("span", { class: "muted small" }, "pauses notifications"),
+              h("span", { class: `online-dot inline ${p}` }), h("span", { class: "grow" }, presenceLabel(p)),
+              p === "busy" && h("span", { class: "muted small" }, t("home.pausesNotifications")),
               me.status === p && h("span", { class: "lantern" }, "✓")))),
         h("button", { class: "sm-item", type: "button", role: "menuitemcheckbox", "aria-checked": String(notificationsOn()), onclick: () => { setNotifications(!notificationsOn()); reportUnread(); draw(); } },
-          h("span", { class: "grow" }, "Notifications"), h("span", { class: "muted small" }, notificationsOn() ? (me.status === "busy" ? "Paused while busy" : "On") : "Off")),
+          h("span", { class: "grow" }, t("home.notifications")), h("span", { class: "muted small" }, notificationsOn() ? (me.status === "busy" ? t("home.pausedBusy") : t("home.on")) : t("home.off"))),
         h("div", { class: "sm-sep" }),
-        h("button", { class: "sm-item", type: "button", role: "menuitem", onclick: () => { close(); go({ name: "settings" }); } }, "Profile and settings"),
+        h("button", { class: "sm-item", type: "button", role: "menuitem", onclick: () => { close(); go({ name: "settings" }); } }, t("home.profileSettings")),
         h("button", { class: "sm-item danger", type: "button", role: "menuitem", onclick: async () => {
           close();
           try { await api.logout(); } catch { await api.forgetLogin().catch(() => {}); }
           session.me = null;
           go({ name: "signin" });
-        } }, "Sign out"));
+        } }, t("home.signOut")));
     };
     draw();
     document.body.appendChild(menu);
@@ -1240,7 +1245,7 @@ register("home", (root) => {
         await gs.register(acc, (ev) => (ev.state === "Pressed" ? pttPress() : pttRelease()));
         pttCleanup = () => { pttRelease(); void gs.unregister(acc).catch(() => {}); };
       } catch {
-        toast(`Push to talk (${formatKey(combo)}) is taken by another app. Pick another in Settings.`, "error");
+        toast(t("home.pttTaken", { key: formatKey(combo) }), "error");
       }
       return;
     }

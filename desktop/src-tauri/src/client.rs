@@ -49,7 +49,7 @@ impl Client {
     fn set_token(&self, server: &Url, token: &str) -> Result<(), ApiError> {
         keychain(server)?.set_password(token).map_err(|_| {
             ApiError::local(
-                "keychain",
+                "keychain_save",
                 "Couldn't save your login in the system keychain.",
             )
         })?;
@@ -92,6 +92,9 @@ pub struct ApiError {
     error: String,
     message: String,
     status: u16,
+    /// Values for the translated sentence (passed through from the server).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    params: Option<Value>,
 }
 
 impl ApiError {
@@ -100,6 +103,7 @@ impl ApiError {
             error: error.into(),
             message: message.into(),
             status: 0,
+            params: None,
         }
     }
     fn offline() -> Self {
@@ -216,6 +220,7 @@ async fn send(
             .unwrap_or("The treehouse answered with an error. Try again.")
             .into(),
         status,
+        params: value.get("params").filter(|p| p.is_object()).cloned(),
     })
 }
 

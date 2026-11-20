@@ -3,6 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { toast } from "./dom";
+import { t } from "./i18n";
 
 interface UpdateStatus { enabled: boolean; current: string }
 interface UpdateInfo { version: string; current: string; notes: string | null }
@@ -22,8 +23,8 @@ export async function initUpdates(): Promise<UpdateStatus | null> {
 /** Tray menu: check now and say what happened. */
 export async function checkForUpdates() {
   const st = await invoke<UpdateStatus>("update_status").catch(() => null);
-  if (!st?.enabled) { toast("Updates are off in this build."); return; }
-  toast("Checking for updates…");
+  if (!st?.enabled) { toast(t("updates.off")); return; }
+  toast(t("updates.checking"));
   await check(true, st.current);
 }
 
@@ -33,17 +34,18 @@ async function check(manual: boolean, current?: string) {
   try {
     const info = await invoke<UpdateInfo | null>("update_check");
     if (!info) {
-      if (manual) toast(`You’re up to date (Treehouse ${current ?? ""}).`.replace(" )", ")"));
+      if (manual) toast(current ? t("updates.upToDate", { version: current }) : t("updates.upToDateBare"));
       return;
     }
     const ok = await ask(
-      `Treehouse ${info.version} is out (you have ${info.current}). Treehouse restarts to finish.`,
-      { title: "Update Treehouse", kind: "info", okLabel: "Update and restart", cancelLabel: "Later" },
+      t("updates.available", { version: info.version, current: info.current }),
+      { title: t("updates.title"), kind: "info", okLabel: t("updates.install"), cancelLabel: t("updates.later") },
     );
     if (ok) await invoke("update_install");
   } catch (e) {
-    if (manual) toast(`Couldn’t check for updates: ${String(e)}`, "error");
-    else console.warn("update check failed", e);
+    // The Rust side's reason is English and technical: log it, show a plain line.
+    console.warn("update check failed", e);
+    if (manual) toast(t("updates.failed"), "error");
   } finally {
     busy = false;
   }

@@ -14,16 +14,17 @@ import { JOIN_SOUNDS, LEAVE_SOUNDS, playSound } from "../sounds";
 import { AUDIO_CAPTURE, prefs } from "../voice";
 import { call } from "../call";
 import { colorPicker, tilePreview } from "./auth";
+import { detectedSystemLang, LANG_NAMES, langSetting, setLangSetting, t, tn, type Key, type LangSetting } from "../i18n";
 
-const TABS: [SettingsTab, string][] = [
-  ["profile", "Profile"], ["sound", "Sound and hotkeys"], ["security", "Security"], ["invites", "Invite friends"], ["computer", "This computer"],
+const TABS: [SettingsTab, Key][] = [
+  ["profile", "settings.tab.profile"], ["sound", "settings.tab.sound"], ["security", "settings.tab.security"], ["invites", "settings.tab.invites"], ["computer", "settings.tab.computer"],
 ];
 
 register("settings", (root, screen) => {
   if (!session.me) { go({ name: "find" }); return; }
   const me: Me = session.me;
   // Invites are hidden from members (the server refuses them anyway).
-  const tabs = TABS.filter(([t]) => t !== "invites" || me.role !== "member");
+  const tabs = TABS.filter(([id]) => id !== "invites" || me.role !== "member");
   let tab: SettingsTab = (screen.name === "settings" && screen.tab) || "profile";
   let stopTab: (() => void) | undefined;
   const nav = h("nav", { class: "set-nav" });
@@ -33,14 +34,14 @@ register("settings", (root, screen) => {
   const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !dropdownOpen() && !(e.target instanceof HTMLInputElement)) close(); };
   addEventListener("keydown", onKey);
 
-  function select(t: SettingsTab) {
+  function select(next: SettingsTab) {
     stopTab?.();
     stopTab = undefined;
-    tab = t;
-    mount(nav, h("h1", { class: "set-title" }, "Settings"), tabs.map(([id, label]) =>
-      h("button", { class: `set-tab ${id === tab ? "active" : ""}`, "aria-current": id === tab ? "page" : undefined, onclick: () => select(id) }, label)));
+    tab = next;
+    mount(nav, h("h1", { class: "set-title" }, t("settings.title")), tabs.map(([id, label]) =>
+      h("button", { class: `set-tab ${id === tab ? "active" : ""}`, "aria-current": id === tab ? "page" : undefined, onclick: () => select(id) }, t(label))));
     const panel = h("div", { class: "set-panel" });
-    mount(body, h("button", { class: "btn ghost back", onclick: close }, icon("close", 20), "Back to the treehouse"), panel);
+    mount(body, h("button", { class: "btn ghost back", onclick: close }, icon("close", 20), t("settings.back")), panel);
     stopTab = ({ profile, sound, security, invites, computer } as const)[tab](panel) ?? undefined;
   }
 
@@ -50,7 +51,7 @@ register("settings", (root, screen) => {
     const name = h("input", { id: "p-name", value: me.display_name, maxlength: 32 });
     const preview = h("div");
     const err = h("p", { class: "form-error", role: "alert", hidden: true });
-    const save = h("button", { class: "btn primary fit", type: "submit" }, "Save");
+    const save = h("button", { class: "btn primary fit", type: "submit" }, t("common.save"));
     const draw = () => {
       const shown = name.value || me.display_name;
       mount(preview, tilePreview(shown, color, personAvatar({ ...me, display_name: shown, color }, 0, "big")));
@@ -60,19 +61,19 @@ register("settings", (root, screen) => {
 
     // Photo: shrunk here, re-encoded to 256px on the server, stored in Postgres.
     const file = h("input", { type: "file", accept: "image/png,image/jpeg,image/webp,image/gif", hidden: true });
-    const upload = h("button", { class: "btn ghost sm", type: "button", onclick: () => file.click() }, "Upload photo");
-    const remove = h("button", { class: "btn ghost sm", type: "button" }, "Remove photo");
+    const upload = h("button", { class: "btn ghost sm", type: "button", onclick: () => file.click() }, t("settings.profile.uploadPhoto"));
+    const remove = h("button", { class: "btn ghost sm", type: "button" }, t("settings.profile.removePhoto"));
     file.onchange = async () => {
       const f = file.files?.[0];
       file.value = "";
       if (!f) return;
-      if (f.size > 15 * 1024 * 1024) { toast("That picture is too big. Use one under 15 MB.", "error"); return; }
+      if (f.size > 15 * 1024 * 1024) { toast(t("settings.profile.photoTooBig"), "error"); return; }
       upload.disabled = true;
       try {
         const me2 = await api.uploadAvatar(await shrinkForUpload(f));
         session.me = Object.assign(me, { avatar: me2.avatar });
         draw();
-        toast("Photo updated.");
+        toast(t("settings.profile.photoUpdated"));
       } catch (x) { toast(errorText(x), "error"); }
       upload.disabled = false;
     };
@@ -86,23 +87,23 @@ register("settings", (root, screen) => {
       remove.disabled = false;
     };
     mount(el,
-      h("h2", { class: "display xs" }, "Profile"),
+      h("h2", { class: "display xs" }, t("settings.profile.title")),
       h("form", { class: "set-grid", onsubmit: async (e: Event) => {
         e.preventDefault();
         save.disabled = true;
         err.hidden = true;
         try {
           session.me = Object.assign(me, await api.updateMe({ display_name: name.value.trim(), color }));
-          toast("Saved.");
+          toast(t("common.saved"));
         } catch (x) { err.textContent = errorText(x); err.hidden = false; }
         save.disabled = false;
       } },
         h("div", { class: "stack-16" },
-          h("div", { class: "field" }, h("span", { class: "label" }, "Photo"), h("div", { class: "row gap-10" }, upload, remove, file),
-            h("p", { class: "muted small" }, "JPEG, PNG, WebP or GIF, up to 15 MB and at least 64×64 pixels. We crop it to a square and shrink it to 256×256.")),
-          h("div", { class: "field" }, h("label", { for: "p-name" }, "Name your crew sees"), name),
-          h("div", { class: "field" }, h("span", { class: "label" }, "Username"), h("p", { class: "muted" }, `@${me.username}`)),
-          h("fieldset", { class: "plain" }, h("legend", { class: "label" }, "Your color"), colorPicker(color, (c) => { color = c; draw(); })),
+          h("div", { class: "field" }, h("span", { class: "label" }, t("settings.profile.photo")), h("div", { class: "row gap-10" }, upload, remove, file),
+            h("p", { class: "muted small" }, t("settings.profile.photoHint"))),
+          h("div", { class: "field" }, h("label", { for: "p-name" }, t("settings.profile.name")), name),
+          h("div", { class: "field" }, h("span", { class: "label" }, t("settings.profile.username")), h("p", { class: "muted" }, `@${me.username}`)),
+          h("fieldset", { class: "plain" }, h("legend", { class: "label" }, t("settings.profile.color")), colorPicker(color, (c) => { color = c; draw(); })),
           err, save),
         preview));
     draw();
@@ -110,13 +111,13 @@ register("settings", (root, screen) => {
 
   // ─── Sound and hotkeys ───
   function sound(el: HTMLElement) {
-    const mic = dropdown("s-mic", [{ value: "", label: "System default" }], prefs.mic);
-    const out = dropdown("s-out", [{ value: "", label: "System default" }], prefs.speaker);
+    const mic = dropdown("s-mic", [{ value: "", label: t("settings.sound.systemDefault") }], prefs.mic);
+    const out = dropdown("s-out", [{ value: "", label: t("settings.sound.systemDefault") }], prefs.speaker);
     // Segmented level meter: green for normal speech, amber when loud, red near clipping.
     const SEGMENTS = 32;
     const segs = Array.from({ length: SEGMENTS }, (_, i) =>
       h("span", { class: `seg ${i < SEGMENTS * 0.6 ? "low" : i < SEGMENTS * 0.85 ? "mid" : "high"}` }));
-    const bar = h("span", { class: "meter segmented", role: "meter", "aria-label": "Microphone level", "aria-valuemin": 0, "aria-valuemax": 100 }, segs);
+    const bar = h("span", { class: "meter segmented", role: "meter", "aria-label": t("settings.sound.micLevel"), "aria-valuemin": 0, "aria-valuemax": 100 }, segs);
     let shown = -1;
     const setLevel = (pct: number) => {
       const lit = Math.round((pct / 100) * SEGMENTS);
@@ -128,12 +129,12 @@ register("settings", (root, screen) => {
     let micGainNode: GainNode | null = null;
     const slider = (id: string, label: string, value: number, onInput: (v: number) => void, extra?: Node, max = 200) => {
       const out = h("span", { class: "range-value" }, `${value}%`);
-      const input = h("input", { id, type: "range", class: "range", min: 0, max, step: 5, value, "aria-valuetext": `${value} percent` });
+      const input = h("input", { id, type: "range", class: "range", min: 0, max, step: 5, value, "aria-valuetext": t("settings.sound.percent", { n: value }) });
       const paint = () => input.style.setProperty("--fill", `${(Number(input.value) / max) * 100}%`);
       input.addEventListener("input", () => {
         const v = Number(input.value);
         out.textContent = `${v}%`;
-        input.setAttribute("aria-valuetext", `${v} percent`);
+        input.setAttribute("aria-valuetext", t("settings.sound.percent", { n: v }));
         paint();
         onInput(v);
       });
@@ -141,14 +142,14 @@ register("settings", (root, screen) => {
       return h("div", { class: "field" }, h("div", { class: "row between" }, h("label", { for: id }, label), out),
         h("div", { class: "row gap-14" }, input, extra));
     };
-    const micVolume = slider("s-mic-gain", "Microphone volume", prefs.micGain, (v) => {
+    const micVolume = slider("s-mic-gain", t("settings.sound.micVolume"), prefs.micGain, (v) => {
       prefs.micGain = v;
       if (micGainNode) micGainNode.gain.value = v / 100;
       call.setMicGain(v);
     });
-    const outVolume = slider("s-out-gain", "Voices volume", prefs.outputVolume, (v) => { prefs.outputVolume = v; call.setOutputVolume(v); }, undefined, 100);
-    const testSound = h("button", { class: "btn ghost sm", type: "button", onclick: () => playSound(me.join_sound === "none" ? "ding" : me.join_sound) }, "Play");
-    const soundsVolume = slider("s-sounds-gain", "Sounds volume", prefs.soundsVolume, (v) => { prefs.soundsVolume = v; }, testSound, 100);
+    const outVolume = slider("s-out-gain", t("settings.sound.voicesVolume"), prefs.outputVolume, (v) => { prefs.outputVolume = v; call.setOutputVolume(v); }, undefined, 100);
+    const testSound = h("button", { class: "btn ghost sm", type: "button", onclick: () => playSound(me.join_sound === "none" ? "ding" : me.join_sound) }, t("settings.sound.play"));
+    const soundsVolume = slider("s-sounds-gain", t("settings.sound.soundsVolume"), prefs.soundsVolume, (v) => { prefs.soundsVolume = v; }, testSound, 100);
     const problem = h("div", { class: "mic-problem", role: "alert", hidden: true });
     let stream: MediaStream | null = null;
     let ctx: AudioContext | null = null;
@@ -156,7 +157,7 @@ register("settings", (root, screen) => {
 
     const stop = () => {
       cancelAnimationFrame(raf);
-      stream?.getTracks().forEach((t) => t.stop());
+      stream?.getTracks().forEach((tr) => tr.stop());
       void ctx?.close();
       stream = null; ctx = null;
     };
@@ -193,26 +194,26 @@ register("settings", (root, screen) => {
       const inApp = "__TAURI_INTERNALS__" in window;
       mount(problem,
         h("div", { class: "row gap-10" }, icon("micOff", 22, "ember"),
-          h("strong", null, notFound ? "No microphone found" : "Treehouse can’t use your microphone")),
+          h("strong", null, notFound ? t("settings.sound.noMic") : t("settings.sound.micBlocked"))),
         h("p", { class: "muted small" }, notFound
-          ? "Plug one in or pick another one above, then try again."
+          ? t("settings.sound.noMicHint")
           : isMac
-            ? "Allow it in System Settings → Privacy & Security → Microphone, then try again."
-            : "Allow it in Settings → Privacy → Microphone, then try again."),
+            ? t("settings.sound.allowMac")
+            : t("settings.sound.allowWindows")),
         h("div", { class: "row gap-10 wrap" },
           !notFound && inApp && h("button", { class: "btn primary sm", type: "button", onclick: () =>
-            void invoke("open_privacy_settings", { kind: "microphone" }).catch(() => toast("Couldn’t open settings. Open them yourself.", "error")) },
-            isMac ? "Open System Settings" : "Open Windows settings"),
-          h("button", { class: "btn ghost sm", type: "button", onclick: () => void listen().then(fill) }, "Try again")));
+            void invoke("open_privacy_settings", { kind: "microphone" }).catch(() => toast(t("settings.sound.openSettingsFailed"), "error")) },
+            isMac ? t("settings.sound.openMac") : t("settings.sound.openWindows")),
+          h("button", { class: "btn ghost sm", type: "button", onclick: () => void listen().then(fill) }, t("common.tryAgain"))));
       problem.hidden = false;
       setLevel(0);
     };
 
     const fill = async () => {
       const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
-      const opts = (kind: MediaDeviceKind) => [{ value: "", label: "System default" },
+      const opts = (kind: MediaDeviceKind) => [{ value: "", label: t("settings.sound.systemDefault") },
         ...devices.filter((d) => d.kind === kind && d.deviceId && d.deviceId !== "default").map((d, i) =>
-          ({ value: d.deviceId, label: d.label || `${kind === "audioinput" ? "Microphone" : "Speaker"} ${i + 1}` }))];
+          ({ value: d.deviceId, label: d.label || t(kind === "audioinput" ? "settings.sound.microphoneN" : "settings.sound.speakerN", { n: i + 1 }) }))];
       mic.setOptions(opts("audioinput"), prefs.mic);
       out.setOptions(opts("audiooutput"), prefs.speaker);
     };
@@ -221,29 +222,29 @@ register("settings", (root, screen) => {
     out.onChange = (v) => { prefs.speaker = v; void call.useDevice("audiooutput", v); };
 
     mount(el,
-      h("h2", { class: "display xs" }, "Sound"),
+      h("h2", { class: "display xs" }, t("settings.sound.title")),
       h("div", { class: "stack-16 maxw" },
-        h("div", { class: "field" }, h("label", { for: "s-mic" }, "Microphone"), mic.el),
+        h("div", { class: "field" }, h("label", { for: "s-mic" }, t("settings.sound.microphone")), mic.el),
         micVolume,
-        h("div", { class: "row gap-14 meter-row" }, h("span", { class: "muted small" }, "Say something"), bar),
+        h("div", { class: "row gap-14 meter-row" }, h("span", { class: "muted small" }, t("settings.sound.saySomething")), bar),
         problem,
-        h("div", { class: "field" }, h("label", { for: "s-out" }, "Speakers or headphones"), out.el),
+        h("div", { class: "field" }, h("label", { for: "s-out" }, t("settings.sound.output")), out.el),
         outVolume,
         soundsVolume,
-        h("p", { class: "muted small" }, "Voices are the people in your call. Sounds are join, leave and mention sounds."),
+        h("p", { class: "muted small" }, t("settings.sound.voicesVsSounds")),
         joinSoundField(),
-        h("h3", { class: "subhead" }, "Screen sharing"),
+        h("h3", { class: "subhead" }, t("settings.sound.screenSharing")),
         screenModeField(),
-        "__TAURI_INTERNALS__" in window && toggle("Show people on top while I share",
-          "A small window with everyone in the call stays above your game or apps. It’s left out of what you share.",
+        "__TAURI_INTERNALS__" in window && toggle(t("settings.sound.overlay"),
+          t("settings.sound.overlayHint"),
           prefs.overlayWhileSharing, (v) => { prefs.overlayWhileSharing = v; }),
-        h("h3", { class: "subhead" }, "Voice rooms"),
-        toggle("Join voice when I open a room", "Otherwise double-click a room or press Join voice.", prefs.autoJoin, (v) => { prefs.autoJoin = v; }),
-        toggle("Join with my microphone muted", "Unmute when you’re ready to talk.", prefs.joinMuted, (v) => { prefs.joinMuted = v; }),
-        toggle("Turn my camera on when I join", "Off means it stays off until you turn it on.", prefs.joinCamera, (v) => { prefs.joinCamera = v; }),
-        h("p", { class: "info-box" }, "Echo removal, background-noise removal and volume leveling are always on, so your keyboard and fans stay out of the call."),
-        h("h3", { class: "subhead" }, "Hotkeys"),
-        h("p", { class: "muted small" }, "Click a shortcut, then press the keys you want. Esc cancels; Backspace clears."),
+        h("h3", { class: "subhead" }, t("settings.sound.voiceRooms")),
+        toggle(t("settings.sound.autoJoin"), t("settings.sound.autoJoinHint"), prefs.autoJoin, (v) => { prefs.autoJoin = v; }),
+        toggle(t("settings.sound.joinMuted"), t("settings.sound.joinMutedHint"), prefs.joinMuted, (v) => { prefs.joinMuted = v; }),
+        toggle(t("settings.sound.joinCamera"), t("settings.sound.joinCameraHint"), prefs.joinCamera, (v) => { prefs.joinCamera = v; }),
+        h("p", { class: "info-box" }, t("settings.sound.processing")),
+        h("h3", { class: "subhead" }, t("settings.sound.hotkeys")),
+        h("p", { class: "muted small" }, t("settings.sound.hotkeysHint")),
         hotkeyRows()));
     // Fill the lists now; fill again once access is granted (device names appear then).
     void fill();
@@ -253,12 +254,12 @@ register("settings", (root, screen) => {
 
   function screenModeField() {
     const pick = dropdown("s-screen", [
-      { value: "text", label: "Sharp text", hint: "1080p, 15 fps: code, docs, websites" },
-      { value: "motion", label: "Smooth motion", hint: "1080p, 30 fps: games and video" },
+      { value: "text", label: t("settings.sound.sharpText"), hint: t("settings.sound.sharpTextHint") },
+      { value: "motion", label: t("settings.sound.smoothMotion"), hint: t("settings.sound.smoothMotionHint") },
     ], prefs.screenMode);
     pick.onChange = (v) => { prefs.screenMode = v as "text" | "motion"; };
-    return h("div", { class: "field" }, h("label", { for: "s-screen" }, "When I share my screen, favour"), pick.el,
-      h("p", { class: "muted small" }, "Applies the next time you start sharing."));
+    return h("div", { class: "field" }, h("label", { for: "s-screen" }, t("settings.sound.screenMode")), pick.el,
+      h("p", { class: "muted small" }, t("settings.sound.screenModeHint")));
   }
 
   function toggle(label: string, hint: string, on: boolean, onChange: (v: boolean) => void) {
@@ -277,7 +278,7 @@ register("settings", (root, screen) => {
         session.me = me;
       } catch (x) { toast(errorText(x), "error"); pick.value = me[kind]; }
     };
-    const play = h("button", { class: "btn ghost sm", type: "button", onclick: () => playSound(pick.value as SoundName) }, "Play");
+    const play = h("button", { class: "btn ghost sm", type: "button", onclick: () => playSound(pick.value as SoundName) }, t("settings.sound.play"));
     return h("div", { class: "field" }, h("label", { for: `s-${kind}` }, label),
       h("div", { class: "row gap-14" }, h("div", { class: "grow" }, pick.el), play),
       h("p", { class: "muted small" }, hint));
@@ -285,8 +286,8 @@ register("settings", (root, screen) => {
 
   function joinSoundField() {
     return [
-      soundPicker("join_sound", "Your join sound", "Everyone in the voice room hears it when you join."),
-      soundPicker("leave_sound", "Your leave sound", "Everyone still in the room hears it when you leave."),
+      soundPicker("join_sound", t("settings.sound.joinSound"), t("settings.sound.joinSoundHint")),
+      soundPicker("leave_sound", t("settings.sound.leaveSound"), t("settings.sound.leaveSoundHint")),
     ];
   }
 
@@ -326,7 +327,7 @@ register("settings", (root, screen) => {
       // Push to talk is system-wide: make sure no other app already holds it.
       if (action === "ptt") void globalAvailable(c).then((ok) => {
         if (ok || JSON.stringify(bindings.ptt) !== JSON.stringify(c)) return;
-        note = { action, text: [...found, "Another app already uses this shortcut. Pick another."], bad: true };
+        note = { action, text: [...found, t("settings.hotkey.taken")], bad: true };
         draw();
       });
     };
@@ -335,8 +336,8 @@ register("settings", (root, screen) => {
       mount(list, ACTIONS.map(([action, label]) => {
         const isDefault = JSON.stringify(bindings[action]) === JSON.stringify(DEFAULT_KEYS[action]);
         const btn = h("button", { class: `kbd kbd-btn ${recording === action ? "recording" : ""}`, type: "button",
-          "aria-label": `Change ${label} shortcut, now ${formatKey(bindings[action])}` },
-          recording === action ? "Press keys…" : formatKey(bindings[action]));
+          "aria-label": t("settings.hotkey.change", { action: label, keys: formatKey(bindings[action]) }) },
+          recording === action ? t("settings.hotkey.pressKeys") : formatKey(bindings[action]));
         btn.onclick = () => {
           if (recording) removeEventListener("keydown", capture, true);
           recording = action;
@@ -356,9 +357,9 @@ register("settings", (root, screen) => {
               saveHotkeys(bindings);
               note = null;
               draw();
-            } }, "Reset"),
+            } }, t("settings.hotkey.reset")),
             btn),
-          lines.length > 0 && h("ul", { class: `hotkey-warn ${note?.action === action && note.bad ? "bad" : ""}` }, lines.map((t) => h("li", null, t))));
+          lines.length > 0 && h("ul", { class: `hotkey-warn ${note?.action === action && note.bad ? "bad" : ""}` }, lines.map((line) => h("li", null, line))));
       }));
     }
     draw();
@@ -368,19 +369,19 @@ register("settings", (root, screen) => {
   // ─── Security ───
   function security(el: HTMLElement) {
     const cur = h("input", { id: "pw-cur", type: "password", autocomplete: "current-password" });
-    const next = h("input", { id: "pw-new", type: "password", autocomplete: "new-password", placeholder: "A few unrelated words" });
+    const next = h("input", { id: "pw-new", type: "password", autocomplete: "new-password", placeholder: t("settings.security.newPlaceholder") });
     const err = h("p", { class: "form-error", role: "alert", hidden: true });
-    const btn = h("button", { class: "btn primary fit", type: "submit" }, "Change password");
+    const btn = h("button", { class: "btn primary fit", type: "submit" }, t("settings.security.changePassword"));
     mount(el,
-      h("h2", { class: "display xs" }, "Security"),
+      h("h2", { class: "display xs" }, t("settings.security.title")),
       h("div", { class: "stack-28 maxw" },
         h("div", { class: "card stack-10" },
-          h("div", { class: "row gap-10" }, h("strong", { class: "grow" }, "Two-step sign-in"),
-            h("span", { class: me.mfa_enabled ? "leaf" : "muted" }, me.mfa_enabled ? "On" : "Off")),
+          h("div", { class: "row gap-10" }, h("strong", { class: "grow" }, t("settings.security.twoStep")),
+            h("span", { class: me.mfa_enabled ? "leaf" : "muted" }, me.mfa_enabled ? t("settings.security.on") : t("settings.security.off"))),
           h("p", { class: "muted small" }, me.mfa_enabled
-            ? "Signing in asks for a code from your authenticator app. Lost your phone? Use a backup code, or ask an admin to reset it."
-            : "Add a code from an authenticator app when you sign in. Admins always need it."),
-          !me.mfa_enabled && h("button", { class: "btn primary sm fit", onclick: () => go({ name: "mfasetup", back: { name: "settings", tab: "security" } }) }, "Turn on two-step sign-in")),
+            ? t("settings.security.twoStepOnHint")
+            : t("settings.security.twoStepOffHint")),
+          !me.mfa_enabled && h("button", { class: "btn primary sm fit", onclick: () => go({ name: "mfasetup", back: { name: "settings", tab: "security" } }) }, t("settings.security.turnOn"))),
         h("form", { class: "stack-16", onsubmit: async (e: Event) => {
           e.preventDefault();
           btn.disabled = true;
@@ -388,40 +389,40 @@ register("settings", (root, screen) => {
           try {
             await api.changePassword(cur.value, next.value);
             cur.value = next.value = "";
-            toast("Password changed.");
+            toast(t("settings.security.passwordChanged"));
           } catch (x) { err.textContent = errorText(x); err.hidden = false; }
           btn.disabled = false;
         } },
-          h("h3", { class: "subhead" }, "Password"),
-          h("div", { class: "field" }, h("label", { for: "pw-cur" }, "Current password"), cur),
-          h("div", { class: "field" }, h("label", { for: "pw-new" }, "New password"), next, strengthMeter(next, () => ({ username: me.username, display_name: me.display_name }))),
+          h("h3", { class: "subhead" }, t("settings.security.password")),
+          h("div", { class: "field" }, h("label", { for: "pw-cur" }, t("settings.security.current")), cur),
+          h("div", { class: "field" }, h("label", { for: "pw-new" }, t("settings.security.new")), next, strengthMeter(next, () => ({ username: me.username, display_name: me.display_name }))),
           err, btn)));
   }
 
   // ─── Invite friends ───
   function invites(el: HTMLElement) {
-    const label = h("input", { id: "inv-label", placeholder: "Who’s it for? (Kai)", maxlength: 40 });
-    const hours = dropdown("inv-hours", [["1", "1 hour"], ["24", "1 day"], ["72", "3 days"], ["168", "7 days"]].map(([value, label]) => ({ value, label })), "168");
-    const uses = dropdown("inv-uses", [1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: n === 1 ? "Once" : `Up to ${n} people` })), "1");
-    const role = dropdown("inv-role", [{ value: "member", label: "Member" }, { value: "moderator", label: "Moderator" }], "member");
+    const label = h("input", { id: "inv-label", placeholder: t("settings.invites.forPlaceholder"), maxlength: 40 });
+    const hours = dropdown("inv-hours", [["1", tn("settings.invites.hours", 1)], ["24", tn("settings.invites.days", 1)], ["72", tn("settings.invites.days", 3)], ["168", tn("settings.invites.days", 7)]].map(([value, label]) => ({ value, label })), "168");
+    const uses = dropdown("inv-uses", [1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: n === 1 ? t("settings.invites.once") : tn("settings.invites.upTo", n) })), "1");
+    const role = dropdown("inv-role", [{ value: "member", label: t("role.member") }, { value: "moderator", label: t("role.moderator") }], "member");
     const fresh = h("div");
     const list = h("ul", { class: "rows" });
-    const btn = h("button", { class: "btn primary fit", type: "submit" }, "Create invite");
+    const btn = h("button", { class: "btn primary fit", type: "submit" }, t("settings.invites.create"));
 
     const expiresIn = (iso: string) => {
       const hrs = (new Date(iso).getTime() - Date.now()) / 3_600_000;
-      if (hrs <= 0) return "Expired";
-      return hrs < 24 ? `Expires in ${Math.max(1, Math.round(hrs))} hour${Math.round(hrs) === 1 ? "" : "s"}` : `Expires in ${Math.round(hrs / 24)} day${Math.round(hrs / 24) === 1 ? "" : "s"}`;
+      if (hrs <= 0) return t("settings.invites.expired");
+      return hrs < 24 ? tn("settings.invites.expiresHours", Math.max(1, Math.round(hrs))) : tn("settings.invites.expiresDays", Math.round(hrs / 24));
     };
 
     const show = (inv: Invite) => {
-      const copy = h("button", { class: "btn primary fit" }, icon("copy", 18), "Copy invite link");
+      const copy = h("button", { class: "btn primary fit" }, icon("copy", 18), t("settings.invites.copyLink"));
       copy.onclick = async () => {
-        try { await navigator.clipboard.writeText(inv.link ?? inv.code ?? ""); toast("Invite link copied."); }
-        catch { toast("Couldn’t copy. Select the code and copy it yourself.", "error"); }
+        try { await navigator.clipboard.writeText(inv.link ?? inv.code ?? ""); toast(t("settings.invites.copied")); }
+        catch { toast(t("settings.invites.copyFailed"), "error"); }
       };
       mount(fresh, h("div", { class: "invite-card" },
-        h("strong", null, inv.label ? `New invite for ${inv.label}` : "New invite"),
+        h("strong", null, inv.label ? t("settings.invites.newFor", { label: inv.label }) : t("settings.invites.new")),
         h("p", { class: "invite-code" }, inv.code ?? ""),
         h("div", { class: "row gap-14 wrap" }, copy, h("span", { class: "muted" }, expiresIn(inv.expires_at)))));
     };
@@ -433,21 +434,21 @@ register("settings", (root, screen) => {
           const used = inv.uses >= inv.max_uses || (inv.joined.length > 0 && new Date(inv.expires_at).getTime() < Date.now());
           const expired = new Date(inv.expires_at).getTime() < Date.now();
           return h("li", null,
-            h("span", { class: "grow col" }, h("span", null, inv.label ?? "Invite"),
-              h("span", { class: "muted small" }, `${inv.role === "moderator" ? "Moderator, " : ""}${inv.max_uses > 1 ? `${inv.uses} of ${inv.max_uses} used` : ""}`.replace(/, $/, ""))),
-            used ? h("span", { class: "leaf" }, inv.joined.length ? `Joined: ${inv.joined.join(", ")}` : "Used")
-              : expired ? h("span", { class: "muted" }, "Expired or cancelled")
-              : [h("span", { class: "lantern" }, "Waiting"),
+            h("span", { class: "grow col" }, h("span", null, inv.label ?? t("settings.invites.invite")),
+              h("span", { class: "muted small" }, [inv.role === "moderator" && t("role.moderator"), inv.max_uses > 1 && t("settings.invites.used", { uses: inv.uses, max: inv.max_uses })].filter(Boolean).join(", "))),
+            used ? h("span", { class: "leaf" }, inv.joined.length ? t("settings.invites.joined", { names: inv.joined.join(", ") }) : t("settings.invites.usedUp"))
+              : expired ? h("span", { class: "muted" }, t("settings.invites.expiredOrCancelled"))
+              : [h("span", { class: "lantern" }, t("settings.invites.waiting")),
                 h("button", { class: "btn ghost sm", onclick: async () => {
                   try { await api.cancelInvite(inv.id); await load(); } catch (e) { toast(errorText(e), "error"); }
-                } }, "Cancel")]);
-        }) : h("li", { class: "muted" }, "No invites yet."));
+                } }, t("settings.invites.cancel"))]);
+        }) : h("li", { class: "muted" }, t("settings.invites.none")));
       } catch (e) { mount(list, h("li", { class: "muted" }, errorText(e))); }
     };
 
     mount(el,
-      h("h2", { class: "display xs" }, "Invite friends"),
-      h("p", { class: "muted" }, "Make an invite, then send the link to your friend."),
+      h("h2", { class: "display xs" }, t("settings.invites.title")),
+      h("p", { class: "muted" }, t("settings.invites.intro")),
       h("div", { class: "stack-22 maxw" },
         h("form", { class: "stack-14", onsubmit: async (e: Event) => {
           e.preventDefault();
@@ -460,11 +461,11 @@ register("settings", (root, screen) => {
           } catch (x) { toast(errorText(x), "error"); }
           btn.disabled = false;
         } },
-          h("div", { class: "field" }, h("label", { for: "inv-label" }, "For"), label),
+          h("div", { class: "field" }, h("label", { for: "inv-label" }, t("settings.invites.for")), label),
           h("div", { class: "row gap-14 wrap" },
-            h("div", { class: "field grow-180" }, h("label", { for: "inv-hours" }, "Works for"), hours.el),
-            h("div", { class: "field grow-180" }, h("label", { for: "inv-uses" }, "Uses"), uses.el),
-            me.role === "admin" && h("div", { class: "field grow-180" }, h("label", { for: "inv-role" }, "Starts as"), role.el)),
+            h("div", { class: "field grow-180" }, h("label", { for: "inv-hours" }, t("settings.invites.worksFor")), hours.el),
+            h("div", { class: "field grow-180" }, h("label", { for: "inv-uses" }, t("settings.invites.uses")), uses.el),
+            me.role === "admin" && h("div", { class: "field grow-180" }, h("label", { for: "inv-role" }, t("settings.invites.startsAs")), role.el)),
           btn),
         fresh,
         list));
@@ -486,26 +487,44 @@ register("settings", (root, screen) => {
         const ds: Device[] = await api.devices();
         mount(list, ds.map((d) => h("li", null,
           h("span", { class: "grow col" }, h("strong", null, d.device_name),
-            d.current ? h("span", { class: "leaf small" }, "This computer") : h("span", { class: "muted small" }, `Last used ${ago(d.last_seen)}`)),
+            d.current ? h("span", { class: "leaf small" }, t("settings.computer.thisComputer")) : h("span", { class: "muted small" }, t("settings.computer.lastUsed", { ago: ago(d.last_seen) }))),
           !d.current && h("button", { class: "btn ghost sm", onclick: async () => {
             try { await api.signOutDevice(d.id); await load(); } catch (e) { toast(errorText(e), "error"); }
-          } }, "Sign it out"))));
+          } }, t("settings.computer.signItOut")))));
       } catch (e) { mount(list, h("li", { class: "muted" }, errorText(e))); }
     };
     mount(el,
-      h("h2", { class: "display xs" }, "This computer"),
+      h("h2", { class: "display xs" }, t("settings.computer.title")),
       h("div", { class: "stack-28 maxw" },
         h("div", { class: "card stack-16" },
           h("div", { class: "row gap-14" },
             h("span", { class: "server-badge", style: { width: "56px", height: "56px", fontSize: "24px" } }, initial(server?.name ?? "T")),
-            h("div", { class: "col" }, h("strong", { class: "big" }, server?.name ?? "Treehouse"), h("span", { class: "muted" }, `${server?.address ?? ""}, signed in as ${me.username}`))),
+            h("div", { class: "col" }, h("strong", { class: "big" }, server?.name ?? "Treehouse"), h("span", { class: "muted" }, t("settings.computer.signedInAs", { address: server?.address ?? "", username: me.username })))),
           h("div", { class: "row gap-14 wrap" },
-            h("button", { class: "btn outline-ember fit", onclick: () => void signOut() }, "Sign out"),
-            h("button", { class: "btn ghost fit", onclick: () => go({ name: "find" }) }, "Switch treehouse")),
-          h("p", { class: "muted small" }, "Signing out removes your login from this computer only. Your account and friends stay put.")),
-        h("h3", { class: "subhead" }, "Where you’re signed in"),
+            h("button", { class: "btn outline-ember fit", onclick: () => void signOut() }, t("settings.computer.signOut")),
+            h("button", { class: "btn ghost fit", onclick: () => go({ name: "find" }) }, t("settings.computer.switch"))),
+          h("p", { class: "muted small" }, t("settings.computer.signOutHint"))),
+        languageField(),
+        h("h3", { class: "subhead" }, t("settings.computer.devices")),
         list));
     void load();
+  }
+
+  /** Interface language, per computer. "System default" follows the OS. */
+  function languageField() {
+    const opts: { value: LangSetting; label: string }[] = [
+      { value: "system", label: t("settings.computer.systemLanguage", { name: LANG_NAMES[detectedSystemLang()] }) },
+      { value: "en", label: LANG_NAMES.en },
+      { value: "es", label: LANG_NAMES.es },
+      { value: "uk", label: LANG_NAMES.uk },
+    ];
+    const pick = dropdown("c-lang", opts, langSetting());
+    pick.onChange = (v) => {
+      setLangSetting(v as LangSetting);
+      go({ name: "settings", tab: "computer" });
+    };
+    return h("div", { class: "field" }, h("label", { for: "c-lang" }, t("settings.computer.language")), pick.el,
+      h("p", { class: "muted small" }, t("settings.computer.languageHint")));
   }
 
   mount(root, h("div", { class: "settings" }, nav, body));

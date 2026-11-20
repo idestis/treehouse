@@ -92,7 +92,7 @@ pub async fn update_me(
         .map(|t| t.chars().take(60).collect());
     if emoji.as_deref().is_some_and(|e| e.chars().count() > 16) {
         return Err(AppError::bad(
-            "bad_status",
+            "bad_status_emoji",
             "Use one emoji for your status.",
         ));
     }

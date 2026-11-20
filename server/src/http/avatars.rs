@@ -49,7 +49,8 @@ pub fn process(bytes: &[u8]) -> AppResult<Vec<u8>> {
         return Err(AppError::bad(
             "too_small",
             format!("That picture is too small. Use one at least {MIN_SIDE}×{MIN_SIDE} pixels."),
-        ));
+        )
+        .with(json!({ "min": MIN_SIDE })));
     }
     let square = img
         .resize_to_fill(SIZE, SIZE, FilterType::Lanczos3)
@@ -76,9 +77,12 @@ pub async fn upload(
         .image
         .split_once(',')
         .map_or(inp.image.as_str(), |(_, d)| d);
-    let bytes = STANDARD
-        .decode(b64.trim())
-        .map_err(|_| AppError::bad("bad_image", "That upload didn't come through. Try again."))?;
+    let bytes = STANDARD.decode(b64.trim()).map_err(|_| {
+        AppError::bad(
+            "upload_failed",
+            "That upload didn't come through. Try again.",
+        )
+    })?;
     if bytes.len() > MAX_UPLOAD {
         return Err(AppError::bad(
             "too_big",
@@ -128,7 +132,7 @@ pub async fn get(
     let row = sqlx::query!("SELECT image, version FROM avatars WHERE user_id = $1", id)
         .fetch_optional(&st.db)
         .await?
-        .ok_or_else(|| AppError::not_found("No picture."))?;
+        .ok_or_else(|| AppError::not_found("no_avatar", "No picture."))?;
     Ok(Json(json!({
         "version": row.version,
         "data_url": format!("data:image/jpeg;base64,{}", STANDARD.encode(row.image)),

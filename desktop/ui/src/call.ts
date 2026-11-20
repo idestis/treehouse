@@ -7,7 +7,8 @@ import {
   type LocalTrackPublication, type RoomOptions, type TrackPublication,
 } from "livekit-client";
 import { api } from "./api";
-import { isApiError, type ApiError } from "./api/types";
+import { errorText, isApiError, type ApiError } from "./api/types";
+import { t } from "./i18n";
 import { nativeScreenSound, startScreenSound, type ScreenSound, type SoundProblem } from "./screenSound";
 import { AUDIO_CAPTURE, PUBLISH, prefs } from "./voice";
 
@@ -179,7 +180,7 @@ export const call = {
       try {
         await r.connect(grant.url, grant.token, { autoSubscribe: true });
       } catch {
-        throw fail("Couldn’t connect to voice. Check your internet and try again.");
+        throw fail(t("call.connectFailed"));
       }
       if (room !== r) return;
       // Usually inside a click, so the browser lets sound play; if not, the next click unlocks it.
@@ -193,7 +194,7 @@ export const call = {
       // Left or switched to another room meanwhile: that choice wins, nothing to report.
       if (roomId !== id) { await r?.disconnect().catch(() => {}); return; }
       await teardown();
-      throw isApiError(e) ? e : fail("Couldn’t join voice. Try again.");
+      throw isApiError(e) ? e : fail(t("call.joinFailed"));
     }
   },
 
@@ -439,7 +440,7 @@ function startRefresh(id: number) {
       // Refused (timed out, room deleted): hang up. Network trouble: try again next time.
       if (isApiError(e) && (e.status === 403 || e.status === 404) && roomId === id) {
         await teardown();
-        emit({ type: "ended", message: e.message });
+        emit({ type: "ended", message: errorText(e) });
       }
     }
   }, REFRESH_MS);
@@ -563,11 +564,11 @@ function stopMeter() {
 
 function endedText(reason?: DisconnectReason): string {
   switch (reason) {
-    case DisconnectReason.PARTICIPANT_REMOVED: return "You were moved out of the voice room.";
-    case DisconnectReason.DUPLICATE_IDENTITY: return "You joined voice from another computer, so this one left.";
-    case DisconnectReason.ROOM_DELETED: return "This voice room was deleted.";
-    case DisconnectReason.SERVER_SHUTDOWN: return "The voice server restarted. Join again in a moment.";
-    default: return "Voice disconnected. Join the room again.";
+    case DisconnectReason.PARTICIPANT_REMOVED: return t("call.endedRemoved");
+    case DisconnectReason.DUPLICATE_IDENTITY: return t("call.endedElsewhere");
+    case DisconnectReason.ROOM_DELETED: return t("call.endedDeleted");
+    case DisconnectReason.SERVER_SHUTDOWN: return t("call.endedRestart");
+    default: return t("call.endedOther");
   }
 }
 

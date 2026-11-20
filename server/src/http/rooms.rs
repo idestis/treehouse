@@ -23,7 +23,7 @@ fn clean_name(name: &str) -> AppResult<String> {
     let n = name.trim();
     if n.is_empty() || n.chars().count() > 40 {
         return Err(AppError::bad(
-            "bad_name",
+            "bad_room_name",
             "Room names are 1 to 40 characters.",
         ));
     }
@@ -109,7 +109,8 @@ pub async fn create(
         return Err(AppError::conflict(
             "room_limit",
             format!("You have {count} rooms. Delete one to add another."),
-        ));
+        )
+        .with(json!({ "count": count })));
     }
     let slug = unique_slug(&mut tx, &name, None).await?;
     let id = sqlx::query_scalar!(
@@ -144,7 +145,7 @@ pub async fn update(
     let kind = sqlx::query_scalar!("SELECT kind FROM rooms WHERE id = $1 FOR UPDATE", id)
         .fetch_optional(&mut *tx)
         .await?
-        .ok_or_else(|| AppError::not_found("That room is gone."))?;
+        .ok_or_else(|| AppError::not_found("room_gone", "That room is gone."))?;
     if let Some(n) = inp.name.as_deref() {
         let name = clean_name(n)?;
         let slug = unique_slug(&mut tx, &name, Some(id)).await?;
@@ -159,7 +160,10 @@ pub async fn update(
     }
     if let Some(c) = inp.capacity {
         if kind != "voice" {
-            return Err(AppError::bad("not_voice", "The Deck has no size limit."));
+            return Err(AppError::bad(
+                "deck_no_capacity",
+                "The Deck has no size limit.",
+            ));
         }
         check_capacity(c)?;
         sqlx::query!("UPDATE rooms SET capacity = $2 WHERE id = $1", id, c)
@@ -192,7 +196,7 @@ pub async fn delete(
     let room = sqlx::query!("SELECT kind, name FROM rooms WHERE id = $1 FOR UPDATE", id)
         .fetch_optional(&mut *tx)
         .await?
-        .ok_or_else(|| AppError::not_found("That room is gone."))?;
+        .ok_or_else(|| AppError::not_found("room_gone", "That room is gone."))?;
     if room.kind == "deck" {
         return Err(AppError::bad("deck", "The Deck can't be deleted."));
     }
@@ -209,7 +213,8 @@ pub async fn delete(
                 "{} has people in it. Move everyone to The Deck first.",
                 room.name
             ),
-        ));
+        )
+        .with(json!({ "room": room.name })));
     }
     sqlx::query!("DELETE FROM voice_members WHERE room_id = $1", id)
         .execute(&mut *tx)

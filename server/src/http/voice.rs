@@ -65,7 +65,7 @@ pub async fn voice_token(
     let room = sqlx::query!("SELECT kind, name, capacity FROM rooms WHERE id = $1", id)
         .fetch_optional(&mut *tx)
         .await?
-        .ok_or_else(|| AppError::not_found("That room is gone."))?;
+        .ok_or_else(|| AppError::not_found("room_gone", "That room is gone."))?;
     if room.kind != "voice" {
         return Err(AppError::bad("not_voice", "That isn't a voice room."));
     }
@@ -86,7 +86,8 @@ pub async fn voice_token(
                 "You're timed out from voice until {}.",
                 until_text(until, OffsetDateTime::now_utc())
             ),
-        ));
+        )
+        .with(json!({ "until": until.format(&Rfc3339)? })));
     }
 
     if q.overlay {
@@ -97,7 +98,9 @@ pub async fn voice_token(
         )
         .fetch_optional(&mut *tx)
         .await?
-        .ok_or_else(|| AppError::conflict("not_in_room", "Join the room first."))?;
+        .ok_or_else(|| {
+            AppError::conflict("not_in_room", "You're not in that room. Join it first.")
+        })?;
         tx.commit().await?;
         let (token, expires_at) = livekit::overlay_token(
             lk,
@@ -126,7 +129,8 @@ pub async fn voice_token(
         return Err(AppError::conflict(
             "room_full",
             format!("{} is full. Try another room.", room.name),
-        ));
+        )
+        .with(json!({ "room": room.name })));
     }
     sqlx::query!("UPDATE rooms SET last_used_at = now() WHERE id = $1", id)
         .execute(&mut *tx)

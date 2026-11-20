@@ -63,6 +63,11 @@
           "x": 410,
           "y": 180
         }
+      },
+      "files": {
+        "Resources/en.lproj/InfoPlist.strings": "./locales/en.lproj/InfoPlist.strings",
+        "Resources/es.lproj/InfoPlist.strings": "./locales/es.lproj/InfoPlist.strings",
+        "Resources/uk.lproj/InfoPlist.strings": "./locales/uk.lproj/InfoPlist.strings"
       }
     },
     "windows": {
@@ -73,7 +78,9 @@
       "nsis": {
         "installMode": "currentUser",
         "languages": [
-          "English"
+          "English",
+          "Spanish",
+          "Ukrainian"
         ],
         "displayLanguageSelector": false
       }
