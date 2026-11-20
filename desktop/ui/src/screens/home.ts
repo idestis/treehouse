@@ -609,30 +609,62 @@ register("home", (root) => {
     return `${n} in voice, ${names.slice(0, -1).join(", ")} and ${names[names.length - 1]} are talking`;
   }
 
+  // Tiles are keyed and reused: an update changes icons and classes in place and
+  // never re-inserts a <video>, which is what made pictures blink on mute/unmute.
+  const tileCache = new Map<string, HTMLElement>();
+  let usedTiles = new Set<string>();
+
+  /** Put `desired` in `parent` in order, moving only nodes that are out of place. */
+  function syncChildren(parent: Element, desired: Node[]) {
+    desired.forEach((n, i) => { if (parent.childNodes[i] !== n) parent.insertBefore(n, parent.childNodes[i] ?? null); });
+    while (parent.childNodes.length > desired.length) parent.lastChild?.remove();
+  }
+
+  function cached(key: string, make: () => HTMLElement): HTMLElement {
+    usedTiles.add(key);
+    let el = tileCache.get(key);
+    if (!el) { el = make(); tileCache.set(key, el); }
+    return el;
+  }
+
   function personTile(m: VoiceMember, cam: Video | undefined, strip = false) {
     const p = person(m.user_id);
     const you = p.id === me.id;
-    const speaking = call.roomId !== null && call.speaking.includes(m.user_id);
-    return h("div", { class: `tile ${cam ? "camera" : ""} ${speaking ? "speaking" : ""} ${strip ? "small" : ""}`, "data-user": String(m.user_id),
-      style: { background: `color-mix(in srgb, ${p.color} 22%, #182238)` } },
-      cam ? videoEl(cam) : personAvatar(p, 0, `huge ${m.muted ? "dim" : ""}`),
+    const key = `p:${m.user_id}:${cam ? cam.track.sid ?? "cam" : "-"}:${strip ? "s" : "b"}:${p.display_name}:${p.avatar ?? ""}:${p.color}`;
+    const el = cached(key, () => h("div", { class: "tile", "data-user": String(m.user_id), style: { background: `color-mix(in srgb, ${p.color} 22%, #182238)` } },
+      cam ? videoEl(cam) : personAvatar(p, 0, "huge"),
       cam && !strip && h("span", { class: "live" }, h("span", { class: "dot" }), "Live"),
-      h("div", { class: "tile-bar" },
+      h("div", { class: "tile-bar" })));
+    const speaking = call.roomId !== null && call.speaking.includes(m.user_id);
+    el.className = `tile ${cam ? "camera" : ""} ${speaking ? "speaking" : ""} ${strip ? "small" : ""}`;
+    el.querySelector(".avatar.huge")?.classList.toggle("dim", m.muted);
+    const bar = el.querySelector(".tile-bar");
+    const state = `${m.muted}|${m.camera}|${m.screen}`;
+    if (bar instanceof HTMLElement && bar.dataset.state !== state) {
+      bar.dataset.state = state;
+      mount(bar,
         personAvatar(p, strip ? 22 : 28),
         h("strong", { class: "grow ellipsis" }, p.display_name, you ? " (you)" : ""),
         m.screen && h("span", { class: "tile-ic on", title: "Sharing their screen" }, icon("monitor", 18)),
         h("span", { class: `tile-ic ${m.muted ? "off" : ""}`, title: m.muted ? "Muted" : "Mic on" }, icon(m.muted ? "micOff" : "mic", 18)),
-        !strip && h("span", { class: `tile-ic ${m.camera ? "on" : ""}`, title: m.camera ? "Camera on" : "Camera off" }, icon(m.camera ? "video" : "videoOff", 18)),
-      ));
+        !strip && h("span", { class: `tile-ic ${m.camera ? "on" : ""}`, title: m.camera ? "Camera on" : "Camera off" }, icon(m.camera ? "video" : "videoOff", 18)));
+    }
+    return el;
   }
 
   function screenTile(v: Video, large: boolean) {
     const label = v.userId === me.id ? "Your screen" : `${person(v.userId).display_name}’s screen`;
-    const bar = h("div", { class: "tile-bar" }, icon("monitor", 18, "lantern"), h("strong", { class: "grow ellipsis" }, label));
-    if (large) return h("div", { class: "tile screen-tile spot", "aria-label": label }, videoEl(v), bar);
-    return h("button", { class: "tile screen-tile small", type: "button", title: "Show large", "aria-label": `Show ${label.toLowerCase()} large`,
-      onclick: () => { spotlight = v.userId; renderStage(); } }, videoEl(v), bar);
+    return cached(`s:${v.userId}:${v.track.sid ?? ""}:${large ? "big" : "small"}`, () => {
+      const bar = h("div", { class: "tile-bar" }, icon("monitor", 18, "lantern"), h("strong", { class: "grow ellipsis" }, label));
+      if (large) return h("div", { class: "tile screen-tile spot", "aria-label": label }, videoEl(v), bar);
+      return h("button", { class: "tile screen-tile small", type: "button", title: "Show large", "aria-label": `Show ${label.toLowerCase()} large`,
+        onclick: () => { spotlight = v.userId; renderStage(); } }, videoEl(v), bar);
+    });
   }
+
+  let stripEl: HTMLElement | null = null;
+  let noteEl: HTMLElement | null = null;
+  let emptyEl: HTMLElement | null = null;
 
   function renderStage() {
     const room = viewedRoom();
@@ -647,12 +679,16 @@ register("home", (root) => {
     const cams = new Map(vids.filter((v) => v.source === "camera").map((v) => [v.userId, v]));
     const screens = vids.filter((v) => v.source === "screen");
     if (stageSub) stageSub.textContent = talkingText(members);
+    usedTiles = new Set();
 
-    const note = !here ? null
-      : call.status === "connecting" ? h("p", { class: "stage-note" }, "Connecting…")
-      : call.status === "reconnecting" ? h("p", { class: "stage-note" }, "Connection lost. Reconnecting…")
-      : call.weak ? h("p", { class: "stage-note" }, "Your connection is weak. Video may look blurry.")
-      : null;
+    const noteText = !here ? ""
+      : call.status === "connecting" ? "Connecting…"
+      : call.status === "reconnecting" ? "Connection lost. Reconnecting…"
+      : call.weak ? "Your connection is weak. Video may look blurry."
+      : "";
+    noteEl ??= h("p", { class: "stage-note" });
+    noteEl.textContent = noteText;
+    const note = noteText ? noteEl : null;
 
     if (screens.length) {
       // Spotlight: one screen large, people (and other screens) in a strip below. Click one to swap.
@@ -660,11 +696,10 @@ register("home", (root) => {
       spotlight = big.userId;
       stageEl.className = "stage spotlight";
       stageEl.removeAttribute("style");
-      mount(stageEl, note,
-        screenTile(big, true),
-        h("div", { class: "strip" },
-          screens.filter((v) => v !== big).map((v) => screenTile(v, false)),
-          members.map((m) => personTile(m, cams.get(m.user_id), true))));
+      stripEl ??= h("div", { class: "strip" });
+      const bigTile = screenTile(big, true);
+      syncChildren(stripEl, [...screens.filter((v) => v !== big).map((v) => screenTile(v, false)), ...members.map((m) => personTile(m, cams.get(m.user_id), true))]);
+      syncChildren(stageEl, [note, bigTile, stripEl].filter((n): n is HTMLElement => !!n));
     } else {
       const n = members.length;
       // 1 fills the stage, 2 side by side, 3–4 a 2×2 grid, 5–6 a 3×2 grid, more in rows of 4.
@@ -672,11 +707,11 @@ register("home", (root) => {
       const rowsN = Math.max(1, Math.ceil(n / cols));
       stageEl.className = "stage";
       Object.assign(stageEl.style, { gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${rowsN}, minmax(0, 1fr))` });
-      mount(stageEl, note,
-        members.map((m) => personTile(m, cams.get(m.user_id))),
-        n === 0 && h("p", { class: "muted center" }, "Nobody here yet."));
+      emptyEl ??= h("p", { class: "muted center" }, "Nobody here yet.");
+      syncChildren(stageEl, [note, ...members.map((m) => personTile(m, cams.get(m.user_id))), n === 0 ? emptyEl : null].filter((x): x is HTMLElement => !!x));
     }
-    // Moving a video element in the page can pause it; start it again.
+    for (const key of [...tileCache.keys()]) if (!usedTiles.has(key)) tileCache.delete(key);
+    // A video that did have to move can pause; start it again.
     for (const el of videoEls.values()) if (el.paused) void el.play().catch(() => {});
   }
 
