@@ -182,18 +182,19 @@ register("home", (root) => {
     } else {
       content = h("p", { class: "body" }, renderBody(m.body ?? "", m.mentions));
     }
-    const reactBtn = h("button", { class: "icon-btn sm msg-act", "aria-label": "Add reaction", title: "Add reaction" }, icon("smilePlus", 20));
+    // Sits after the reactions; on a message without any it shows on hover.
+    const reactBtn = h("button", { class: "reaction add", type: "button", "aria-label": "Add reaction", title: "Add reaction" }, icon("smilePlus", 18));
     reactBtn.onclick = () => emojiPicker(reactBtn, (e) => void react(m, e, true));
     return h("article", { class: `msg ${mentionsMe ? "mentioned" : ""} ${compact ? "compact" : ""}`, "data-id": String(m.id) },
       avatar(p.display_name, p.color, compact ? 36 : 44),
       h("div", { class: "msg-main" },
         h("div", { class: "msg-head" }, h("strong", { style: { color: p.color } }, p.display_name), h("time", { class: "muted small", datetime: m.created_at }, time(m.created_at))),
         content,
-        m.reactions.length > 0 && h("div", { class: "reactions" }, m.reactions.map((r) =>
-          reactionChip(m, r.emoji, r.user_ids))),
+        h("div", { class: `reactions ${m.reactions.length ? "" : "empty"}` },
+          m.reactions.map((r) => reactionChip(m, r.emoji, r.user_ids)), reactBtn),
       ),
-      h("div", { class: "msg-actions" }, reactBtn,
-        canDelete && h("button", { class: "icon-btn sm msg-act", "aria-label": "Delete message", title: "Delete", onclick: () => void del(m) }, icon("trash", 18))),
+      canDelete && h("div", { class: "msg-actions" },
+        h("button", { class: "icon-btn sm msg-act", "aria-label": "Delete message", title: "Delete", onclick: () => void del(m) }, icon("trash", 18))),
     );
   }
 
