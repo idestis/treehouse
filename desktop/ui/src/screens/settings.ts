@@ -6,6 +6,7 @@ import { errorText } from "../api/types";
 import { go, register, session, type SettingsTab } from "../app";
 import { ago, h, icon, initial, mount, toast } from "../dom";
 import { personAvatar, shrinkForUpload } from "../avatars";
+import { ACTIONS, type Action, conflicts, DEFAULTS as DEFAULT_KEYS, format as formatKey, fromEvent, load as loadHotkeys, problem as hotkeyProblem, save as saveHotkeys } from "../hotkeys";
 import { strengthMeter } from "../password";
 import { AUDIO_CAPTURE, prefs } from "../voice";
 import { colorPicker, tilePreview } from "./auth";
@@ -179,7 +180,6 @@ register("settings", (root, screen) => {
     mic.onchange = () => { prefs.mic = mic.value; void listen(); };
     out.onchange = () => { prefs.speaker = out.value; };
 
-    const key = (k: string) => h("kbd", { class: "kbd" }, k);
     mount(el,
       h("h2", { class: "display xs" }, "Sound"),
       h("div", { class: "stack-16 maxw" },
@@ -189,14 +189,81 @@ register("settings", (root, screen) => {
         h("div", { class: "field" }, h("label", { for: "s-out" }, "Speakers or headphones"), out),
         h("p", { class: "info-box" }, "Echo removal, background-noise removal and volume leveling are always on, so your keyboard and fans stay out of the call."),
         h("h3", { class: "subhead" }, "Hotkeys"),
-        h("ul", { class: "rows" },
-          h("li", null, h("span", { class: "grow" }, "Mute"), key("Ctrl + M")),
-          h("li", null, h("span", { class: "grow" }, "Deafen"), key("Ctrl + D")),
-          h("li", null, h("span", { class: "grow" }, "Push to talk"), h("span", { class: "muted" }, "Off")))));
+        h("p", { class: "muted small" }, "Click a shortcut, then press the keys you want. Esc cancels; Backspace clears."),
+        hotkeyRows()));
     // Fill the lists now; fill again once access is granted (device names appear then).
     void fill();
     void listen().then(fill);
     return stop;
+  }
+
+  function hotkeyRows() {
+    const bindings = loadHotkeys();
+    const list = h("ul", { class: "rows" });
+    let recording: Action | null = null;
+    let note: { action: Action; text: string[]; bad: boolean } | null = null;
+
+    const stopRecording = () => {
+      recording = null;
+      removeEventListener("keydown", capture, true);
+      draw();
+    };
+    const capture = (e: KeyboardEvent) => {
+      if (!recording) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const action = recording;
+      const plain = !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey;
+      if (plain && e.code === "Escape") return stopRecording();
+      if (plain && (e.code === "Backspace" || e.code === "Delete")) {
+        bindings[action] = null;
+        saveHotkeys(bindings);
+        note = null;
+        return stopRecording();
+      }
+      const c = fromEvent(e);
+      if (!c) return; // just a modifier so far
+      const bad = hotkeyProblem(c);
+      if (bad) { note = { action, text: [bad], bad: true }; return stopRecording(); }
+      bindings[action] = c;
+      saveHotkeys(bindings);
+      const found = conflicts(c, action, bindings);
+      note = found.length ? { action, text: found, bad: false } : null;
+      stopRecording();
+    };
+
+    function draw() {
+      mount(list, ACTIONS.map(([action, label]) => {
+        const isDefault = JSON.stringify(bindings[action]) === JSON.stringify(DEFAULT_KEYS[action]);
+        const btn = h("button", { class: `kbd kbd-btn ${recording === action ? "recording" : ""}`, type: "button",
+          "aria-label": `Change ${label} shortcut, now ${formatKey(bindings[action])}` },
+          recording === action ? "Press keys…" : formatKey(bindings[action]));
+        btn.onclick = () => {
+          if (recording) removeEventListener("keydown", capture, true);
+          recording = action;
+          note = null;
+          addEventListener("keydown", capture, true);
+          draw();
+        };
+        // Conflicts are shown for every binding, not only right after a change.
+        const current = bindings[action];
+        const live = current ? conflicts(current, action, bindings) : [];
+        const lines = note?.action === action ? note.text : live;
+        return h("li", { class: "hotkey-row" },
+          h("div", { class: "row gap-14" },
+            h("span", { class: "grow" }, label),
+            !isDefault && h("button", { class: "link muted", type: "button", onclick: () => {
+              bindings[action] = DEFAULT_KEYS[action];
+              saveHotkeys(bindings);
+              note = null;
+              draw();
+            } }, "Reset"),
+            btn),
+          lines.length > 0 && h("ul", { class: `hotkey-warn ${note?.action === action && note.bad ? "bad" : ""}` }, lines.map((t) => h("li", null, t))));
+      }));
+    }
+    draw();
+    return list;
   }
 
   // ─── Security ───

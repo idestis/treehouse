@@ -7,6 +7,7 @@ import type { Gif, LiveEvent, Me, Message, Person, Room, Treehouse } from "../ap
 import { errorText } from "../api/types";
 import { go, register, session } from "../app";
 import { personAvatar } from "../avatars";
+import { format as formatKey, load as loadHotkeys, matches } from "../hotkeys";
 import { h, icon, mount, time, toast } from "../dom";
 
 const EMOJI = ["😂", "😭", "💀", "🔥", "💯", "❤️", "👍", "👎", "😎", "🥲", "😴", "🤔", "😤", "🙃", "😅", "🤯", "🥳", "😈", "👀", "🙏", "🫡", "🤝", "👋", "🎮", "🕹️", "🏆", "⚡", "✨", "🎉", "🍕", "🍿", "🥤", "🌙", "⭐", "🦉", "🌲", "🎧", "🎤", "📣", "✅", "❌", "⏰"];
@@ -73,6 +74,8 @@ register("home", (root) => {
       away.length > 0 && h("ul", { class: "crew-list" }, away.map(row)));
   }
 
+  const keys = loadHotkeys();
+
   // ─── Sidebar ─────────────────────────────────────────────────────
 
   function renderSidebar() {
@@ -113,8 +116,8 @@ register("home", (root) => {
       h("footer", { class: "sb-me" },
         h("span", { class: "me-avatar" }, personAvatar(me, 40), h("span", { class: "online-dot" })),
         h("div", { class: "grow col min0" }, h("strong", null, me.display_name), h("span", { class: "muted small" }, `@${me.username}`)),
-        h("button", { class: `icon-btn ${local.muted ? "ember" : ""}`, "aria-pressed": String(local.muted), "aria-label": local.muted ? "Unmute (Ctrl+M)" : "Mute (Ctrl+M)", title: local.muted ? "Unmute (Ctrl+M)" : "Mute (Ctrl+M)", onclick: toggleMute }, icon(local.muted ? "micOff" : "mic", 22)),
-        h("button", { class: `icon-btn ${local.deafened ? "ember" : ""}`, "aria-pressed": String(local.deafened), "aria-label": local.deafened ? "Undeafen (Ctrl+D)" : "Deafen (Ctrl+D)", title: local.deafened ? "Undeafen (Ctrl+D)" : "Deafen (Ctrl+D)", onclick: toggleDeafen }, icon(local.deafened ? "headphonesOff" : "headphones", 22)),
+        h("button", { class: `icon-btn ${local.muted ? "ember" : ""}`, "aria-pressed": String(local.muted), "aria-label": `${local.muted ? "Unmute" : "Mute"} (${formatKey(keys.mute)})`, title: `${local.muted ? "Unmute" : "Mute"} (${formatKey(keys.mute)})`, onclick: toggleMute }, icon(local.muted ? "micOff" : "mic", 22)),
+        h("button", { class: `icon-btn ${local.deafened ? "ember" : ""}`, "aria-pressed": String(local.deafened), "aria-label": `${local.deafened ? "Undeafen" : "Deafen"} (${formatKey(keys.deafen)})`, title: `${local.deafened ? "Undeafen" : "Deafen"} (${formatKey(keys.deafen)})`, onclick: toggleDeafen }, icon(local.deafened ? "headphonesOff" : "headphones", 22)),
       ),
     );
   }
@@ -529,10 +532,8 @@ register("home", (root) => {
   }
 
   const onKey = (e: KeyboardEvent) => {
-    if (!e.ctrlKey || e.altKey || e.metaKey) return;
-    const k = e.key.toLowerCase();
-    if (k === "m") { e.preventDefault(); toggleMute(); }
-    if (k === "d") { e.preventDefault(); toggleDeafen(); }
+    if (matches(e, keys.mute)) { e.preventDefault(); toggleMute(); }
+    else if (matches(e, keys.deafen)) { e.preventDefault(); toggleDeafen(); }
   };
 
   async function load() {

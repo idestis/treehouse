@@ -118,6 +118,13 @@ fieldset.plain legend { padding: 0; margin-bottom: 10px; }
 .badge.sm { height: 22px; font-size: 13px; background: #1f4a37; color: var(--leaf); }
 .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border-radius: 999px; background: var(--surface); font-size: 14px; }
 .kbd { font-family: var(--text); font-weight: 700; font-size: 16px; background: var(--active); border-radius: 8px; padding: 6px 12px; }
+.kbd-btn { border: 1.5px solid transparent; min-width: 120px; text-align: center; }
+.kbd-btn:hover { border-color: #33416a; }
+.kbd-btn.recording { border-color: var(--lantern); color: var(--lantern); background: #2a2620; }
+.rows li.hotkey-row { display: block; }
+.hotkey-warn { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; color: var(--lantern); font-size: 14px; }
+.hotkey-warn.bad { color: var(--ember); }
+.hotkey-warn li::before { content: "⚠ "; }
 
 /* ── find your treehouse ── */
 .screen-find { background: #121934; }
