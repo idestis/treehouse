@@ -7,7 +7,7 @@
 // in the room), it subscribes to cameras only, and never plays sound: the
 // main window already does.
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { emitTo, listen } from "@tauri-apps/api/event";
 import {
   DisconnectReason, Room, RoomEvent, Track,
   type Participant, type RemoteParticipant,
@@ -16,6 +16,9 @@ import { api } from "./api";
 import { isApiError, type Person, type VoiceGrant } from "./api/types";
 import { personAvatar, type HasAvatar } from "./avatars";
 import { h, icon, mount } from "./dom";
+
+/** The call as the main window sees it (it owns the microphone and the share). */
+export interface CallState { muted: boolean; deafened: boolean; screen: boolean; camera: boolean }
 
 const REFRESH_MS = 10 * 60 * 1000;
 const RETRY_MS = 5000;
@@ -39,7 +42,7 @@ export function startOverlay(root: HTMLElement, firstRoom: number) {
 
   let roomId = firstRoom;
   let lk: Room | null = null;
-  /** Your user id: your own tile is left out. */
+  /** Your user id: your own tile is shown last, mirrored. */
   let me = 0;
   let people = new Map<number, Person>();
   let roomName = "";
@@ -51,13 +54,36 @@ export function startOverlay(root: HTMLElement, firstRoom: number) {
   const videoEls = new Map<Track, HTMLVideoElement>();
 
   const title = h("span", { class: "ov-title ellipsis" }, "Voice");
+  const count = h("span", { class: "ov-count" });
   const bar = h("div", { class: "ov-bar", "data-tauri-drag-region": "deep" },
-    title,
-    h("button", { class: "ov-close", type: "button", title: "Close", "aria-label": "Close the people window", onclick: () => void close() }, icon("close", 16)));
-  // Drag the window from anywhere; tiles have no buttons.
+    h("span", { class: "ov-live", "aria-hidden": "true" }), title, count,
+    h("button", { class: "ov-close", type: "button", title: "Close", "aria-label": "Close the people window", onclick: () => void close() }, icon("close", 15)));
+  // Drag the window from anywhere on the tiles.
   const grid = h("div", { class: "ov-grid", "data-tauri-drag-region": "deep" });
-  mount(root, bar, grid);
+  const controls = h("div", { class: "ov-controls", role: "toolbar", "aria-label": "Call controls" });
+  mount(root, h("div", { class: "ov-card" }, bar, grid, controls));
   new ResizeObserver(layout).observe(grid);
+
+  // Controls act on the main window's call; it sends its state back.
+  let state: CallState = { muted: false, deafened: false, screen: false, camera: false };
+  const command = (action: "mute" | "deafen" | "stop-share" | "leave") => void emitTo("main", "overlay-command", action).catch(() => {});
+  function renderControls() {
+    const btn = (label: string, ic: Parameters<typeof icon>[0], cls: string, action: Parameters<typeof command>[0]) =>
+      h("button", { class: `ov-btn ${cls}`, type: "button", title: label, "aria-label": label, onclick: () => command(action) }, icon(ic, 18));
+    mount(controls,
+      btn(state.muted ? "Unmute" : "Mute", state.muted ? "micOff" : "mic", state.muted ? "off" : "", "mute"),
+      btn(state.deafened ? "Undeafen" : "Deafen", state.deafened ? "headphonesOff" : "headphones", state.deafened ? "off" : "", "deafen"),
+      state.screen && h("button", { class: "ov-btn share", type: "button", title: "Stop sharing", "aria-label": "Stop sharing", onclick: () => command("stop-share") }, icon("monitorOff", 18), h("span", null, "Stop sharing")),
+      btn("Leave", "hangup", "leave", "leave"));
+  }
+  void listen<CallState>("overlay-state", (e) => {
+    state = e.payload;
+    renderControls();
+    const mine = grid.querySelector<HTMLElement>(`.ov-tile[data-identity="${me}"]`);
+    if (mine) render();
+  });
+  renderControls();
+  void emitTo("main", "overlay-ready", null).catch(() => {});
 
   async function close() {
     if (closing) return;
@@ -153,7 +179,7 @@ export function startOverlay(root: HTMLElement, firstRoom: number) {
 
   /** Cameras only: never microphones (the main window plays sound) and never screens. */
   function pick(p: RemoteParticipant) {
-    const show = isPerson(p) && Number(p.identity) !== me;
+    const show = isPerson(p);
     for (const pub of p.trackPublications.values()) {
       const want = show && pub.kind === Track.Kind.Video && pub.source === Track.Source.Camera;
       if (pub.isDesired !== want) pub.setSubscribed(want);
@@ -187,47 +213,77 @@ export function startOverlay(root: HTMLElement, firstRoom: number) {
       });
   }
 
+  // Tiles are keyed and reused so video never blinks on updates (same as the main stage).
+  const tiles = new Map<string, HTMLElement>();
+  let noteEl: HTMLElement | null = null;
+
   function render() {
     title.textContent = roomName || "Voice";
     const r = lk;
-    if (!r) { note(problem || "Connecting…"); return; }
-    const list = [...r.remoteParticipants.values()].filter((p) => isPerson(p) && Number(p.identity) !== me);
-    if (!list.length) { note("Nobody else is here yet."); return; }
+    if (!r) { note(problem || "Connecting…"); count.textContent = ""; return; }
+    // Everyone in the call, you last.
+    const all = [...r.remoteParticipants.values()].filter(isPerson)
+      .sort((a, b) => Number(Number(a.identity) === me) - Number(Number(b.identity) === me));
+    count.textContent = all.length ? String(all.length) : "";
+    if (!all.length) { note("Nobody here yet."); return; }
     const used = new Set<Track>();
-    mount(grid, list.map((p) => tile(p, used)));
+    const keep = new Set<string>();
+    const wanted = all.map((p) => tile(p, used, keep));
+    syncChildren(grid, wanted);
+    for (const key of [...tiles.keys()]) if (!keep.has(key)) tiles.delete(key);
     for (const [track, el] of videoEls) {
       if (!used.has(track)) { track.detach(el); videoEls.delete(track); }
     }
+    for (const el of videoEls.values()) if (el.paused) void el.play().catch(() => {});
     layout();
+  }
+
+  function syncChildren(parent: Element, desired: Node[]) {
+    desired.forEach((n, i) => { if (parent.childNodes[i] !== n) parent.insertBefore(n, parent.childNodes[i] ?? null); });
+    while (parent.childNodes.length > desired.length) parent.lastChild?.remove();
   }
 
   function note(text: string) {
     for (const [track, el] of videoEls) track.detach(el);
     videoEls.clear();
-    mount(grid, h("p", { class: "ov-note" }, text));
+    tiles.clear();
+    noteEl ??= h("p", { class: "ov-note" });
+    noteEl.textContent = text;
+    mount(grid, noteEl);
     grid.style.gridTemplateColumns = "";
     grid.style.gridTemplateRows = "";
   }
 
-  function tile(p: RemoteParticipant, used: Set<Track>) {
+  function tile(p: RemoteParticipant, used: Set<Track>, keep: Set<string>) {
     const id = Number(p.identity);
+    const you = id === me;
     const person: HasAvatar = people.get(id) ?? { id, display_name: p.name || "Someone", color: "#2a3757", avatar: null };
     const pub = p.getTrackPublication(Track.Source.Camera);
     const track = pub?.track && pub.isSubscribed && !pub.isMuted ? pub.track : undefined;
-    const muted = !p.isMicrophoneEnabled;
-    return h("div", {
-      class: `ov-tile ${track ? "camera" : ""} ${speaking.has(p.identity) ? "speaking" : ""}`,
-      "data-identity": p.identity,
-      title: person.display_name,
-      style: { background: `color-mix(in srgb, ${person.color} 22%, #182238)` },
-    },
-    track ? video(track, used) : personAvatar(person, 0, `ov-av ${muted ? "dim" : ""}`),
-    h("div", { class: "ov-name" },
-      muted && h("span", { class: "ov-muted", title: "Muted" }, icon("micOff", 13)),
-      h("span", { class: "ellipsis" }, person.display_name)));
+    const muted = you ? state.muted : !p.isMicrophoneEnabled;
+    const key = `${p.identity}:${track?.sid ?? "-"}:${person.display_name}:${person.avatar ?? ""}`;
+    keep.add(key);
+    let el = tiles.get(key);
+    if (!el) {
+      el = h("div", { class: "ov-tile", "data-identity": p.identity, title: person.display_name,
+        style: { background: `color-mix(in srgb, ${person.color} 26%, #141c31)` } },
+        track ? video(track, used, you) : personAvatar(person, 0, "ov-av"),
+        h("div", { class: "ov-name" }));
+      tiles.set(key, el);
+    } else if (track) used.add(track);
+    el.className = `ov-tile ${track ? "camera" : ""} ${speaking.has(p.identity) ? "speaking" : ""} ${you ? "you" : ""}`;
+    el.querySelector(".ov-av")?.classList.toggle("dim", muted);
+    const name = el.querySelector(".ov-name");
+    const label = `${muted}|${you}`;
+    if (name instanceof HTMLElement && name.dataset.state !== label) {
+      name.dataset.state = label;
+      mount(name, muted && h("span", { class: "ov-muted", title: "Muted" }, icon("micOff", 12)),
+        h("span", { class: "ellipsis" }, you ? "You" : person.display_name));
+    }
+    return el;
   }
 
-  function video(track: Track, used: Set<Track>): HTMLVideoElement {
+  function video(track: Track, used: Set<Track>, mirror = false): HTMLVideoElement {
     used.add(track);
     let el = videoEls.get(track);
     if (!el) {
@@ -235,9 +291,9 @@ export function startOverlay(root: HTMLElement, firstRoom: number) {
       el.muted = true;
       el.playsInline = true;
       el.autoplay = true;
-      el.className = "ov-video";
       videoEls.set(track, el);
     }
+    el.className = `ov-video ${mirror ? "mirror" : ""}`;
     return el;
   }
 

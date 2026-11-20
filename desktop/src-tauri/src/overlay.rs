@@ -16,8 +16,8 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, Runtime, WebviewUrl, WebviewWindowBuilder, Window};
 
 pub const LABEL: &str = "overlay";
-const WIDTH: f64 = 240.0;
-const HEIGHT: f64 = 400.0;
+const WIDTH: f64 = 260.0;
+const HEIGHT: f64 = 440.0;
 const MARGIN: f64 = 24.0;
 
 /// Logical position and size of the window, saved when it closes.
@@ -119,11 +119,13 @@ pub async fn overlay_open(app: AppHandle, room_id: i64) -> Result<(), String> {
     WebviewWindowBuilder::new(&app, LABEL, url)
         .title("Treehouse: people")
         .inner_size(g.width, g.height)
-        .min_inner_size(140.0, 120.0)
+        .min_inner_size(200.0, 220.0)
         .position(g.x, g.y)
         .always_on_top(true)
         .visible_on_all_workspaces(true)
         .decorations(false)
+        // Rounded corners are drawn by the page; the window itself is clear.
+        .transparent(true)
         .shadow(true)
         .resizable(true)
         // A double-click on the drag area would otherwise fill the screen.

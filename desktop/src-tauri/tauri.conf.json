@@ -26,11 +26,16 @@
     ],
     "security": {
       "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost wss: https: ws://localhost:* ws://127.0.0.1:* http://localhost:* http://127.0.0.1:*; img-src 'self' data: https:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; media-src 'self' blob: mediastream:"
-    }
+    },
+    "macOSPrivateApi": true
   },
   "bundle": {
     "active": true,
-    "targets": ["app", "dmg", "nsis"],
+    "targets": [
+      "app",
+      "dmg",
+      "nsis"
+    ],
     "category": "SocialNetworking",
     "shortDescription": "Private voice and chat for your crew",
     "icon": [
@@ -46,16 +51,30 @@
       "entitlements": "./Entitlements.plist",
       "signingIdentity": null,
       "dmg": {
-        "windowSize": { "width": 540, "height": 360 },
-        "appPosition": { "x": 130, "y": 180 },
-        "applicationFolderPosition": { "x": 410, "y": 180 }
+        "windowSize": {
+          "width": 540,
+          "height": 360
+        },
+        "appPosition": {
+          "x": 130,
+          "y": 180
+        },
+        "applicationFolderPosition": {
+          "x": 410,
+          "y": 180
+        }
       }
     },
     "windows": {
-      "webviewInstallMode": { "type": "downloadBootstrapper", "silent": true },
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      },
       "nsis": {
         "installMode": "currentUser",
-        "languages": ["English"],
+        "languages": [
+          "English"
+        ],
         "displayLanguageSelector": false
       }
     }
@@ -63,7 +82,9 @@
   "plugins": {
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJGN0U2NEQwMTZFNUQwMzkKUldRNTBPVVcwR1IrdjBzRTBCTHI0ckFzNnYvTkNaWVBYUStTSHFiRzcvZEE2NFQ3UnJhVFE4dG0K",
-      "windows": { "installMode": "passive" }
+      "windows": {
+        "installMode": "passive"
+      }
     }
   }
 }

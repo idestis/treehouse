@@ -1244,6 +1244,7 @@ register("home", (root) => {
   renderMain();
   void load();
   preloadSounds();
+  popout.setLeaveHandler(() => void leave());
 
   return () => {
     unsubscribe();
