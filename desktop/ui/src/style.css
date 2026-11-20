@@ -298,6 +298,7 @@ fieldset.plain legend { padding: 0; margin-bottom: 10px; }
 .rows li { display: flex; align-items: center; gap: 14px; padding: 16px 0; border-bottom: 1px solid #1b2440; font-size: 17px; }
 .rows li:last-child { border-bottom: 0; }
 .meter-row { align-items: center; }
+.mic-problem { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; border-radius: 16px; background: rgba(255, 138, 126, 0.08); border: 1.5px solid rgba(255, 138, 126, 0.35); }
 .meter { flex: 1; height: 8px; border-radius: 999px; background: var(--surface); overflow: hidden; }
 .meter-fill { display: block; height: 100%; width: 0; background: var(--lantern); border-radius: 999px; transition: width 60ms linear; }
 .invite-card { border: 2px dashed #33416a; border-radius: 20px; padding: 24px 28px; display: flex; flex-direction: column; gap: 14px; background: var(--raised); }

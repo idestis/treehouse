@@ -1,4 +1,5 @@
 // Settings: profile, sound and hotkeys, security, invites, this computer.
+import { invoke } from "@tauri-apps/api/core";
 import { api } from "../api";
 import type { Device, Invite, Me, Role } from "../api/types";
 import { errorText } from "../api/types";
@@ -72,6 +73,7 @@ register("settings", (root, screen) => {
     const mic = h("select", { id: "s-mic", class: "select" });
     const out = h("select", { id: "s-out", class: "select" });
     const bar = h("span", { class: "meter-fill" });
+    const problem = h("div", { class: "mic-problem", role: "alert", hidden: true });
     let stream: MediaStream | null = null;
     let ctx: AudioContext | null = null;
     let raf = 0;
@@ -100,9 +102,31 @@ register("settings", (root, screen) => {
           raf = requestAnimationFrame(tick);
         };
         tick();
-      } catch {
-        toast("Treehouse can’t use your microphone. Allow it in your system settings.", "error");
+        problem.hidden = true;
+      } catch (e) {
+        showMicProblem(e instanceof DOMException ? e.name : "");
       }
+    };
+
+    const isMac = navigator.userAgent.includes("Mac");
+    const showMicProblem = (name: string) => {
+      const notFound = name === "NotFoundError" || name === "OverconstrainedError";
+      const inApp = "__TAURI_INTERNALS__" in window;
+      mount(problem,
+        h("div", { class: "row gap-10" }, icon("micOff", 22, "ember"),
+          h("strong", null, notFound ? "No microphone found" : "Treehouse can’t use your microphone")),
+        h("p", { class: "muted small" }, notFound
+          ? "Plug one in or pick another one above, then try again."
+          : isMac
+            ? "Allow it in System Settings → Privacy & Security → Microphone, then try again."
+            : "Allow it in Settings → Privacy → Microphone, then try again."),
+        h("div", { class: "row gap-10 wrap" },
+          !notFound && inApp && h("button", { class: "btn primary sm", type: "button", onclick: () =>
+            void invoke("open_privacy_settings", { kind: "microphone" }).catch(() => toast("Couldn’t open settings. Open them yourself.", "error")) },
+            isMac ? "Open System Settings" : "Open Windows settings"),
+          h("button", { class: "btn ghost sm", type: "button", onclick: () => void listen().then(fill) }, "Try again")));
+      problem.hidden = false;
+      bar.style.width = "0";
     };
 
     const fill = async () => {
@@ -126,6 +150,7 @@ register("settings", (root, screen) => {
       h("div", { class: "stack-16 maxw" },
         h("div", { class: "field" }, h("label", { for: "s-mic" }, "Microphone"), mic),
         h("div", { class: "row gap-14 meter-row" }, h("span", { class: "muted small" }, "Say something"), h("span", { class: "meter" }, bar)),
+        problem,
         h("div", { class: "field" }, h("label", { for: "s-out" }, "Speakers or headphones"), out),
         h("p", { class: "info-box" }, "Echo removal, background-noise removal and volume leveling are always on, so your keyboard and fans stay out of the call."),
         h("h3", { class: "subhead" }, "Hotkeys"),
@@ -133,6 +158,8 @@ register("settings", (root, screen) => {
           h("li", null, h("span", { class: "grow" }, "Mute"), key("Ctrl + M")),
           h("li", null, h("span", { class: "grow" }, "Deafen"), key("Ctrl + D")),
           h("li", null, h("span", { class: "grow" }, "Push to talk"), h("span", { class: "muted" }, "Off")))));
+    // Fill the lists now; fill again once access is granted (device names appear then).
+    void fill();
     void listen().then(fill);
     return stop;
   }

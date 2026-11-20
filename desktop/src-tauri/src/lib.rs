@@ -1,5 +1,6 @@
 mod client;
 mod live;
+mod system;
 mod tray;
 mod update;
 
@@ -25,6 +26,7 @@ pub fn run() {
             live::events_start,
             live::events_stop,
             tray::set_unread,
+            system::open_privacy_settings,
         ])
         .setup(|app| {
             tray::build(app.handle())?;
