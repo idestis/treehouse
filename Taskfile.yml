@@ -68,6 +68,20 @@ tasks:
     cmds:
       - npx tauri dev
 
+  dev:app:
+    desc: "Debug Treehouse.app launched on its own (for mic/camera: macOS asks for Treehouse, not your terminal)"
+    dir: "{{.DESKTOP_DIR}}"
+    cmds:
+      - |
+        # `task dev` runs inside your terminal, so macOS charges mic/camera to the terminal
+        # (or whatever app owns it, e.g. Kite) and may refuse silently. A real bundle asks for itself.
+        # Developer ID keeps the identity stable, so the permission survives rebuilds.
+        id=$(security find-identity -v -p codesigning | grep "Developer ID Application" | grep "${TEAM_ID:-}" | head -1 | sed -E 's/.*"(.*)"/\1/')
+        [ -n "$id" ] || id="-"
+        env -u TREEHOUSE_UPDATE_URL APPLE_SIGNING_IDENTITY="$id" npx tauri build --debug --bundles app
+      - osascript -e 'quit app "Treehouse"' 2>/dev/null || true
+      - open "../target/debug/bundle/macos/{{.APP}}.app"
+
   db:
     desc: Start the throwaway dev/test Postgres (127.0.0.1:55432, data in tmpfs)
     cmds:
