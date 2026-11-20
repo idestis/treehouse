@@ -1,19 +1,19 @@
 //! Small bridges to the operating system.
 
-/// Open the OS privacy page for the microphone or camera, so a denied
-/// permission can be fixed in one click.
+/// Open the OS privacy page for the microphone, camera or screen recording,
+/// so a denied permission can be fixed in one click.
 #[tauri::command]
 pub fn open_privacy_settings(kind: String) -> Result<(), String> {
     let device = match kind.as_str() {
-        "microphone" | "camera" => kind.as_str(),
+        "microphone" | "camera" | "screen" => kind.as_str(),
         _ => return Err("Unknown setting.".into()),
     };
     #[cfg(target_os = "macos")]
     let result = {
-        let pane = if device == "camera" {
-            "Privacy_Camera"
-        } else {
-            "Privacy_Microphone"
+        let pane = match device {
+            "camera" => "Privacy_Camera",
+            "screen" => "Privacy_ScreenCapture",
+            _ => "Privacy_Microphone",
         };
         std::process::Command::new("open")
             .arg(format!(
@@ -23,10 +23,11 @@ pub fn open_privacy_settings(kind: String) -> Result<(), String> {
     };
     #[cfg(target_os = "windows")]
     let result = {
-        let page = if device == "camera" {
-            "ms-settings:privacy-webcam"
-        } else {
-            "ms-settings:privacy-microphone"
+        let page = match device {
+            "camera" => "ms-settings:privacy-webcam",
+            "microphone" => "ms-settings:privacy-microphone",
+            // Windows has no screen-sharing permission; the share picker is the only gate.
+            _ => return Err("Windows doesn’t block screen sharing. Try sharing again.".into()),
         };
         std::process::Command::new("explorer.exe")
             .arg(page)

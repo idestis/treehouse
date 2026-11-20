@@ -12,6 +12,7 @@ import { strengthMeter } from "../password";
 import { chime } from "../notify";
 import { JOIN_SOUNDS, type JoinSound, playJoinSound } from "../sounds";
 import { AUDIO_CAPTURE, prefs } from "../voice";
+import { call } from "../call";
 import { colorPicker, tilePreview } from "./auth";
 
 const TABS: [SettingsTab, string][] = [
@@ -201,8 +202,9 @@ register("settings", (root, screen) => {
       mic.setOptions(opts("audioinput"), prefs.mic);
       out.setOptions(opts("audiooutput"), prefs.speaker);
     };
-    mic.onChange = (v) => { prefs.mic = v; void listen(); };
-    out.onChange = (v) => { prefs.speaker = v; };
+    // A call in progress switches right away.
+    mic.onChange = (v) => { prefs.mic = v; void listen(); void call.useDevice("audioinput", v); };
+    out.onChange = (v) => { prefs.speaker = v; void call.useDevice("audiooutput", v); };
 
     mount(el,
       h("h2", { class: "display xs" }, "Sound"),
@@ -420,6 +422,7 @@ register("settings", (root, screen) => {
     const server = session.server;
     const list = h("ul", { class: "rows" });
     const signOut = async () => {
+      await call.leave();
       try { await api.logout(); } catch { await api.forgetLogin().catch(() => {}); }
       session.me = null;
       go({ name: "signin" });

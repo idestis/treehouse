@@ -4,7 +4,7 @@
 // Vite's proxy and keeps the token in memory.
 import type {
   Device, Gif, Invite, LiveEvent, LoginResult, Me, Message, MfaSetup, Person, ProbeResult,
-  Reaction, Role, Room, ServerEntry, Treehouse, VoiceGrant,
+  Reaction, Role, Room, ServerEntry, Treehouse, VoiceGrant, VoiceState,
 } from "./types";
 
 export interface Api {
@@ -36,6 +36,7 @@ export interface Api {
   gifs(q: string): Promise<Gif[]>;
 
   voiceToken(room_id: number): Promise<VoiceGrant>;
+  voiceState(room_id: number, state: VoiceState): Promise<void>;
 
   invites(): Promise<Invite[]>;
   createInvite(input: { label: string; role: Role; max_uses: number; hours: number }): Promise<Invite>;
