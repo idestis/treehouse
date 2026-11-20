@@ -37,7 +37,12 @@ export interface VoiceMember {
   user_id: number;
   muted: boolean;
   camera: boolean;
+  /** Sharing their screen. */
+  screen: boolean;
 }
+
+/** Your own flags in a voice room, reported after every change. */
+export interface VoiceState { muted: boolean; camera: boolean; screen: boolean }
 
 export interface Room {
   id: number;
@@ -90,7 +95,16 @@ export interface Invite {
 
 export interface Device { id: string; device_name: string; last_seen: string; current: boolean }
 
-export interface VoiceGrant { url: string; token: string; expires_at: string }
+export interface VoiceGrant {
+  /** LiveKit server address (wss:// in production). */
+  url: string;
+  token: string;
+  expires_at: string;
+  /** "room-<id>" */
+  livekit_room: string;
+  /** Your user id as a string; LiveKit participants are named by it. */
+  identity: string;
+}
 
 export interface MfaSetup { secret: string; otpauth_url: string; qr: string }
 
@@ -104,7 +118,9 @@ export type LiveEvent =
   | { type: "reactions"; channel_id: number; id: number; reactions: Reaction[] }
   | { type: "presence"; user_id: number; online: boolean }
   | { type: "people" }
-  | { type: "rooms" };
+  | { type: "rooms" }
+  /** Who is in a voice room, from LiveKit webhooks (channel "treehouse"). */
+  | { type: "voice"; room_id: number; members: VoiceMember[] };
 
 export interface ApiError { error: string; message: string; status: number }
 
