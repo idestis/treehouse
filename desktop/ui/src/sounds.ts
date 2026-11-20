@@ -66,6 +66,11 @@ function load(sound: string): Promise<AudioBuffer | null> {
   return b;
 }
 
+/** Fetch and decode every sound ahead of time, so the first play isn't late. */
+export function preloadSounds() {
+  for (const name of Object.keys(GAIN_DB)) void load(name);
+}
+
 /** Join, leave and test sounds: levelled per file, at your Sounds volume. Overlapping plays mix. */
 export function playSound(sound: SoundName | null | undefined) {
   if (!sound || sound === "none") return;

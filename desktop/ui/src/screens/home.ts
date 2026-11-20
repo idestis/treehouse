@@ -8,7 +8,7 @@ import { errorText } from "../api/types";
 import { go, register, session } from "../app";
 import { personAvatar } from "../avatars";
 import { chime, notificationsOn, setNotifications } from "../notify";
-import { playJoinSound, playSound } from "../sounds";
+import { playJoinSound, playSound, preloadSounds } from "../sounds";
 import { prefs } from "../voice";
 import { call, type CallEvent, type Capture, type Video } from "../call";
 import { popout } from "../popout";
@@ -1103,6 +1103,9 @@ register("home", (root) => {
     // With push to talk set, you join muted and talk while holding the keys.
     if (call.status === "idle") await call.setMuted(prefs.joinMuted || !!keys.ptt);
     await openRoom(r);
+    // Your own join sound waits until the call and mic are up, plus a moment: opening a
+    // Bluetooth headset's mic switches it to call mode, and a sound during that switch stutters.
+    if (call.roomId === r.id && call.status === "connected") setTimeout(() => { if (call.roomId === r.id) playJoinSound(me.join_sound); }, 600);
     if (call.roomId === r.id && prefs.joinCamera && !call.camera) void call.setCamera(true);
   }
 
@@ -1160,7 +1163,8 @@ register("home", (root) => {
         // Join sounds: whoever just came into the room you're in (you too), on top of the talk.
         if (r.id === call.roomId) {
           const before = new Set(r.members.map((m) => m.user_id));
-          for (const m of e.members) if (!before.has(m.user_id)) playJoinSound(person(m.user_id).join_sound);
+          // (Your own plays from joinRoom once your mic is live.)
+          for (const m of e.members) if (!before.has(m.user_id) && m.user_id !== me.id) playJoinSound(person(m.user_id).join_sound);
           // …and whoever left it (not you: you hear your own when you hang up).
           const after = new Set(e.members.map((m) => m.user_id));
           for (const id of before) if (!after.has(id) && id !== me.id) playSound(person(id).leave_sound);
@@ -1239,6 +1243,7 @@ register("home", (root) => {
   renderSidebar();
   renderMain();
   void load();
+  preloadSounds();
 
   return () => {
     unsubscribe();
