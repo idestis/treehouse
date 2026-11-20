@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE users SET display_name = COALESCE($2, display_name), color = COALESCE($3, color),\n                          status = COALESCE($4, status), join_sound = COALESCE($8, join_sound),\n                          status_emoji = CASE WHEN $5 THEN $6 ELSE status_emoji END,\n                          status_text = CASE WHEN $5 THEN $7 ELSE status_text END\n         WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text",
+        "Text",
+        "Bool",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "359d31a383cb76bacc527f31a6289164f3ec99e8f408eaa4cf67ebb9c14e2d95"
+}

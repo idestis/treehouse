@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT u.id, u.username::text AS \"username!\", u.display_name, u.color, u.role, u.is_owner,\n                  s.id AS session_id, (m.confirmed_at IS NOT NULL) AS \"mfa_enabled!\", t.mods_require_mfa,\n                  (SELECT a.version FROM avatars a WHERE a.user_id = u.id) AS avatar,\n                  u.status, u.status_emoji, u.status_text\n           FROM sessions s\n           JOIN users u ON u.id = s.user_id\n           LEFT JOIN mfa m ON m.user_id = u.id\n           CROSS JOIN treehouse t\n           WHERE s.id = $1",
+  "query": "SELECT u.id, u.username::text AS \"username!\", u.display_name, u.color, u.role, u.is_owner,\n                  s.id AS session_id, (m.confirmed_at IS NOT NULL) AS \"mfa_enabled!\", t.mods_require_mfa,\n                  (SELECT a.version FROM avatars a WHERE a.user_id = u.id) AS avatar,\n                  u.status, u.status_emoji, u.status_text, u.join_sound\n           FROM sessions s\n           JOIN users u ON u.id = s.user_id\n           LEFT JOIN mfa m ON m.user_id = u.id\n           CROSS JOIN treehouse t\n           WHERE s.id = $1",
   "describe": {
     "columns": [
       {
@@ -67,6 +67,11 @@
         "ordinal": 12,
         "name": "status_text",
         "type_info": "Text"
+      },
+      {
+        "ordinal": 13,
+        "name": "join_sound",
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -87,8 +92,9 @@
       null,
       false,
       true,
-      true
+      true,
+      false
     ]
   },
-  "hash": "5b80a787e5223f0970f924d71dc6e522c514f089081ba40132c062025e9426cb"
+  "hash": "8aac0e9f120f263dc4b552c75fd60c0fee4c281897b433405527602a0930cebf"
 }

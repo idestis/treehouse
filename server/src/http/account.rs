@@ -33,9 +33,12 @@ pub struct MePatch {
     /// Custom status; send both as "" (or null) to clear.
     status_emoji: Option<String>,
     status_text: Option<String>,
+    /// ding | fart | quack | hewya | none
+    join_sound: Option<String>,
 }
 
 const STATUSES: [&str; 4] = ["online", "away", "busy", "brb"];
+const JOIN_SOUNDS: [&str; 5] = ["ding", "fart", "quack", "hewya", "none"];
 
 pub async fn update_me(
     State(st): State<AppState>,
@@ -60,6 +63,11 @@ pub async fn update_me(
             "Pick online, away, busy or be right back.",
         ));
     }
+    if let Some(s) = p.join_sound.as_deref()
+        && !JOIN_SOUNDS.contains(&s)
+    {
+        return Err(AppError::bad("bad_sound", "Pick one of the join sounds."));
+    }
     // Custom status is set or cleared as a pair.
     let custom = p.status_emoji.is_some() || p.status_text.is_some();
     let emoji = p
@@ -83,7 +91,7 @@ pub async fn update_me(
     let mut tx = st.db.begin().await?;
     sqlx::query!(
         "UPDATE users SET display_name = COALESCE($2, display_name), color = COALESCE($3, color),
-                          status = COALESCE($4, status),
+                          status = COALESCE($4, status), join_sound = COALESCE($8, join_sound),
                           status_emoji = CASE WHEN $5 THEN $6 ELSE status_emoji END,
                           status_text = CASE WHEN $5 THEN $7 ELSE status_text END
          WHERE id = $1",
@@ -93,7 +101,8 @@ pub async fn update_me(
         p.status,
         custom,
         emoji,
-        text
+        text,
+        p.join_sound
     )
     .execute(&mut *tx)
     .await?;
