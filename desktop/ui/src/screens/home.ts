@@ -12,6 +12,20 @@ import { h, icon, mount, time, toast } from "../dom";
 
 const EMOJI = ["😂", "😭", "💀", "🔥", "💯", "❤️", "👍", "👎", "😎", "🥲", "😴", "🤔", "😤", "🙃", "😅", "🤯", "🥳", "😈", "👀", "🙏", "🫡", "🤝", "👋", "🎮", "🕹️", "🏆", "⚡", "✨", "🎉", "🍕", "🍿", "🥤", "🌙", "⭐", "🦉", "🌲", "🎧", "🎤", "📣", "✅", "❌", "⏰"];
 
+// Last reactions you used, for the hover toolbar (a per-computer convenience).
+const RECENT_KEY = "treehouse.recentEmoji";
+function recentEmoji(): string[] {
+  try {
+    const list = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "null");
+    if (Array.isArray(list) && list.length) return list.slice(0, 3);
+  } catch { /* defaults */ }
+  return ["👍", "😂", "🔥"];
+}
+function rememberEmoji(e: string) {
+  const list = [e, ...recentEmoji().filter((x) => x !== e)].slice(0, 3);
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify(list)); } catch { /* preference only */ }
+}
+
 const COMMANDS = [
   { name: "giphy", arg: "search words", help: "Pick and send a GIF" },
   { name: "shrug", arg: "message", help: "Add ¯\\_(ツ)_/¯ to your message" },
@@ -186,11 +200,10 @@ register("home", (root) => {
     } else {
       content = h("p", { class: "body" }, renderBody(m.body ?? "", m.mentions));
     }
-    // Sits after the reactions; on a message without any it shows on hover.
-    const reactBtn = h("button", { class: "reaction add", type: "button", "aria-label": "Add reaction", title: "Add reaction" }, icon("smilePlus", 18));
-    reactBtn.onclick = () => emojiPicker(reactBtn, (e) => void react(m, e, true));
-    const deleteBtn = canDelete && h("div", { class: "msg-actions" },
-      h("button", { class: "icon-btn sm msg-act", "aria-label": "Delete message", title: "Delete", onclick: (e: Event) => confirmDelete(m, e.currentTarget as HTMLElement) }, icon("trash", 18)));
+    // Inline "add" chip only after existing reactions (Slack-style); otherwise use the hover toolbar.
+    const reactBtn = m.reactions.length > 0 && h("button", { class: "reaction add", type: "button", "aria-label": "Add reaction", title: "Add reaction" }, icon("smilePlus", 18));
+    if (reactBtn) reactBtn.onclick = () => emojiPicker(reactBtn, (e) => void react(m, e, true));
+    const tools = messageTools(m, p, canDelete);
     // `/me` is a status line, like "joined" or "muted": one row, no repeated header.
     if (m.kind === "action") {
       return h("article", { class: `msg status ${compact ? "compact" : ""}`, "data-id": String(m.id) },
@@ -201,20 +214,48 @@ register("home", (root) => {
             h("strong", { style: { color: p.color } }, p.display_name), " ",
             h("em", null, m.body ?? ""),
             h("time", { class: "muted small", datetime: m.created_at }, time(m.created_at))),
-          h("div", { class: `reactions ${m.reactions.length ? "" : "empty"}` },
+          m.reactions.length > 0 && h("div", { class: "reactions" },
             m.reactions.map((r) => reactionChip(m, r.emoji, r.user_ids)), reactBtn)),
-        deleteBtn);
+        tools);
     }
     return h("article", { class: `msg ${mentionsMe ? "mentioned" : ""} ${compact ? "compact" : ""}`, "data-id": String(m.id) },
       personAvatar(p, compact ? 36 : 44),
       h("div", { class: "msg-main" },
         h("div", { class: "msg-head" }, h("strong", { style: { color: p.color } }, p.display_name), h("time", { class: "muted small", datetime: m.created_at }, time(m.created_at))),
         content,
-        h("div", { class: `reactions ${m.reactions.length ? "" : "empty"}` },
+        m.reactions.length > 0 && h("div", { class: "reactions" },
           m.reactions.map((r) => reactionChip(m, r.emoji, r.user_ids)), reactBtn),
       ),
-      deleteBtn,
+      tools,
     );
+  }
+
+  /** Slack-style hover toolbar: recent reactions, add reaction, reply, delete. */
+  function messageTools(m: Message, author: Person, canDelete: boolean) {
+    const bar = h("div", { class: "msg-tools", role: "toolbar", "aria-label": "Message actions" });
+    const quick = recentEmoji().map((e) => {
+      const mine = m.reactions.some((r) => r.emoji === e && r.user_ids.includes(me.id));
+      return h("button", { class: `tool emoji-tool ${mine ? "on" : ""}`, type: "button", title: mine ? `Remove ${e}` : `React ${e}`, "aria-label": mine ? `Remove ${e}` : `React with ${e}`,
+        onclick: () => void react(m, e, !mine) }, e);
+    });
+    const add = h("button", { class: "tool", type: "button", title: "Add reaction", "aria-label": "Add reaction" }, icon("smilePlus", 18));
+    add.onclick = () => emojiPicker(add, (e) => void react(m, e, true));
+    const reply = h("button", { class: "tool", type: "button", title: `Reply to ${author.display_name}`, "aria-label": `Reply to ${author.display_name}`,
+      onclick: () => replyTo(m.channel_id, author) }, icon("reply", 18));
+    const del = canDelete && h("button", { class: "tool danger", type: "button", title: "Delete", "aria-label": "Delete message" }, icon("trash", 18));
+    if (del) del.onclick = () => confirmDelete(m, bar);
+    mount(bar, quick, h("span", { class: "tool-sep" }), add, author.id !== me.id && reply, del);
+    return bar;
+  }
+
+  /** Reply = mention them in the message box (Treehouse has no threads). */
+  function replyTo(channel: number, author: Person) {
+    const input = composerInputs.get(channel);
+    if (!input) return;
+    const tag = `@${author.username} `;
+    if (!input.value.startsWith(tag)) input.value = tag + input.value.replace(/^\s+/, "");
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
   }
 
   function reactionChip(m: Message, emoji: string, userIds: number[]) {
@@ -225,6 +266,7 @@ register("home", (root) => {
   }
 
   async function react(m: Message, emoji: string, on: boolean) {
+    if (on) rememberEmoji(emoji);
     try {
       m.reactions = await api.react(m.id, emoji, on);
       refreshLists(m.channel_id);
@@ -232,10 +274,9 @@ register("home", (root) => {
   }
 
   /** Ask in place before deleting: the bin turns into "Delete for everyone? Delete / Cancel". */
-  function confirmDelete(m: Message, btn: HTMLElement) {
-    const actions = btn.closest(".msg-actions") as HTMLElement | null;
-    if (!actions) return;
-    const restore = () => { actions.classList.remove("confirming"); mount(actions, btn); document.removeEventListener("keydown", onEsc, true); };
+  function confirmDelete(m: Message, actions: HTMLElement) {
+    const kids = [...actions.childNodes];
+    const restore = () => { actions.classList.remove("confirming"); mount(actions, kids); document.removeEventListener("keydown", onEsc, true); };
     const onEsc = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); restore(); } };
     const yes = h("button", { class: "btn danger sm", type: "button" }, "Delete");
     yes.onclick = async () => {
@@ -254,6 +295,9 @@ register("home", (root) => {
     document.addEventListener("keydown", onEsc, true);
     yes.focus();
   }
+
+  /** Message boxes on screen, by channel (for Reply). */
+  const composerInputs = new Map<number, HTMLInputElement>();
 
   /** Message lists currently on screen, by channel. */
   const lists = new Map<number, { el: HTMLElement; compact: boolean }>();
@@ -312,6 +356,7 @@ register("home", (root) => {
 
   function composer(channel: number, placeholder: string) {
     const input = h("input", { class: "composer-input", placeholder, "aria-label": placeholder, maxlength: 2000, autocomplete: "off" });
+    composerInputs.set(channel, input);
     const pop = h("div", { class: "composer-pop", hidden: true });
     const emojiBtn = h("button", { class: "icon-btn square", type: "button", "aria-label": "Emoji", title: "Emoji" }, icon("smile", 24));
     const sendBtn = h("button", { class: "icon-btn square send", type: "submit", "aria-label": "Send", title: "Send" }, icon("send", 24));

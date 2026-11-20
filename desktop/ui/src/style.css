@@ -216,19 +216,16 @@ fieldset.plain legend { padding: 0; margin-bottom: 10px; }
 .body { font-size: 17px; line-height: 1.5; overflow-wrap: anywhere; }
 .body.action { font-style: italic; color: #d6dbee; }
 .msg.status { padding-top: 4px; padding-bottom: 4px; }
-.status-slot { width: 44px; flex: none; display: flex; justify-content: center; align-items: center; }
+.status-slot { width: 44px; flex: none; display: flex; justify-content: center; align-items: flex-start; padding-top: 1px; }
 .msg.status.compact .status-slot { width: 36px; }
 .status-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: #d6dbee; font-size: 15px; }
 .status-line em { color: #c4cae0; }
 .status-line time { margin-left: 4px; }
-.msg-actions { display: flex; gap: 2px; align-self: flex-start; opacity: 0; }
-.msg-actions.confirming { opacity: 1; align-items: center; gap: 8px; color: var(--ember); }
 .btn.danger { background: var(--ember); color: #2a0e0b; }
 .btn.danger:hover:not(:disabled) { background: #ffa59b; }
 .msg.dissolving { overflow: hidden; pointer-events: none; opacity: 0; filter: blur(6px); transform: scale(0.98);
   max-height: 0 !important; padding-top: 0; padding-bottom: 0; margin: 0;
   transition: opacity 0.22s ease, filter 0.22s ease, transform 0.22s ease, max-height 0.24s ease 0.16s, padding 0.24s ease 0.16s; }
-.msg:hover .msg-actions, .msg:focus-within .msg-actions { opacity: 1; }
 .mention { background: rgba(255, 179, 71, 0.18); color: var(--lantern); font-weight: 700; padding: 1px 8px; border-radius: 6px; }
 .mention.me { background: rgba(255, 179, 71, 0.28); }
 .room-chip { display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 8px; background: #2a2620; color: var(--lantern); font-weight: 700; vertical-align: middle; }
@@ -237,12 +234,22 @@ fieldset.plain legend { padding: 0; margin-bottom: 10px; }
 .reaction { display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px; border-radius: 999px; background: var(--surface); border: 1.5px solid var(--line-2); font-weight: 700; }
 .reaction.mine { border-color: var(--lantern); background: #2a2620; }
 .reaction .emoji { font-size: 18px; }
-.reaction.add { padding: 5px 10px; color: var(--mist); border-style: dashed; visibility: hidden; }
-.msg:hover .reaction.add, .msg:focus-within .reaction.add { visibility: visible; }
+.reaction.add { padding: 5px 10px; color: var(--mist); }
+/* Hover toolbar, floating over the message's top-right corner (Slack-style). */
+.msg-tools { position: absolute; top: -16px; right: 14px; z-index: 2; display: flex; align-items: center; gap: 2px; padding: 3px;
+  background: #1c2742; border: 1.5px solid var(--line-2); border-radius: 12px; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  opacity: 0; pointer-events: none; transition: opacity 0.12s; }
+.msg:hover .msg-tools, .msg:focus-within .msg-tools, .msg-tools.confirming { opacity: 1; pointer-events: auto; }
+.msg-tools .tool { display: inline-grid; place-items: center; width: 34px; height: 30px; border-radius: 8px; color: var(--mist); }
+.msg-tools .tool:hover { background: var(--active); color: var(--moon); }
+.msg-tools .tool.danger:hover { color: var(--ember); }
+.msg-tools .emoji-tool { font-size: 18px; }
+.msg-tools .emoji-tool.on { background: #2a2620; }
+.msg-tools .tool-sep { width: 1px; height: 18px; background: var(--line-2); margin: 0 3px; }
+.msg-tools.confirming { gap: 8px; padding: 4px 6px 4px 12px; color: var(--ember); }
+/* Room above the first message so its toolbar isn't clipped. */
+.messages { padding-top: 24px !important; }
 .reaction.add:hover { color: var(--moon); border-color: var(--lantern); }
-/* No reactions yet: the add chip appears on hover and takes no space otherwise. */
-.reactions.empty { display: none; }
-.msg:hover .reactions.empty, .msg:focus-within .reactions.empty { display: flex; }
 .gif-msg { display: flex; flex-direction: column; gap: 6px; }
 .gif-frame { position: relative; align-self: flex-start; max-width: min(440px, 100%); border-radius: 16px; overflow: hidden; }
 .gif-frame img { display: block; max-width: 100%; max-height: 300px; width: auto; height: auto; }
