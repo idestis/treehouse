@@ -247,11 +247,22 @@ fieldset.plain legend { padding: 0; margin-bottom: 10px; }
 .mention.me { background: rgba(255, 179, 71, 0.28); }
 .room-chip { display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 8px; background: #2a2620; color: var(--lantern); font-weight: 700; vertical-align: middle; }
 .room-chip:hover { background: #3a3123; }
-.reactions { display: flex; flex-wrap: wrap; gap: 8px; }
-.reaction { display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px; border-radius: 999px; background: var(--surface); border: 1.5px solid var(--line-2); font-weight: 700; }
+.reactions { display: flex; flex-wrap: wrap; gap: 6px; }
+.reaction { position: relative; display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 9px; border-radius: 999px;
+  background: var(--surface); border: 1.5px solid var(--line-2); font-weight: 700; font-size: 13px; }
+.reaction:hover { border-color: #3a4870; }
+/* Names tooltip (no repeated emoji). */
+.reaction[data-tip]:hover::after, .reaction[data-tip]:focus-visible::after {
+  content: attr(data-tip); position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); z-index: 10;
+  width: max-content; max-width: 240px; padding: 6px 10px; border-radius: 8px; background: #05070d; color: var(--moon);
+  font-size: 13px; font-weight: 700; line-height: 1.35; text-align: center; white-space: normal; pointer-events: none;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45); }
+.reaction[data-tip]:hover::before, .reaction[data-tip]:focus-visible::before {
+  content: ""; position: absolute; bottom: calc(100% + 3px); left: 50%; transform: translateX(-50%); z-index: 10;
+  border: 5px solid transparent; border-top-color: #05070d; pointer-events: none; }
 .reaction.mine { border-color: var(--lantern); background: #2a2620; }
-.reaction .emoji { font-size: 18px; }
-.reaction.add { padding: 5px 10px; color: var(--mist); }
+.reaction .emoji { font-size: 15px; line-height: 1; }
+.reaction.add { padding: 0 7px; color: var(--mist); }
 /* Hover toolbar, floating over the message's top-right corner (Slack-style). */
 .msg-tools { position: absolute; top: -16px; right: 14px; z-index: 2; display: flex; align-items: center; gap: 2px; padding: 3px;
   background: #1c2742; border: 1.5px solid var(--line-2); border-radius: 12px; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);

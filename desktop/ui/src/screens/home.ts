@@ -258,10 +258,19 @@ register("home", (root) => {
     input.setSelectionRange(input.value.length, input.value.length);
   }
 
+  /** "You", "Ana and Leo", "You, Ana and 3 others" — who reacted, you first. */
+  function reactedBy(userIds: number[]): string {
+    const names = [...userIds].sort((a, b) => Number(b === me.id) - Number(a === me.id))
+      .map((id) => (id === me.id ? "You" : person(id).display_name));
+    if (names.length > 4) return `${names.slice(0, 3).join(", ")} and ${names.length - 3} others`;
+    return names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names[0] ?? "";
+  }
+
   function reactionChip(m: Message, emoji: string, userIds: number[]) {
     const mine = userIds.includes(me.id);
-    const names = userIds.map((id) => person(id).display_name).join(", ");
-    return h("button", { class: `reaction ${mine ? "mine" : ""}`, "aria-pressed": String(mine), title: names, onclick: () => void react(m, emoji, !mine) },
+    const who = `${reactedBy(userIds)} reacted`;
+    return h("button", { class: `reaction ${mine ? "mine" : ""}`, "aria-pressed": String(mine), "aria-label": `${emoji} ${userIds.length}: ${who}`,
+      "data-tip": who, onclick: () => void react(m, emoji, !mine) },
       h("span", { class: "emoji" }, emoji), String(userIds.length));
   }
 
