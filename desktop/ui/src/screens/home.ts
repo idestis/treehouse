@@ -477,7 +477,7 @@ register("home", (root) => {
       pop.dataset.kind = "gif";
       pop.hidden = false;
       const grid = h("div", { class: "gif-grid" }, h("p", { class: "muted pad" }, "Looking for GIFs…"));
-      // The server sends one batch; Shuffle deals the next 9 from it in random order.
+      // The server sends one batch; Shuffle deals the next 6 from it in random order.
       let all: Gif[] = [];
       let dealt = 0;
       const show = () => {
@@ -485,9 +485,9 @@ register("home", (root) => {
           all = all.map((g) => [Math.random(), g] as const).sort((a, b) => a[0] - b[0]).map(([, g]) => g);
           dealt = 0;
         }
-        const gifs = all.slice(dealt, dealt + 9);
-        dealt += 9;
-        shuffleBtn.hidden = all.length <= 9;
+        const gifs = all.slice(dealt, dealt + 6);
+        dealt += 6;
+        shuffleBtn.hidden = all.length <= 6;
         mount(grid, gifs.length ? gifs.map((g) => h("button", { type: "button", class: "gif-pick", "aria-label": `Send ${g.title}`, onclick: () => void sendGif(g) }, h("img", { src: g.preview_url, alt: g.title }))) : h("p", { class: "muted pad" }, "No GIFs for that. Try other words."));
       };
       const load = async () => {
