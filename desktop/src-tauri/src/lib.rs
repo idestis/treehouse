@@ -2,6 +2,7 @@ mod client;
 mod live;
 mod overlay;
 mod system;
+mod system_audio;
 mod tray;
 mod update;
 
@@ -20,6 +21,7 @@ pub fn run() {
         .manage(update::UpdateState::default())
         .manage(client::Client::new())
         .manage(live::Live::default())
+        .manage(system_audio::SystemAudio::default())
         .invoke_handler(tauri::generate_handler![
             update::update_status,
             update::update_check,
@@ -34,6 +36,8 @@ pub fn run() {
             system::open_privacy_settings,
             overlay::overlay_open,
             overlay::overlay_close,
+            system_audio::system_audio_start,
+            system_audio::system_audio_stop,
         ])
         .setup(|app| {
             tray::build(app.handle())?;

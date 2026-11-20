@@ -55,6 +55,12 @@ export const prefs = {
   /** Desktop app: open the small "people on top" window when you start sharing (on by default). */
   get overlayWhileSharing() { return read("treehouse.overlayWhileSharing") !== "0"; },
   set overlayWhileSharing(v: boolean) { write("treehouse.overlayWhileSharing", v ? "1" : "0"); },
+  /** Share the computer's sound with the screen: on by default for "Watching or playing", off for "Reading together". */
+  screenSound(mode: "text" | "motion"): boolean {
+    const v = read(`treehouse.screenSound.${mode}`);
+    return v === "" ? mode === "motion" : v === "1";
+  },
+  setScreenSound(mode: "text" | "motion", on: boolean) { write(`treehouse.screenSound.${mode}`, on ? "1" : "0"); },
   /** Output volume in percent (0–100) for everyone you hear. */
   get outputVolume() { return percent(OUT_GAIN_KEY); },
   set outputVolume(v: number) { write(OUT_GAIN_KEY, String(Math.round(v))); },

@@ -2,12 +2,13 @@
 // screen flags. The server decides who may join (voice token) and who is in
 // a room (LiveKit webhooks); this module only connects, publishes and plays.
 import {
-  ConnectionQuality, ConnectionState, DisconnectReason, LocalAudioTrack, Participant, RemoteParticipant,
+  AudioPresets, ConnectionQuality, ConnectionState, DisconnectReason, LocalAudioTrack, Participant, RemoteParticipant,
   RemoteTrack, Room, RoomEvent, ScreenSharePresets, Track, VideoPresets, createLocalAudioTrack,
   type LocalTrackPublication, type RoomOptions, type TrackPublication,
 } from "livekit-client";
 import { api } from "./api";
 import { isApiError, type ApiError } from "./api/types";
+import { nativeScreenSound, startScreenSound, type ScreenSound, type SoundProblem } from "./screenSound";
 import { AUDIO_CAPTURE, PUBLISH, prefs } from "./voice";
 
 export type CallStatus = "idle" | "connecting" | "connected" | "reconnecting";
@@ -24,8 +25,9 @@ export type CallEvent =
   | { type: "speaking" }
   /** Your connection got weak or recovered. */
   | { type: "quality"; poor: boolean }
-  /** A device couldn't be used. `denied` means the OS or the user said no. */
-  | { type: "capture"; kind: Capture; problem: "denied" | "missing" | "unsupported" | "failed" }
+  /** A device couldn't be used. `denied` means the OS or the user said no.
+   *  `sound`: the screen is shared, only its sound couldn't be. */
+  | { type: "capture"; kind: Capture; problem: "denied" | "missing" | "unsupported" | "failed"; sound?: boolean }
   /** The call ended without you pressing Leave, with a sentence for the user. */
   | { type: "ended"; message: string };
 
@@ -43,6 +45,14 @@ let weak = false;
 const local = { muted: false, deafened: false, camera: false, screen: false };
 let mutedBeforeDeafen = false;
 const listeners = new Set<(e: CallEvent) => void>();
+/** The computer's sound captured natively for the screen share (macOS app). */
+let screenSound: ScreenSound | null = null;
+let soundGen = 0;
+/** Turned off when this Mac turns out not to support it (older than macOS 13). */
+let nativeSoundWorks = nativeScreenSound;
+
+/** Movie and game sound: stereo, music bitrate, never cut in silences. */
+const SOUND_PUBLISH = { audioPreset: AudioPresets.musicHighQualityStereo, dtx: false, red: false } as const;
 
 /** Hidden home for remote audio elements; outside the screens so switching screens never stops sound. */
 const audioSink = (() => {
@@ -83,6 +93,10 @@ export const call = {
   get camera(): boolean { return local.camera; },
   get screen(): boolean { return local.screen; },
   get weak(): boolean { return weak; },
+  /** Whether a screen share here can carry the computer's sound. */
+  get screenSoundAvailable(): boolean {
+    return nativeScreenSound ? nativeSoundWorks : !navigator.userAgent.includes("Mac");
+  },
   /** User ids talking right now, loudest first. */
   get speaking(): number[] { return [...speakingIds]; },
 
@@ -226,20 +240,33 @@ export const call = {
       emit({ type: "capture", kind: "screen", problem: "unsupported" });
       return;
     }
+    const r = room;
+    const withSound = on && prefs.screenSound(prefs.screenMode) && call.screenSoundAvailable;
+    // macOS app: the sound is captured natively. The audio context is made
+    // now, while the click is fresh, so the web view lets it run.
+    let ctx: AudioContext | null = null;
+    if (withSound && nativeScreenSound) {
+      try { ctx = new AudioContext({ sampleRate: 48_000, latencyHint: "interactive" }); } catch { ctx = null; }
+    }
+    if (!on) stopScreenSound();
+    const webSound = withSound && !nativeScreenSound;
     try {
       // Sharp text (default): full 1080p, fewer frames, keep resolution when the network is tight.
       // Smooth motion (games): 1080p at 30 fps, drop resolution before frames.
       const motion = prefs.screenMode === "motion";
       const preset = motion ? ScreenSharePresets.h1080fps30 : ScreenSharePresets.h1080fps15;
-      await room.localParticipant.setScreenShareEnabled(on,
-        // System audio where the platform offers it (Windows); macOS web views share picture only.
-        { audio: true, systemAudio: "include", selfBrowserSurface: "exclude", surfaceSwitching: "include",
+      await r.localParticipant.setScreenShareEnabled(on,
+        // Windows: getDisplayMedia carries the system sound, untouched by voice processing.
+        { audio: webSound ? { echoCancellation: false, noiseSuppression: false, autoGainControl: false } : false,
+          systemAudio: webSound ? "include" : "exclude", selfBrowserSurface: "exclude", surfaceSwitching: "include",
           contentHint: motion ? "motion" : "detail", resolution: preset.resolution },
         {
           screenShareEncoding: { maxBitrate: motion ? 4_500_000 : 3_000_000, maxFramerate: motion ? 30 : 15 },
           degradationPreference: motion ? "maintain-framerate" : "maintain-resolution",
+          ...SOUND_PUBLISH,
         });
       local.screen = on;
+      if (on && ctx && room === r) { void startNativeSound(r, ctx); ctx = null; }
     } catch (e) {
       local.screen = false;
       const problem = captureProblem(e);
@@ -247,6 +274,7 @@ export const call = {
       const bySystem = e instanceof Error && /system/i.test(e.message);
       if (problem !== "denied" || bySystem) emit({ type: "capture", kind: "screen", problem });
     }
+    void ctx?.close().catch(() => {});
     emit({ type: "local" });
     emit({ type: "tracks" });
     report();
@@ -337,6 +365,46 @@ async function applyMic() {
   else await pub.unmute();
 }
 
+/** Start the macOS app's native sound for the screen share that was just published. */
+async function startNativeSound(r: Room, ctx: AudioContext) {
+  const gen = ++soundGen;
+  const current = () => gen === soundGen && room === r && local.screen;
+  let sound: ScreenSound | null = null;
+  try {
+    sound = await startScreenSound(ctx, () => {
+      // Capture stopped on its own (permission taken away): keep the picture, drop the sound.
+      if (gen !== soundGen || room !== r) return;
+      stopScreenSound();
+      unpublishScreenSound(r);
+      emit({ type: "capture", kind: "screen", problem: "failed", sound: true });
+    });
+    if (!current()) { sound.stop(); return; }
+    screenSound = sound;
+    await r.localParticipant.publishTrack(sound.track,
+      { source: Track.Source.ScreenShareAudio, name: "screen-audio", forceStereo: true, ...SOUND_PUBLISH });
+    if (!current()) unpublishScreenSound(r);
+  } catch (e) {
+    if (screenSound === sound) stopScreenSound();
+    else sound?.stop();
+    if (gen !== soundGen || room !== r) return;
+    const why: SoundProblem = e === "permission" || e === "unsupported" ? e : "failed";
+    if (why === "unsupported") nativeSoundWorks = false;
+    emit({ type: "capture", kind: "screen", problem: why === "permission" ? "denied" : why, sound: true });
+  }
+}
+
+function stopScreenSound() {
+  soundGen++;
+  const s = screenSound;
+  screenSound = null;
+  s?.stop();
+}
+
+function unpublishScreenSound(r: Room) {
+  const pub = r.localParticipant.getTrackPublication(Track.Source.ScreenShareAudio);
+  if (pub?.track) void r.localParticipant.unpublishTrack(pub.track).catch(() => {});
+}
+
 function applyDeafen() {
   for (const el of audioSink.querySelectorAll("audio")) el.muted = local.deafened;
 }
@@ -394,7 +462,11 @@ function wire(r: Room) {
     .on(RoomEvent.LocalTrackUnpublished, (pub: LocalTrackPublication) => {
       if (!mine()) return;
       // "Stop sharing" from the system bar ends the share without going through us.
-      if (pub.source === Track.Source.ScreenShare && local.screen) { local.screen = false; emit({ type: "local" }); report(); }
+      if (pub.source === Track.Source.ScreenShare) {
+        // The picture ended: its sound goes with it (a live track is only being republished).
+        if (pub.track?.mediaStreamTrack.readyState !== "live") { stopScreenSound(); unpublishScreenSound(r); }
+        if (local.screen) { local.screen = false; emit({ type: "local" }); report(); }
+      }
       if (pub.source === Track.Source.Camera && local.camera) { local.camera = false; emit({ type: "local" }); report(); }
       emit({ type: "tracks" });
     })
@@ -443,6 +515,7 @@ function endedText(reason?: DisconnectReason): string {
 
 async function teardown() {
   clearInterval(refreshTimer);
+  stopScreenSound();
   const r = room;
   room = null;
   roomId = null;

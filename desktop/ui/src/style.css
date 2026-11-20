@@ -231,6 +231,9 @@ fieldset.plain legend { padding: 0; margin-bottom: 10px; }
 .share-menu .share-opt { padding: 9px 8px; }
 .share-sound { display: flex; align-items: flex-start; gap: 8px; padding: 8px 8px 4px; border-top: 1px solid #222d49; margin-top: 4px; line-height: 1.4; }
 .share-sound svg { flex: none; margin-top: 2px; }
+.share-sound + .share-sound { border-top: 0; margin-top: 0; padding-top: 2px; }
+.share-menu .share-sound-toggle { gap: 10px; padding: 10px 8px 8px; border-bottom: 0; border-top: 1px solid #222d49; margin-top: 4px; }
+.share-sound-toggle + .share-sound { border-top: 0; margin-top: 0; padding-top: 2px; }
 .sound-badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; background: rgba(99, 214, 158, 0.15); color: var(--leaf); font-size: 12px; font-weight: 700; }
 .room-menu { width: 260px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45); }
 .sm-sub { padding: 4px 12px 0; }

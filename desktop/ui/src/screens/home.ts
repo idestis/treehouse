@@ -58,7 +58,7 @@ register("home", (root) => {
   let deckMentions = 0;
   /** Whose screen is large when several people share. */
   let spotlight: number | null = null;
-  let problem: { kind: Capture; problem: "denied" | "missing" | "unsupported" | "failed" } | null = null;
+  let problem: { kind: Capture; problem: "denied" | "missing" | "unsupported" | "failed"; sound?: boolean } | null = null;
   const cache = new Map<number, Message[]>();
 
   const deck = () => rooms.find((r) => r.kind === "deck");
@@ -812,7 +812,7 @@ register("home", (root) => {
     if (room && stageSub) stageSub.textContent = talkingText(stageMembers(room));
   }
 
-  /** Before sharing: what it's for decides the quality (remembered for next time). */
+  /** Before sharing: what it's for decides the quality and whether sound goes along (remembered for next time). */
   function shareMenu(anchor: HTMLElement) {
     document.querySelector(".share-menu")?.remove();
     const r = anchor.getBoundingClientRect();
@@ -820,19 +820,40 @@ register("home", (root) => {
     const close = () => { menu.remove(); removeEventListener("mousedown", outside, true); removeEventListener("keydown", esc, true); };
     const outside = (e: MouseEvent) => { if (!menu.contains(e.target as Node) && e.target !== anchor) close(); };
     const esc = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); close(); } };
+    const canSound = call.screenSoundAvailable;
+    // The switch shows the remembered choice for the option you're about to pick,
+    // until you flip it yourself; then your choice goes with whichever you pick.
+    let touched = false;
+    const box = h("input", { type: "checkbox", checked: prefs.screenSound(prefs.screenMode) }) as HTMLInputElement;
+    const soundNote = h("span", null);
+    const showNote = () => {
+      soundNote.textContent = !canSound
+        ? "Only the picture is shared on this Mac."
+        : box.checked ? "Everyone hears what you share." : "Only the picture is shared.";
+    };
+    box.addEventListener("change", () => { touched = true; showNote(); });
+    const preview = (mode: "text" | "motion") => { if (!touched) { box.checked = prefs.screenSound(mode); showNote(); } };
+    showNote();
     const option = (mode: "text" | "motion", title: string, hint: string) =>
       h("button", { class: `sm-item share-opt ${prefs.screenMode === mode ? "on" : ""}`, type: "button", role: "menuitem",
-        onclick: () => { prefs.screenMode = mode; close(); void call.setScreenShare(true); } },
+        onmouseenter: () => preview(mode), onfocus: () => preview(mode),
+        onclick: () => {
+          prefs.screenMode = mode;
+          if (canSound) prefs.setScreenSound(mode, touched ? box.checked : prefs.screenSound(mode));
+          close();
+          void call.setScreenShare(true);
+        } },
         h("span", { class: "grow col" }, h("strong", null, title), h("span", { class: "muted small" }, hint)),
         prefs.screenMode === mode && h("span", { class: "lantern" }, "✓"));
     mount(menu,
       h("p", { class: "share-title" }, "Share your screen for"),
       option("text", "Reading together", "Sharp text: docs, code, websites (1080p, 15 fps)"),
       option("motion", "Watching or playing", "Smooth motion: videos and games (1080p, 30 fps)"),
-      h("p", { class: "share-sound muted small" }, icon(navigator.userAgent.includes("Mac") ? "volumeOff" : "volume", 16),
-        navigator.userAgent.includes("Mac")
-          ? "Only the picture is shared. macOS doesn’t let apps send other apps’ sound."
-          : "Sound from what you share is included, so everyone hears it too."));
+      canSound && h("label", { class: "toggle-row share-sound-toggle" },
+        h("span", { class: "grow col" }, h("span", null, "Include my computer’s sound"), h("span", { class: "muted small" }, soundNote)),
+        box, h("span", { class: "switch", "aria-hidden": "true" })),
+      !canSound && h("p", { class: "share-sound muted small" }, icon("volumeOff", 16), soundNote),
+      h("p", { class: "share-sound muted small" }, icon("monitorOff", 16), "Streaming services like Netflix show a black picture when shared."));
     document.body.appendChild(menu);
     setTimeout(() => { addEventListener("mousedown", outside, true); addEventListener("keydown", esc, true); });
   }
@@ -962,6 +983,12 @@ register("home", (root) => {
 
   function problemText(p: NonNullable<typeof problem>): { title: string; body: string } {
     const thing = p.kind === "screen" ? "screen share" : p.kind;
+    if (p.sound) {
+      // The picture is shared; only the computer's sound isn't.
+      return p.problem === "denied"
+        ? { title: "Your screen is shared without sound", body: "Allow Treehouse in System Settings → Privacy & Security → Screen & System Audio Recording, restart Treehouse, then share again." }
+        : { title: "Your screen is shared without sound", body: "Only the picture is shared on this Mac." };
+    }
     if (p.problem === "unsupported") return { title: "Screen sharing doesn’t work here yet", body: "This system doesn’t let apps share the screen. Update it, then try again." };
     if (p.problem === "missing") {
       return p.kind === "microphone"
@@ -1007,7 +1034,7 @@ register("home", (root) => {
       case "tracks": case "quality": renderStage(); break;
       case "speaking": renderSpeaking(); break;
       case "capture":
-        problem = { kind: e.kind, problem: e.problem };
+        problem = { kind: e.kind, problem: e.problem, sound: e.sound };
         if (view.kind === "voice") renderProblem();
         else toast(problemText(problem).title, "error");
         break;
