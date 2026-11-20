@@ -477,15 +477,30 @@ register("home", (root) => {
       pop.dataset.kind = "gif";
       pop.hidden = false;
       const grid = h("div", { class: "gif-grid" }, h("p", { class: "muted pad" }, "Looking for GIFs…"));
+      // The server sends one batch; Shuffle deals the next 9 from it in random order.
+      let all: Gif[] = [];
+      let dealt = 0;
+      const show = () => {
+        if (dealt >= all.length) {
+          all = all.map((g) => [Math.random(), g] as const).sort((a, b) => a[0] - b[0]).map(([, g]) => g);
+          dealt = 0;
+        }
+        const gifs = all.slice(dealt, dealt + 9);
+        dealt += 9;
+        shuffleBtn.hidden = all.length <= 9;
+        mount(grid, gifs.length ? gifs.map((g) => h("button", { type: "button", class: "gif-pick", "aria-label": `Send ${g.title}`, onclick: () => void sendGif(g) }, h("img", { src: g.preview_url, alt: g.title }))) : h("p", { class: "muted pad" }, "No GIFs for that. Try other words."));
+      };
       const load = async () => {
         try {
-          const gifs = await api.gifs(q);
-          mount(grid, gifs.length ? gifs.map((g) => h("button", { type: "button", class: "gif-pick", "aria-label": `Send ${g.title}`, onclick: () => void sendGif(g) }, h("img", { src: g.preview_url, alt: g.title }))) : h("p", { class: "muted pad" }, "No GIFs for that. Try other words."));
+          all = await api.gifs(q);
+          dealt = all.length; // start with a fresh random deal
+          show();
         } catch (e) { mount(grid, h("p", { class: "muted pad" }, errorText(e))); }
       };
+      const shuffleBtn = h("button", { class: "btn ghost sm", type: "button", hidden: true, onclick: show }, "Shuffle");
       mount(pop,
         h("div", { class: "row between pop-head" }, h("strong", null, `GIFs for “${q}”`),
-          h("div", { class: "row gap-10" }, h("button", { class: "btn ghost sm", type: "button", onclick: () => void load() }, "Shuffle"),
+          h("div", { class: "row gap-10" }, shuffleBtn,
             h("button", { class: "icon-btn sm", type: "button", "aria-label": "Close", onclick: closePop }, icon("close", 20)))),
         grid,
         h("p", { class: "giphy-credit" }, "Powered by GIPHY"));

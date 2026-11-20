@@ -73,7 +73,7 @@ impl Gifs {
                 ("api_key", key),
                 ("q", q),
                 ("rating", rating),
-                ("limit", "12"),
+                ("limit", "36"),
             ])
             .send()
             .await
