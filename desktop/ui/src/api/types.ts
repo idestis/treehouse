@@ -149,4 +149,4 @@ export function errorText(e: unknown): string {
   return "Something went wrong. Try again.";
 }
 
-export type SoundName = "ding" | "fart" | "quack" | "hewya" | "yeah-boy" | "female-bye" | "kiddo-bye" | "mmbye" | "none";
+export type SoundName = "ding" | "doink" | "fart" | "quack" | "hewya" | "yeah-boy" | "female-bye" | "kiddo-bye" | "mmbye" | "none";

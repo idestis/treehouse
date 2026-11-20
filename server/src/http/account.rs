@@ -39,8 +39,9 @@ pub struct MePatch {
 }
 
 const STATUSES: [&str; 4] = ["online", "away", "busy", "brb"];
-const SOUNDS: [&str; 9] = [
+const SOUNDS: [&str; 10] = [
     "ding",
+    "doink",
     "fart",
     "quack",
     "hewya",

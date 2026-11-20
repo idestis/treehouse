@@ -8,6 +8,7 @@ export type JoinSound = SoundName;
 /** One list for both pickers: anything can be a join or a leave sound. */
 export const SOUNDS: { value: SoundName; label: string }[] = [
   { value: "ding", label: "Ding" },
+  { value: "doink", label: "Doink" },
   { value: "quack", label: "Quack" },
   { value: "hewya", label: "Hewya!" },
   { value: "yeah-boy", label: "Yeah boy!" },
