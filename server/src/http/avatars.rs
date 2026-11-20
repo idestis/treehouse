@@ -20,6 +20,10 @@ use crate::{
 };
 
 const MAX_UPLOAD: usize = 3 * 1024 * 1024;
+/// Smaller pictures would be blown up into blur.
+const MIN_SIDE: u32 = 64;
+/// Decoding refuses anything larger (and bounds memory), so a crafted file can't exhaust the server.
+const MAX_SIDE: u32 = 8000;
 const SIZE: u32 = 256;
 const QUALITY: u8 = 85;
 
@@ -36,11 +40,17 @@ pub fn process(bytes: &[u8]) -> AppResult<Vec<u8>> {
         .with_guessed_format()
         .map_err(|_| bad())?;
     let mut limits = Limits::default();
-    limits.max_image_width = Some(8000);
-    limits.max_image_height = Some(8000);
+    limits.max_image_width = Some(MAX_SIDE);
+    limits.max_image_height = Some(MAX_SIDE);
     limits.max_alloc = Some(256 * 1024 * 1024);
     reader.limits(limits);
     let img = reader.decode().map_err(|_| bad())?;
+    if img.width() < MIN_SIDE || img.height() < MIN_SIDE {
+        return Err(AppError::bad(
+            "too_small",
+            format!("That picture is too small. Use one at least {MIN_SIDE}×{MIN_SIDE} pixels."),
+        ));
+    }
     let square = img
         .resize_to_fill(SIZE, SIZE, FilterType::Lanczos3)
         .to_rgb8();
@@ -142,6 +152,20 @@ mod tests {
         assert_eq!((back.width(), back.height()), (SIZE, SIZE));
         assert!(out.starts_with(&[0xFF, 0xD8]), "jpeg");
         assert!(out.len() < 100_000);
+    }
+
+    #[test]
+    fn rejects_tiny_and_huge() {
+        let mut png = Vec::new();
+        image::RgbImage::new(40, 40)
+            .write_to(&mut Cursor::new(&mut png), image::ImageFormat::Png)
+            .unwrap();
+        assert!(process(&png).is_err(), "too small");
+        let mut big = Vec::new();
+        image::GrayImage::new(MAX_SIDE + 1, 10)
+            .write_to(&mut Cursor::new(&mut big), image::ImageFormat::Png)
+            .unwrap();
+        assert!(process(&big).is_err(), "too wide");
     }
 
     #[test]

@@ -94,7 +94,7 @@ register("settings", (root, screen) => {
       } },
         h("div", { class: "stack-16" },
           h("div", { class: "field" }, h("span", { class: "label" }, "Photo"), h("div", { class: "row gap-10" }, upload, remove, file),
-            h("p", { class: "muted small" }, "A square crop of it shows wherever your name does.")),
+            h("p", { class: "muted small" }, "JPEG, PNG, WebP or GIF, up to 15 MB and at least 64×64 pixels. We crop it to a square and shrink it to 256×256.")),
           h("div", { class: "field" }, h("label", { for: "p-name" }, "Name your crew sees"), name),
           h("div", { class: "field" }, h("span", { class: "label" }, "Username"), h("p", { class: "muted" }, `@${me.username}`)),
           h("fieldset", { class: "plain" }, h("legend", { class: "label" }, "Your color"), colorPicker(color, (c) => { color = c; draw(); })),
