@@ -385,6 +385,12 @@ fieldset.plain legend { padding: 0; margin-bottom: 10px; }
 .rows li:last-child { border-bottom: 0; }
 .meter-row { align-items: center; }
 .mic-problem { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; border-radius: 16px; background: rgba(255, 138, 126, 0.08); border: 1.5px solid rgba(255, 138, 126, 0.35); }
+/* Volume sliders: lantern fill up to the thumb. */
+.range { flex: 1; min-width: 0; height: 8px; appearance: none; -webkit-appearance: none; border-radius: 999px; padding: 0 !important; border: 0 !important;
+  background: linear-gradient(to right, var(--lantern) var(--fill, 50%), var(--surface) var(--fill, 50%)) !important; cursor: pointer; }
+.range:focus-visible { outline: 3px solid var(--lantern); outline-offset: 4px; box-shadow: none !important; }
+.range::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--moon); border: 3px solid var(--lantern); }
+.range-value { font-weight: 700; font-size: 14px; color: var(--mist); min-width: 44px; text-align: right; }
 .meter { flex: 1; height: 8px; border-radius: 999px; background: var(--surface); overflow: hidden; }
 .meter-fill { display: block; height: 100%; width: 0; background: var(--lantern); border-radius: 999px; transition: width 60ms linear; }
 .invite-card { border: 2px dashed #33416a; border-radius: 20px; padding: 24px 28px; display: flex; flex-direction: column; gap: 14px; background: var(--raised); }

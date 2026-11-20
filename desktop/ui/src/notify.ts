@@ -14,7 +14,7 @@ export function setNotifications(on: boolean) {
 let ctx: AudioContext | null = null;
 
 /** A soft two-note chime, made in code (no audio files). */
-export function chime() {
+export function chime(volume = 1) {
   try {
     ctx ??= new AudioContext();
     const t = ctx.currentTime;
@@ -25,7 +25,7 @@ export function chime() {
       osc.frequency.value = freq;
       const start = t + i * 0.11;
       gain.gain.setValueAtTime(0, start);
-      gain.gain.linearRampToValueAtTime(0.12, start + 0.015);
+      gain.gain.linearRampToValueAtTime(0.12 * volume, start + 0.015);
       gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.35);
       osc.connect(gain).connect(ctx.destination);
       osc.start(start);

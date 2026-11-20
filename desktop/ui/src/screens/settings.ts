@@ -9,6 +9,7 @@ import { personAvatar, shrinkForUpload } from "../avatars";
 import { ACTIONS, type Action, conflicts, DEFAULTS as DEFAULT_KEYS, format as formatKey, fromEvent, load as loadHotkeys, problem as hotkeyProblem, save as saveHotkeys } from "../hotkeys";
 import { dropdown, dropdownOpen } from "../dropdown";
 import { strengthMeter } from "../password";
+import { chime } from "../notify";
 import { AUDIO_CAPTURE, prefs } from "../voice";
 import { colorPicker, tilePreview } from "./auth";
 
@@ -110,6 +111,28 @@ register("settings", (root, screen) => {
     const mic = dropdown("s-mic", [{ value: "", label: "System default" }], prefs.mic);
     const out = dropdown("s-out", [{ value: "", label: "System default" }], prefs.speaker);
     const bar = h("span", { class: "meter-fill" });
+    let micGainNode: GainNode | null = null;
+    const slider = (id: string, label: string, value: number, onInput: (v: number) => void, extra?: Node) => {
+      const out = h("span", { class: "range-value" }, `${value}%`);
+      const input = h("input", { id, type: "range", class: "range", min: 0, max: 200, step: 5, value, "aria-valuetext": `${value} percent` });
+      const paint = () => input.style.setProperty("--fill", `${Number(input.value) / 2}%`);
+      input.addEventListener("input", () => {
+        const v = Number(input.value);
+        out.textContent = `${v}%`;
+        input.setAttribute("aria-valuetext", `${v} percent`);
+        paint();
+        onInput(v);
+      });
+      paint();
+      return h("div", { class: "field" }, h("div", { class: "row between" }, h("label", { for: id }, label), out),
+        h("div", { class: "row gap-14" }, input, extra));
+    };
+    const micVolume = slider("s-mic-gain", "Microphone volume", prefs.micGain, (v) => {
+      prefs.micGain = v;
+      if (micGainNode) micGainNode.gain.value = v / 100;
+    });
+    const testSound = h("button", { class: "btn ghost sm", type: "button", onclick: () => chime(prefs.outputVolume / 100) }, "Play test sound");
+    const outVolume = slider("s-out-gain", "Output volume", prefs.outputVolume, (v) => { prefs.outputVolume = v; }, testSound);
     const problem = h("div", { class: "mic-problem", role: "alert", hidden: true });
     let stream: MediaStream | null = null;
     let ctx: AudioContext | null = null;
@@ -129,7 +152,10 @@ register("settings", (root, screen) => {
         ctx = new AudioContext();
         const an = ctx.createAnalyser();
         an.fftSize = 512;
-        ctx.createMediaStreamSource(stream).connect(an);
+        // The meter shows the level after your microphone volume, like friends will hear it.
+        micGainNode = ctx.createGain();
+        micGainNode.gain.value = prefs.micGain / 100;
+        ctx.createMediaStreamSource(stream).connect(micGainNode).connect(an);
         const buf = new Uint8Array(an.fftSize);
         const tick = () => {
           an.getByteTimeDomainData(buf);
@@ -181,9 +207,11 @@ register("settings", (root, screen) => {
       h("h2", { class: "display xs" }, "Sound"),
       h("div", { class: "stack-16 maxw" },
         h("div", { class: "field" }, h("label", { for: "s-mic" }, "Microphone"), mic.el),
+        micVolume,
         h("div", { class: "row gap-14 meter-row" }, h("span", { class: "muted small" }, "Say something"), h("span", { class: "meter" }, bar)),
         problem,
         h("div", { class: "field" }, h("label", { for: "s-out" }, "Speakers or headphones"), out.el),
+        outVolume,
         h("p", { class: "info-box" }, "Echo removal, background-noise removal and volume leveling are always on, so your keyboard and fans stay out of the call."),
         h("h3", { class: "subhead" }, "Hotkeys"),
         h("p", { class: "muted small" }, "Click a shortcut, then press the keys you want. Esc cancels; Backspace clears."),

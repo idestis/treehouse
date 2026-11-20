@@ -30,3 +30,9 @@ Choices made where the spec is silent. Newest last.
 ## 2026-11-20: Avatars (spec change)
 
 - Spec §6 says "no file uploads in v1"; profile pictures were requested anyway. They are the only upload: the app shrinks the picture to 512px, the server decodes it with size limits, center-crops to 256×256 and re-encodes as JPEG (≈10–25 KB, EXIF such as GPS dropped). Stored in Postgres (`avatars`, ≤100 KB per row, migration 0002). Served only to signed-in members as a data URL (`GET /api/avatars/{id}`); people and me carry an `avatar` version so clients refetch only on change.
+
+## 2026-11-20: Statuses, notifications, volumes
+
+- **Presence + custom status** live on `users` (migration 0004): `status` online/away/busy/brb, plus optional `status_emoji` and `status_text` (≤60). Being connected is separate; offline wins when nobody is connected. Numbered 0004 so the voice work can take 0003.
+- **Notifications** (tray/Dock badge and the mention chime) are a per-computer preference; "busy" pauses them. The in-app @ badge always shows.
+- **Volume sliders** (microphone 0–200%, output 0–200%) are per-computer and sit on top of the fixed voice processing (echo, noise, automatic gain stay on per spec §10); they adjust level only.
