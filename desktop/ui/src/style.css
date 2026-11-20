@@ -215,11 +215,12 @@ fieldset.plain legend { padding: 0; margin-bottom: 10px; }
 .msg-head strong { font-size: 17px; }
 .body { font-size: 17px; line-height: 1.5; overflow-wrap: anywhere; }
 .body.action { font-style: italic; color: #d6dbee; }
-.msg.status { padding: 4px 12px 4px 70px; }
+.msg.status { padding-top: 4px; padding-bottom: 4px; }
+.status-slot { width: 44px; flex: none; display: flex; justify-content: center; align-items: center; }
+.msg.status.compact .status-slot { width: 36px; }
 .status-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: #d6dbee; font-size: 15px; }
 .status-line em { color: #c4cae0; }
 .status-line time { margin-left: 4px; }
-.roomchat .msg.status { padding-left: 58px; }
 .msg-actions { display: flex; gap: 2px; align-self: flex-start; opacity: 0; }
 .msg-actions.confirming { opacity: 1; align-items: center; gap: 8px; color: var(--ember); }
 .btn.danger { background: var(--ember); color: #2a0e0b; }

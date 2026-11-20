@@ -193,10 +193,11 @@ register("home", (root) => {
       h("button", { class: "icon-btn sm msg-act", "aria-label": "Delete message", title: "Delete", onclick: (e: Event) => confirmDelete(m, e.currentTarget as HTMLElement) }, icon("trash", 18)));
     // `/me` is a status line, like "joined" or "muted": one row, no repeated header.
     if (m.kind === "action") {
-      return h("article", { class: "msg status", "data-id": String(m.id) },
+      return h("article", { class: `msg status ${compact ? "compact" : ""}`, "data-id": String(m.id) },
+        // Same avatar column as regular messages, so names and text line up.
+        h("span", { class: "status-slot" }, personAvatar(p, 22)),
         h("div", { class: "msg-main" },
           h("p", { class: "status-line" },
-            personAvatar(p, 20),
             h("strong", { style: { color: p.color } }, p.display_name), " ",
             h("em", null, m.body ?? ""),
             h("time", { class: "muted small", datetime: m.created_at }, time(m.created_at))),
