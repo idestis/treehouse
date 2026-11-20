@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}My account · Treehouse{% endblock %}
+{% block content %}
+<div class="me">
+  <span class="avatar big" style="--c: {{ color }}">{{ initial }}</span>
+  <div>
+    <h1>{{ display_name }}</h1>
+    <p class="muted">@{{ username }}</p>
+  </div>
+</div>
+
+{% if let Some(n) = notice %}<p class="alert ok" role="status">{{ n }}</p>{% endif %}
+{% if let Some(e) = error %}<p class="alert error" role="alert">{{ e }}</p>{% endif %}
+
+<section id="devices">
+  <h2>Desktop app</h2>
+  {% if let Some(code) = pair_code %}
+  <div class="pair">
+    <p>Type this code into the Treehouse app. It works once and expires in 10 minutes.</p>
+    <p class="pair-code" aria-label="Pairing code">{{ code }}</p>
+  </div>
+  {% else %}
+  <p>Pair the app once on each computer. After that it signs in by itself.</p>
+  <form method="post" action="/account/pair"><button class="primary">Pair a computer</button></form>
+  {% endif %}
+
+  {% if !devices.is_empty() %}
+  <ul class="rows">
+    {% for d in devices %}
+    <li>
+      <div><strong>{{ d.name }}</strong><br><span class="muted small">Added {{ d.added }}, last used {{ d.last_seen }}</span></div>
+      <form method="post" action="/account/devices/{{ d.id }}/remove"><button class="quiet">Remove</button></form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Profile</h2>
+  <form method="post" action="/account/profile" class="stack">
+    <label>Your name
+      <input name="display_name" value="{{ display_name }}" maxlength="32" required>
+    </label>
+    <fieldset class="swatches">
+      <legend>Your color</legend>
+      {% for c in colors %}
+      <label class="swatch" style="--c: {{ c.hex }}" title="{{ c.name }}">
+        <input type="radio" name="color" value="{{ c.hex }}" {% if c.selected %}checked{% endif %}>
+        <span class="sr-only">{{ c.name }}</span>
+      </label>
+      {% endfor %}
+    </fieldset>
+    <button class="primary">Save profile</button>
+  </form>
+</section>
+
+<section>
+  <h2>Two-step sign-in</h2>
+  {% if mfa_enabled %}
+  <p>On. Signing in on the website asks for a code from your phone.</p>
+  <details>
+    <summary>Turn it off</summary>
+    <form method="post" action="/account/mfa/disable" class="inline-form">
+      <input name="code" class="code-input" inputmode="numeric" maxlength="7" required aria-label="Current 6-digit code" placeholder="123456">
+      <button class="danger">Turn off</button>
+    </form>
+  </details>
+  {% else %}
+  <p>Off. Turning it on keeps your account safe even if someone learns your password.</p>
+  <a class="button primary" href="/account/mfa">Turn on two-step sign-in</a>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Password</h2>
+  <details>
+    <summary>Change password</summary>
+    <form method="post" action="/account/password" class="stack">
+      <label>Current password<input name="current" type="password" autocomplete="current-password" required></label>
+      <label>New password<input name="new_password" type="password" autocomplete="new-password" minlength="10" required></label>
+      <label>New password again<input name="new_password2" type="password" autocomplete="new-password" minlength="10" required></label>
+      <button class="primary">Change password</button>
+    </form>
+  </details>
+</section>
+{% endblock %}

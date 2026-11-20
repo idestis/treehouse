@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Treehouse</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <!-- Startup -->
+  <section id="screen-loading" class="screen center">
+    <span class="mark big" aria-hidden="true"><i></i><i></i><i></i></span>
+  </section>
+
+  <!-- Pair this computer -->
+  <section id="screen-pair" class="screen" hidden>
+    <div class="pair-wrap">
+      <span class="mark big" aria-hidden="true"><i></i><i></i><i></i></span>
+      <h1>Connect this computer</h1>
+      <p class="muted">On the Treehouse website, open <strong>My account</strong> and choose <strong>Pair a computer</strong>. Then type the code here.</p>
+      <form id="pair-form" class="stack" autocomplete="off">
+        <label>Server address
+          <input id="pair-server" placeholder="chat.example.com" required spellcheck="false" autocapitalize="none">
+        </label>
+        <label>Pairing code
+          <input id="pair-code" class="code-input" placeholder="ABCD-1234" required maxlength="9" spellcheck="false">
+        </label>
+        <p id="pair-error" class="error" role="alert" hidden></p>
+        <button id="pair-btn" class="primary wide">Connect</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- The room -->
+  <section id="screen-room" class="screen" hidden>
+    <header class="bar">
+      <span class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>treehouse</span>
+      <button id="me-btn" class="me-chip" aria-haspopup="true" aria-expanded="false" aria-controls="menu">
+        <span id="me-avatar" class="avatar sm"></span><span id="me-name"></span>
+      </button>
+      <div id="menu" class="menu" role="menu" hidden>
+        <button role="menuitem" id="open-sound">Sound settings</button>
+        <button role="menuitem" id="do-unpair" class="danger-text">Disconnect this computer</button>
+      </div>
+    </header>
+
+    <p id="status" class="status" role="status" hidden></p>
+
+    <!-- Not in the call yet -->
+    <div id="lobby" class="lobby">
+      <button id="join-btn" class="join" aria-describedby="join-hint">
+        <span>Join</span>
+      </button>
+      <p id="join-hint" class="muted">Hop in. Your friends hear you as soon as you join.</p>
+    </div>
+
+    <!-- In the call -->
+    <div id="call" class="call" hidden>
+      <ul id="tiles" class="tiles" aria-label="People in the treehouse"></ul>
+      <p id="alone" class="muted alone" hidden>You’re the first one here. Friends will pop in when they join.</p>
+    </div>
+
+    <footer id="controls" class="controls" hidden>
+      <button id="mic-btn" class="mic on" aria-pressed="false" title="Mute (Ctrl+M)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path class="mic-body" d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3" fill="none"/><path class="slash" d="M4 4l16 16" fill="none"/></svg>
+        <span id="mic-label">Mute</span>
+      </button>
+      <button id="leave-btn" class="leave">Leave</button>
+    </footer>
+
+    <div id="audio-sink" hidden></div>
+  </section>
+
+  <!-- Sound settings sheet -->
+  <dialog id="sound" class="sheet">
+    <form method="dialog" class="stack">
+      <h2>Sound settings</h2>
+      <label>Microphone
+        <select id="mic-select"></select>
+      </label>
+      <label id="speaker-row">Speakers or headphones
+        <select id="speaker-select"></select>
+      </label>
+      <p class="muted small">Echo removal, background-noise removal and volume leveling are always on.</p>
+      <button class="primary">Done</button>
+    </form>
+  </dialog>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

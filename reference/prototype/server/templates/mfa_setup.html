@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Turn on two-step sign-in · Treehouse{% endblock %}
+{% block main_class %}page narrow{% endblock %}
+{% block content %}
+<h1>Turn on two-step sign-in</h1>
+<p class="lead">After this, signing in on the website needs your password and a code from your phone.</p>
+{% if let Some(e) = error %}<p class="alert error" role="alert">{{ e }}</p>{% endif %}
+<ol class="steps">
+  <li>Open an authenticator app on your phone, like Google Authenticator, Microsoft Authenticator, or 2FAS.</li>
+  <li>Scan this code.
+    <img class="qr" src="data:image/png;base64,{{ qr_png_base64 }}" alt="QR code for your authenticator app" width="200" height="200">
+    <details><summary>Can’t scan it?</summary><p class="small">Type this key into the app instead:</p><p class="secret">{{ secret }}</p></details>
+  </li>
+  <li>Type the 6-digit code the app shows.
+    <form method="post" action="/account/mfa" class="inline-form">
+      <input name="code" class="code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="7" required aria-label="6-digit code">
+      <button class="primary">Turn on</button>
+    </form>
+  </li>
+</ol>
+<p><a href="/account">Back to my account</a></p>
+{% endblock %}

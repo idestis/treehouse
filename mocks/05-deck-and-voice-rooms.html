@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Treehouse: the deck and voice rooms</title>
+<link rel="stylesheet" href="assets/fonts.css">
+<script src="assets/mock-runtime.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#0E1322}
+a{color:#FFB347}a:hover{color:#FFD08A}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid #FFB347;outline-offset:2px}
+input::placeholder{color:#7C87A8}
+.gif-text{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;color:#fff;text-shadow:0 3px 0 rgba(0,0,0,.35);text-transform:uppercase;text-align:center;padding:0 8px;line-height:1}
+.gif-bounce .gif-text{animation:gif-bounce .7s ease-in-out infinite alternate}
+@keyframes gif-bounce{from{transform:translateY(6px) scale(.96)}to{transform:translateY(-6px) scale(1.04)}}
+.gif-stripes{background-size:40px 40px !important;animation:gif-stripes 1s linear infinite}
+@keyframes gif-stripes{to{background-position:40px 0}}
+.gif-zoom .gif-text{animation:gif-zoom .9s ease-in-out infinite}
+@keyframes gif-zoom{0%,100%{transform:scale(.85)}50%{transform:scale(1.15)}}
+.gif-wiggle .gif-text{animation:gif-wiggle .5s ease-in-out infinite alternate}
+@keyframes gif-wiggle{from{transform:rotate(-6deg)}to{transform:rotate(6deg)}}
+.gif-glow .gif-text{color:#FFD08A;animation:gif-glow 1.2s ease-in-out infinite}
+@keyframes gif-glow{0%,100%{text-shadow:0 0 6px rgba(255,179,71,.4)}50%{text-shadow:0 0 22px rgba(255,179,71,1)}}
+.gif-shake .gif-text{animation:gif-shake .35s linear infinite}
+@keyframes gif-shake{0%,100%{transform:translate(0,0)}25%{transform:translate(-3px,2px)}50%{transform:translate(3px,-2px)}75%{transform:translate(-2px,-1px)}}
+.emoji-btn:hover{background:#26324F !important}
+@media (prefers-reduced-motion: reduce){.gif-stripes,.gif-text{animation:none !important}}
+</style>
+</helmet>
+<div style="width: 100%; min-height: 760px; box-sizing: border-box; background: #0E1322; color: #ECEFF8; font-family: 'Atkinson Hyperlegible', 'Segoe UI', system-ui, sans-serif; display: flex; flex-wrap: wrap">
+
+  <aside style="flex: 1 1 290px; min-width: 0; min-height: 760px; background: #121A2E; border-right: 1px solid #1F2943; display: flex; flex-direction: column">
+    <div style="display: flex; align-items: center; gap: 12px; padding: 16px 12px 12px 18px">
+      <img src="assets/treehouse-logo.png" alt="" width="36" height="36" style="border-radius: 10px; display: block; flex: none">
+      <div style="display: flex; flex-direction: column; min-width: 0; flex: 1">
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 19px; letter-spacing: -0.02em">Night Owls</span>
+        <span style="color: #9AA3C0; font-size: 13px">{{ onlineText }}</span>
+      </div>
+      <a href="06-settings.html" aria-label="Settings" title="Settings" style="width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; color: #C4CAE0">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>
+      </a>
+    </div>
+
+    <nav aria-label="Rooms" style="flex: 1; overflow-y: auto; padding: 6px 10px 12px; display: flex; flex-direction: column; gap: 4px">
+      <p style="margin: 6px 8px 4px; color: #9AA3C0; font-size: 13px; font-weight: 700">Chat</p>
+      <button type="button" onClick="{{ openDeck }}" aria-current="{{ deckCurrent }}" style="{{ deckBtnStyle }}">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 9h14M5 15h14M10 3 8 21M16 3l-2 18"></path></svg>
+        <span style="flex: 1; text-align: left">the-deck</span>
+        <sc-if value="{{ deckHasMention }}" hint-placeholder-val="{{ true }}">
+          <span style="height: 22px; padding: 0 8px; border-radius: 999px; background: #FFB347; color: #2A1700; font-size: 13px; display: grid; place-items: center" aria-label="1 mention">@1</span>
+        </sc-if>
+      </button>
+
+      <p style="margin: 14px 8px 4px; color: #9AA3C0; font-size: 13px; font-weight: 700">Voice rooms</p>
+      <sc-for list="{{ rooms }}" as="r" hint-placeholder-count="2">
+        <div style="display: flex; flex-direction: column">
+          <button type="button" onClick="{{ r.join }}" aria-current="{{ r.current }}" title="Join voice" style="{{ r.buttonStyle }}">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"></path><path d="M15.5 8.5a5 5 0 0 1 0 7"></path><path d="M18.5 5.5a9 9 0 0 1 0 13"></path></svg>
+            <span style="flex: 1; text-align: left">{{ r.name }}</span>
+            <span style="{{ r.countStyle }}">{{ r.count }}</span>
+          </button>
+          <div style="display: flex; flex-direction: column; gap: 2px; padding: 2px 0 6px 38px">
+            <sc-for list="{{ r.people }}" as="p" hint-placeholder-count="2">
+              <div style="display: flex; align-items: center; gap: 10px; padding: 5px 8px; border-radius: 8px; color: #C4CAE0; font-size: 15px">
+                <span style="{{ p.miniStyle }}">{{ p.initial }}</span>
+                <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{ p.name }}</span>
+                <sc-if value="{{ p.camera }}" hint-placeholder-val="{{ false }}">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9BE3B9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Camera on"><rect x="2" y="6" width="14" height="12" rx="2"></rect><path d="m22 8-6 4 6 4z"></path></svg>
+                </sc-if>
+                <sc-if value="{{ p.muted }}" hint-placeholder-val="{{ false }}">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF8A7E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Muted"><path d="M9 9v3a3 3 0 0 0 5.1 2.1M15 9.3V6a3 3 0 0 0-5.9-.8"></path><path d="M19 11a7 7 0 0 1-1.2 3.9M5 11a7 7 0 0 0 11 5.7M12 18v3M3 3l18 18"></path></svg>
+                </sc-if>
+                <sc-if value="{{ p.deafened }}" hint-placeholder-val="{{ false }}">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF8A7E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Deafened"><path d="M3 14v-2a9 9 0 0 1 14.5-7.1M21 12v2"></path><path d="M3 14h3v6H4a1 1 0 0 1-1-1zM21 14h-3v6h2a1 1 0 0 0 1-1z"></path><path d="M3 3l18 18"></path></svg>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+    </nav>
+
+    <sc-if value="{{ voiceOn }}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 16px; border-top: 1px solid #1F2943; background: #10182B">
+        <button type="button" onClick="{{ openVoiceRoom }}" style="flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; padding: 4px 0">
+          <span style="display: inline-flex; align-items: center; gap: 7px; color: #9BE3B9; font-weight: 700; font-size: 14px"><span style="width: 8px; height: 8px; border-radius: 50%; background: #63D69E"></span>Voice connected</span>
+          <span style="color: #C4CAE0; font-size: 13px">{{ voiceRoomName }}</span>
+        </button>
+        <button type="button" onClick="{{ leave }}" aria-label="Leave voice" title="Leave voice" style="width: 44px; height: 44px; border-radius: 12px; border: 0; background: #2A1820; color: #FF8A7E; display: grid; place-items: center; cursor: pointer">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.7 13.3a16 16 0 0 0 3.4 2.6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.5 2.7.6a2 2 0 0 1 1.7 2v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3.1 4.2 2 2 0 0 1 5.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.7a2 2 0 0 1-.4 2.1L9 9.8"></path><path d="M22 2 2 22"></path></svg>
+        </button>
+      </div>
+    </sc-if>
+
+    <div style="display: flex; align-items: center; gap: 8px; padding: 12px 12px 14px; background: #0F1628; border-top: 1px solid #1F2943">
+      <span style="position: relative; width: 40px; height: 40px; flex: none; border-radius: 50%; background: #3F8EFC; display: grid; place-items: center; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; color: #fff">M<span style="position: absolute; right: -2px; bottom: -2px; width: 14px; height: 14px; border-radius: 50%; background: #63D69E; border: 3px solid #0F1628"></span></span>
+      <div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+        <span style="font-weight: 700">Max</span>
+        <span style="color: #9AA3C0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">@max</span>
+      </div>
+      <button type="button" onClick="{{ toggleMute }}" aria-pressed="{{ mutedPressed }}" aria-label="{{ muteLabel }}" title="{{ muteLabel }} (Ctrl+M)" style="{{ muteBtnStyle }}">
+        <sc-if value="{{ micOn }}" hint-placeholder-val="{{ true }}">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg>
+        </sc-if>
+        <sc-if value="{{ micOff }}" hint-placeholder-val="{{ false }}">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9v3a3 3 0 0 0 5.1 2.1M15 9.3V6a3 3 0 0 0-5.9-.8"></path><path d="M19 11a7 7 0 0 1-1.2 3.9M5 11a7 7 0 0 0 11 5.7M12 18v3M3 3l18 18"></path></svg>
+        </sc-if>
+      </button>
+      <button type="button" onClick="{{ toggleDeafen }}" aria-pressed="{{ deafPressed }}" aria-label="{{ deafLabel }}" title="{{ deafLabel }} (Ctrl+D)" style="{{ deafBtnStyle }}">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 14v-2a9 9 0 0 1 18 0v2"></path><path d="M3 14h3v6H4a1 1 0 0 1-1-1zM21 14h-3v6h2a1 1 0 0 0 1-1z"></path></svg>
+      </button>
+    </div>
+  </aside>
+
+  <main style="flex: 999 1 480px; min-width: 0; min-height: 760px; display: flex; flex-direction: column; background: radial-gradient(circle at 85% 0%, #18224A 0%, #0E1322 50%)">
+
+    <sc-if value="{{ isDeck }}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; flex: 1; min-height: 760px">
+        <header style="display: flex; align-items: center; gap: 12px; padding: 20px 24px; border-bottom: 1px solid #1F2943">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#9AA3C0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 9h14M5 15h14M10 3 8 21M16 3l-2 18"></path></svg>
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+            <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 28px; letter-spacing: -0.03em">the-deck</h1>
+            <span style="color: #9AA3C0; font-size: 14px">Everyone’s hangout chat. Talk out loud in a voice room.</span>
+          </div>
+        </header>
+
+        <div style="flex: 1; overflow-y: auto; padding: 18px 16px 8px; display: flex; flex-direction: column; gap: 4px">
+          <sc-for list="{{ deckMessages }}" as="m" hint-placeholder-count="4">
+            <div style="{{ m.rowStyle }}">
+              <span style="{{ m.avatarStyle }}">{{ m.initial }}</span>
+              <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+                <span style="display: flex; align-items: center; gap: 8px"><span style="{{ m.nameStyle }}">{{ m.name }}</span><span style="flex: 1; color: #7F89A8; font-size: 12px">{{ m.time }}</span><button type="button" onClick="{{ m.react }}" aria-label="Add reaction" title="Add reaction" style="width: 36px; height: 32px; border: 0; border-radius: 8px; background: transparent; color: #7F89A8; display: grid; place-items: center; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9"></path><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01M19 2v6M16 5h6"></path></svg></button></span>
+                <sc-if value="{{ m.isPlain }}" hint-placeholder-val="{{ true }}"><p style="{{ m.textStyle }}"><sc-for list="{{ m.parts }}" as="seg" hint-placeholder-count="1"><sc-if value="{{ seg.isText }}" hint-placeholder-val="{{ true }}"><span>{{ seg.text }}</span></sc-if><sc-if value="{{ seg.isMention }}" hint-placeholder-val="{{ false }}"><span style="{{ seg.style }}">{{ seg.text }}</span></sc-if><sc-if value="{{ seg.isChannel }}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{ seg.go }}" title="{{ seg.title }}" style="{{ seg.style }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"></path><path d="M15.5 8.5a5 5 0 0 1 0 7"></path></svg>{{ seg.text }}<span style="{{ seg.liveStyle }}">{{ seg.live }}</span></button></sc-if></sc-for></p></sc-if>
+                <sc-if value="{{ m.isAction }}" hint-placeholder-val="{{ false }}"><p style="margin: 0; color: #C4CAE0; font-size: 15px; font-style: italic">{{ m.name }} {{ m.actionText }}</p></sc-if>
+                <sc-if value="{{ m.isRoll }}" hint-placeholder-val="{{ false }}"><p style="margin: 0; display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; padding: 6px 12px; border-radius: 10px; background: #1A2440; color: #DDE2F2; font-size: 15px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFB347" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"></rect><circle cx="8.5" cy="8.5" r="1.2" fill="#FFB347"></circle><circle cx="15.5" cy="15.5" r="1.2" fill="#FFB347"></circle><circle cx="12" cy="12" r="1.2" fill="#FFB347"></circle></svg>rolled <strong style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 20px; color: #FFD08A">{{ m.roll }}</strong><span style="color: #9AA3C0; font-size: 13px">out of 100</span></p></sc-if>
+                <sc-if value="{{ m.hasGif }}" hint-placeholder-val="{{ false }}"><div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start"><div class="{{ m.gifClass }}" role="img" aria-label="{{ m.gifLabel }}" style="{{ m.gifStyle }}"><span class="gif-text" style="font-size: 30px">{{ m.gifText }}</span><span style="position: absolute; left: 8px; bottom: 8px; padding: 2px 6px; border-radius: 6px; background: rgba(14,19,34,.75); color: #ECEFF8; font-size: 11px; font-weight: 700">GIF</span></div><span style="color: #7F89A8; font-size: 12px">/giphy {{ m.gifQuery }}</span></div></sc-if>
+                <sc-if value="{{ m.hasReactions }}" hint-placeholder-val="{{ false }}"><div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px"><sc-for list="{{ m.reactions }}" as="rx" hint-placeholder-count="2"><button type="button" onClick="{{ rx.toggle }}" aria-pressed="{{ rx.pressed }}" style="{{ rx.style }}"><span style="font-size: 16px">{{ rx.e }}</span>{{ rx.count }}</button></sc-for></div></sc-if>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="position: relative; padding: 10px 16px 18px">
+          <sc-if value="{{ deckC.cmdOpen }}" hint-placeholder-val="{{ false }}">
+            <div role="listbox" aria-label="Commands" style="position: absolute; left: 12px; right: 12px; bottom: calc(100% - 6px); border-radius: 14px; background: #182238; border: 1.5px solid #2A3757; box-shadow: 0 16px 40px rgba(0,0,0,.45); z-index: 3; padding: 6px; display: flex; flex-direction: column; gap: 2px">
+              <span style="padding: 6px 10px 4px; color: #9AA3C0; font-size: 13px; font-weight: 700">Commands</span>
+              <sc-for list="{{ deckC.cmds }}" as="c" hint-placeholder-count="4">
+                <button type="button" role="option" onClick="{{ c.pick }}" class="emoji-btn" style="display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 8px; min-height: 44px; padding: 8px 10px; border: 0; border-radius: 10px; background: transparent; color: #ECEFF8; font: inherit; cursor: pointer; text-align: left">
+                  <span style="font-weight: 700; color: #FFD08A">{{ c.name }}</span>
+                  <span style="color: #9AA3C0; font-size: 14px">{{ c.args }}</span>
+                  <span style="flex: 1 1 100%; color: #C4CAE0; font-size: 14px">{{ c.desc }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ deckC.mentionOpen }}" hint-placeholder-val="{{ false }}">
+            <div role="listbox" aria-label="Suggestions" style="position: absolute; left: 12px; right: 12px; bottom: calc(100% - 6px); border-radius: 14px; background: #182238; border: 1.5px solid #2A3757; box-shadow: 0 16px 40px rgba(0,0,0,.45); z-index: 3; padding: 6px; display: flex; flex-direction: column; gap: 2px">
+              <span style="padding: 6px 10px 4px; color: #9AA3C0; font-size: 13px; font-weight: 700">{{ deckC.suggestTitle }}</span>
+              <sc-for list="{{ deckC.suggestions }}" as="sg" hint-placeholder-count="3">
+                <button type="button" role="option" onClick="{{ sg.pick }}" class="emoji-btn" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; color: #ECEFF8; font: inherit; font-weight: 700; cursor: pointer; text-align: left">
+                  <span style="{{ sg.iconStyle }}">{{ sg.icon }}</span>
+                  <span style="flex: 1">{{ sg.label }}</span>
+                  <span style="color: #9AA3C0; font-weight: 400; font-size: 14px">{{ sg.hint }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ deckC.emojiOpen }}" hint-placeholder-val="{{ false }}">
+            <div role="dialog" aria-label="{{ deckC.emojiTitle }}" style="position: absolute; left: 12px; right: 12px; bottom: calc(100% - 6px); border-radius: 14px; background: #182238; border: 1.5px solid #2A3757; box-shadow: 0 16px 40px rgba(0,0,0,.45); z-index: 3; padding: 10px; display: flex; flex-direction: column; gap: 8px">
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span style="flex: 1; font-weight: 700">{{ deckC.emojiTitle }}</span>
+                <button type="button" onClick="{{ deckC.closeEmoji }}" aria-label="Close emoji picker" style="width: 36px; height: 36px; border-radius: 10px; border: 0; background: transparent; color: #C4CAE0; display: grid; place-items: center; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 2px">
+                <sc-for list="{{ deckC.emojis }}" as="em" hint-placeholder-count="24">
+                  <button type="button" onClick="{{ em.pick }}" aria-label="{{ em.label }}" title="{{ em.label }}" class="emoji-btn" style="height: 44px; border: 0; border-radius: 10px; background: transparent; font-size: 24px; cursor: pointer; display: grid; place-items: center">{{ em.char }}</button>
+                </sc-for>
+              </div>
+              <span style="color: #9AA3C0; font-size: 12px">Tip: type a colon and a name, like :fire</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ deckC.gifOpen }}" hint-placeholder-val="{{ false }}">
+            <div role="dialog" aria-label="Pick a GIF" style="position: absolute; left: 12px; right: 12px; bottom: calc(100% - 6px); border-radius: 14px; background: #182238; border: 1.5px solid #2A3757; box-shadow: 0 16px 40px rgba(0,0,0,.45); z-index: 3; padding: 12px; display: flex; flex-direction: column; gap: 10px">
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span style="flex: 1; min-width: 0; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">GIFs for “{{ deckC.gifQuery }}”</span>
+                <button type="button" onClick="{{ deckC.shuffle }}" style="height: 36px; padding: 0 12px; border-radius: 10px; border: 1.5px solid #2E3B5E; background: transparent; color: #ECEFF8; font: inherit; font-weight: 700; font-size: 14px; cursor: pointer">Shuffle</button>
+                <button type="button" onClick="{{ deckC.cancel }}" aria-label="Close GIF picker" style="width: 36px; height: 36px; border-radius: 10px; border: 0; background: transparent; color: #C4CAE0; display: grid; place-items: center; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+                <sc-for list="{{ deckC.gifs }}" as="g" hint-placeholder-count="6">
+                  <button type="button" class="{{ g.cls }}" onClick="{{ g.pick }}" aria-label="{{ g.label }}" style="{{ g.style }}"><span class="gif-text" style="font-size: 16px">{{ g.text }}</span></button>
+                </sc-for>
+              </div>
+              <span style="color: #9AA3C0; font-size: 12px">Click one to send, or press Enter for the first. Results from GIPHY, rated PG-13.</span>
+            </div>
+          </sc-if>
+          <div style="display: flex; gap: 8px; align-items: center">
+            <label for="deckmsg" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Message the-deck</label>
+            <input id="deckmsg" value="{{ deckC.draft }}" onInput="{{ deckC.set }}" onKeyDown="{{ deckC.key }}" placeholder="Message #the-deck. Try @, #, : or /" autocomplete="off" style="flex: 1; min-width: 0; font: inherit; font-size: 16px; color: #ECEFF8; background: #182238; border: 1.5px solid #2A3757; border-radius: 14px; padding: 13px 16px">
+            <button type="button" onClick="{{ deckC.toggleEmoji }}" aria-label="Emoji" title="Emoji" style="{{ deckC.emojiBtnStyle }}">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"></path></svg>
+            </button>
+            <button type="button" onClick="{{ deckC.send }}" aria-label="Send" style="width: 48px; height: 48px; flex: none; border-radius: 14px; border: 0; background: #FFB347; color: #2A1700; display: grid; place-items: center; cursor: pointer">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"></path></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isVoiceView }}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; flex: 1; min-height: 760px">
+        <header style="display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 20px 24px; border-bottom: 1px solid #1F2943">
+          <div style="flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: 2px">
+            <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 30px; letter-spacing: -0.03em">{{ viewName }}</h1>
+            <span style="color: #9AA3C0; font-size: 14px">{{ hereText }}</span>
+          </div>
+          <sc-if value="{{ connectedHere }}" hint-placeholder-val="{{ true }}">
+            <span style="display: flex; gap: 10px">
+              <button type="button" onClick="{{ toggleChat }}" aria-pressed="{{ chatPressed }}" style="{{ chatBtnStyle }}">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"></path></svg>
+                Room chat
+              </button>
+              <button type="button" onClick="{{ leave }}" style="display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; border-radius: 12px; border: 1.5px solid #5A2A30; background: #2A1820; color: #FF8A7E; font: inherit; font-weight: 700; cursor: pointer">Leave</button>
+            </span>
+          </sc-if>
+          <sc-if value="{{ notConnectedHere }}" hint-placeholder-val="{{ false }}">
+            <button type="button" onClick="{{ joinView }}" style="display: inline-flex; align-items: center; gap: 8px; height: 46px; padding: 0 20px; border-radius: 12px; border: 0; background: #FFB347; color: #2A1700; font: inherit; font-weight: 700; font-size: 16px; cursor: pointer">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"></path><path d="M15.5 8.5a5 5 0 0 1 0 7"></path></svg>
+              {{ joinLabel }}
+            </button>
+          </sc-if>
+        </header>
+
+        <sc-if value="{{ emptyRoom }}" hint-placeholder-val="{{ false }}">
+          <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 40px; text-align: center">
+            <h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 28px">Nobody’s here yet</h2>
+            <p style="margin: 0; color: #A9B1CC; font-size: 16px; max-width: 34ch">Join and your friends will see you in the sidebar.</p>
+          </div>
+        </sc-if>
+
+        <div style="{{ gridStyle }}">
+          <sc-for list="{{ stage }}" as="t" hint-placeholder-count="4">
+            <div style="{{ t.tileStyle }}">
+              <sc-if value="{{ t.camera }}" hint-placeholder-val="{{ false }}">
+                <div style="{{ t.videoStyle }}">
+                  <svg width="100%" height="100%" viewBox="0 0 220 170" preserveAspectRatio="xMidYMax meet" aria-hidden="true"><circle cx="110" cy="78" r="30" fill="rgba(10,14,26,.55)"></circle><path d="M44 172 C 50 124, 170 124, 176 172 Z" fill="rgba(10,14,26,.55)"></path></svg>
+                  <span style="position: absolute; top: 10px; left: 10px; display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 999px; background: rgba(14,19,34,.7); color: #9BE3B9; font-size: 12px; font-weight: 700"><span style="width: 6px; height: 6px; border-radius: 50%; background: #63D69E"></span>Live</span>
+                </div>
+              </sc-if>
+              <sc-if value="{{ t.noCamera }}" hint-placeholder-val="{{ true }}">
+                <span style="{{ t.avatarStyle }}">{{ t.initial }}</span>
+              </sc-if>
+              <div style="position: absolute; left: 10px; right: 10px; bottom: 10px; display: flex; align-items: center; gap: 6px; padding: 4px; border-radius: 999px; background: rgba(14,19,34,.82)">
+                <span style="{{ t.pillAvatarStyle }}">{{ t.initial }}</span>
+                <span style="flex: 1; min-width: 0; font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ t.name }}</span>
+                <sc-if value="{{ t.isMe }}" hint-placeholder-val="{{ false }}">
+                  <span style="display: flex; gap: 2px">
+                    <button type="button" onClick="{{ toggleMute }}" aria-pressed="{{ mutedPressed }}" aria-label="{{ muteLabel }}" title="{{ muteLabel }}" style="{{ pillMicStyle }}">
+                      <sc-if value="{{ micOn }}" hint-placeholder-val="{{ true }}">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg>
+                      </sc-if>
+                      <sc-if value="{{ micOff }}" hint-placeholder-val="{{ false }}">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9v3a3 3 0 0 0 5.1 2.1M15 9.3V6a3 3 0 0 0-5.9-.8"></path><path d="M19 11a7 7 0 0 1-1.2 3.9M5 11a7 7 0 0 0 11 5.7M12 18v3M3 3l18 18"></path></svg>
+                      </sc-if>
+                    </button>
+                    <button type="button" onClick="{{ toggleCamera }}" aria-pressed="{{ camPressed }}" aria-label="{{ camLabel }}" title="{{ camLabel }}" style="{{ pillCamStyle }}">
+                      <sc-if value="{{ camOn }}" hint-placeholder-val="{{ false }}">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="14" height="12" rx="2"></rect><path d="m22 8-6 4 6 4z"></path></svg>
+                      </sc-if>
+                      <sc-if value="{{ camOff }}" hint-placeholder-val="{{ true }}">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.7 6H14a2 2 0 0 1 2 2v3.3l1 1L22 8v8M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2M2 2l20 20"></path></svg>
+                      </sc-if>
+                    </button>
+                  </span>
+                </sc-if>
+                <sc-if value="{{ t.notMe }}" hint-placeholder-val="{{ true }}">
+                  <span style="display: flex; gap: 2px; padding-right: 4px">
+                    <span style="{{ t.micBadgeStyle }}">
+                      <sc-if value="{{ t.micOn }}" hint-placeholder-val="{{ true }}">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Mic on"><rect x="9" y="3" width="6" height="12" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg>
+                      </sc-if>
+                      <sc-if value="{{ t.micOff }}" hint-placeholder-val="{{ false }}">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Muted"><path d="M9 9v3a3 3 0 0 0 5.1 2.1M15 9.3V6a3 3 0 0 0-5.9-.8"></path><path d="M19 11a7 7 0 0 1-1.2 3.9M5 11a7 7 0 0 0 11 5.7M12 18v3M3 3l18 18"></path></svg>
+                      </sc-if>
+                    </span>
+                    <span style="{{ t.camBadgeStyle }}">
+                      <sc-if value="{{ t.camera }}" hint-placeholder-val="{{ false }}">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Camera on"><rect x="2" y="6" width="14" height="12" rx="2"></rect><path d="m22 8-6 4 6 4z"></path></svg>
+                      </sc-if>
+                      <sc-if value="{{ t.noCamera }}" hint-placeholder-val="{{ true }}">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Camera off"><path d="M10.7 6H14a2 2 0 0 1 2 2v3.3l1 1L22 8v8M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2M2 2l20 20"></path></svg>
+                      </sc-if>
+                    </span>
+                  </span>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+  </main>
+
+  <sc-if value="{{ showCallChat }}" hint-placeholder-val="{{ false }}">
+    <aside aria-label="Room chat" style="flex: 1 1 300px; min-width: 0; min-height: 760px; background: #111829; border-left: 1px solid #1F2943; display: flex; flex-direction: column">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 18px 12px 14px 18px; border-bottom: 1px solid #1F2943">
+        <div style="flex: 1; display: flex; flex-direction: column">
+          <span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 18px; letter-spacing: -0.02em">Room chat</span>
+          <span style="color: #9AA3C0; font-size: 13px">Only for people in {{ viewName }}. Cleared when everyone leaves.</span>
+        </div>
+        <button type="button" onClick="{{ toggleChat }}" aria-label="Close room chat" style="width: 44px; height: 44px; border-radius: 12px; border: 0; background: transparent; color: #C4CAE0; display: grid; place-items: center; cursor: pointer">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+        </button>
+      </div>
+      <div style="flex: 1; overflow-y: auto; padding: 16px 12px 8px; display: flex; flex-direction: column; gap: 4px">
+        <sc-for list="{{ callMessages }}" as="m" hint-placeholder-count="4">
+            <div style="{{ m.rowStyle }}">
+              <span style="{{ m.avatarStyle }}">{{ m.initial }}</span>
+              <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+                <span style="display: flex; align-items: center; gap: 8px"><span style="{{ m.nameStyle }}">{{ m.name }}</span><span style="flex: 1; color: #7F89A8; font-size: 12px">{{ m.time }}</span><button type="button" onClick="{{ m.react }}" aria-label="Add reaction" title="Add reaction" style="width: 36px; height: 32px; border: 0; border-radius: 8px; background: transparent; color: #7F89A8; display: grid; place-items: center; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9"></path><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01M19 2v6M16 5h6"></path></svg></button></span>
+                <sc-if value="{{ m.isPlain }}" hint-placeholder-val="{{ true }}"><p style="{{ m.textStyle }}"><sc-for list="{{ m.parts }}" as="seg" hint-placeholder-count="1"><sc-if value="{{ seg.isText }}" hint-placeholder-val="{{ true }}"><span>{{ seg.text }}</span></sc-if><sc-if value="{{ seg.isMention }}" hint-placeholder-val="{{ false }}"><span style="{{ seg.style }}">{{ seg.text }}</span></sc-if><sc-if value="{{ seg.isChannel }}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{ seg.go }}" title="{{ seg.title }}" style="{{ seg.style }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"></path><path d="M15.5 8.5a5 5 0 0 1 0 7"></path></svg>{{ seg.text }}<span style="{{ seg.liveStyle }}">{{ seg.live }}</span></button></sc-if></sc-for></p></sc-if>
+                <sc-if value="{{ m.isAction }}" hint-placeholder-val="{{ false }}"><p style="margin: 0; color: #C4CAE0; font-size: 15px; font-style: italic">{{ m.name }} {{ m.actionText }}</p></sc-if>
+                <sc-if value="{{ m.isRoll }}" hint-placeholder-val="{{ false }}"><p style="margin: 0; display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; padding: 6px 12px; border-radius: 10px; background: #1A2440; color: #DDE2F2; font-size: 15px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFB347" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"></rect><circle cx="8.5" cy="8.5" r="1.2" fill="#FFB347"></circle><circle cx="15.5" cy="15.5" r="1.2" fill="#FFB347"></circle><circle cx="12" cy="12" r="1.2" fill="#FFB347"></circle></svg>rolled <strong style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 20px; color: #FFD08A">{{ m.roll }}</strong><span style="color: #9AA3C0; font-size: 13px">out of 100</span></p></sc-if>
+                <sc-if value="{{ m.hasGif }}" hint-placeholder-val="{{ false }}"><div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start"><div class="{{ m.gifClass }}" role="img" aria-label="{{ m.gifLabel }}" style="{{ m.gifStyle }}"><span class="gif-text" style="font-size: 30px">{{ m.gifText }}</span><span style="position: absolute; left: 8px; bottom: 8px; padding: 2px 6px; border-radius: 6px; background: rgba(14,19,34,.75); color: #ECEFF8; font-size: 11px; font-weight: 700">GIF</span></div><span style="color: #7F89A8; font-size: 12px">/giphy {{ m.gifQuery }}</span></div></sc-if>
+                <sc-if value="{{ m.hasReactions }}" hint-placeholder-val="{{ false }}"><div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px"><sc-for list="{{ m.reactions }}" as="rx" hint-placeholder-count="2"><button type="button" onClick="{{ rx.toggle }}" aria-pressed="{{ rx.pressed }}" style="{{ rx.style }}"><span style="font-size: 16px">{{ rx.e }}</span>{{ rx.count }}</button></sc-for></div></sc-if>
+              </div>
+            </div>
+          </sc-for>
+      </div>
+      <div style="position: relative; padding: 12px 12px 16px">
+          <sc-if value="{{ callC.cmdOpen }}" hint-placeholder-val="{{ false }}">
+            <div role="listbox" aria-label="Commands" style="position: absolute; left: 12px; right: 12px; bottom: calc(100% - 6px); border-radius: 14px; background: #182238; border: 1.5px solid #2A3757; box-shadow: 0 16px 40px rgba(0,0,0,.45); z-index: 3; padding: 6px; display: flex; flex-direction: column; gap: 2px">
+              <span style="padding: 6px 10px 4px; color: #9AA3C0; font-size: 13px; font-weight: 700">Commands</span>
+              <sc-for list="{{ callC.cmds }}" as="c" hint-placeholder-count="4">
+                <button type="button" role="option" onClick="{{ c.pick }}" class="emoji-btn" style="display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 8px; min-height: 44px; padding: 8px 10px; border: 0; border-radius: 10px; background: transparent; color: #ECEFF8; font: inherit; cursor: pointer; text-align: left">
+                  <span style="font-weight: 700; color: #FFD08A">{{ c.name }}</span>
+                  <span style="color: #9AA3C0; font-size: 14px">{{ c.args }}</span>
+                  <span style="flex: 1 1 100%; color: #C4CAE0; font-size: 14px">{{ c.desc }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ callC.mentionOpen }}" hint-placeholder-val="{{ false }}">
+            <div role="listbox" aria-label="Suggestions" style="position: absolute; left: 12px; right: 12px; bottom: calc(100% - 6px); border-radius: 14px; background: #182238; border: 1.5px solid #2A3757; box-shadow: 0 16px 40px rgba(0,0,0,.45); z-index: 3; padding: 6px; display: flex; flex-direction: column; gap: 2px">
+              <span style="padding: 6px 10px 4px; color: #9AA3C0; font-size: 13px; font-weight: 700">{{ callC.suggestTitle }}</span>
+              <sc-for list="{{ callC.suggestions }}" as="sg" hint-placeholder-count="3">
+                <button type="button" role="option" onClick="{{ sg.pick }}" class="emoji-btn" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; color: #ECEFF8; font: inherit; font-weight: 700; cursor: pointer; text-align: left">
+                  <span style="{{ sg.iconStyle }}">{{ sg.icon }}</span>
+                  <span style="flex: 1">{{ sg.label }}</span>
+                  <span style="color: #9AA3C0; font-weight: 400; font-size: 14px">{{ sg.hint }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ callC.emojiOpen }}" hint-placeholder-val="{{ false }}">
+            <div role="dialog" aria-label="{{ callC.emojiTitle }}" style="position: absolute; left: 12px; right: 12px; bottom: calc(100% - 6px); border-radius: 14px; background: #182238; border: 1.5px solid #2A3757; box-shadow: 0 16px 40px rgba(0,0,0,.45); z-index: 3; padding: 10px; display: flex; flex-direction: column; gap: 8px">
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span style="flex: 1; font-weight: 700">{{ callC.emojiTitle }}</span>
+                <button type="button" onClick="{{ callC.closeEmoji }}" aria-label="Close emoji picker" style="width: 36px; height: 36px; border-radius: 10px; border: 0; background: transparent; color: #C4CAE0; display: grid; place-items: center; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 2px">
+                <sc-for list="{{ callC.emojis }}" as="em" hint-placeholder-count="24">
+                  <button type="button" onClick="{{ em.pick }}" aria-label="{{ em.label }}" title="{{ em.label }}" class="emoji-btn" style="height: 44px; border: 0; border-radius: 10px; background: transparent; font-size: 24px; cursor: pointer; display: grid; place-items: center">{{ em.char }}</button>
+                </sc-for>
+              </div>
+              <span style="color: #9AA3C0; font-size: 12px">Tip: type a colon and a name, like :fire</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ callC.gifOpen }}" hint-placeholder-val="{{ false }}">
+            <div role="dialog" aria-label="Pick a GIF" style="position: absolute; left: 12px; right: 12px; bottom: calc(100% - 6px); border-radius: 14px; background: #182238; border: 1.5px solid #2A3757; box-shadow: 0 16px 40px rgba(0,0,0,.45); z-index: 3; padding: 12px; display: flex; flex-direction: column; gap: 10px">
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span style="flex: 1; min-width: 0; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">GIFs for “{{ callC.gifQuery }}”</span>
+                <button type="button" onClick="{{ callC.shuffle }}" style="height: 36px; padding: 0 12px; border-radius: 10px; border: 1.5px solid #2E3B5E; background: transparent; color: #ECEFF8; font: inherit; font-weight: 700; font-size: 14px; cursor: pointer">Shuffle</button>
+                <button type="button" onClick="{{ callC.cancel }}" aria-label="Close GIF picker" style="width: 36px; height: 36px; border-radius: 10px; border: 0; background: transparent; color: #C4CAE0; display: grid; place-items: center; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+                <sc-for list="{{ callC.gifs }}" as="g" hint-placeholder-count="6">
+                  <button type="button" class="{{ g.cls }}" onClick="{{ g.pick }}" aria-label="{{ g.label }}" style="{{ g.style }}"><span class="gif-text" style="font-size: 16px">{{ g.text }}</span></button>
+                </sc-for>
+              </div>
+              <span style="color: #9AA3C0; font-size: 12px">Click one to send, or press Enter for the first. Results from GIPHY, rated PG-13.</span>
+            </div>
+          </sc-if>
+          <div style="display: flex; gap: 8px; align-items: center">
+            <label for="callmsg" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Message the room</label>
+            <input id="callmsg" value="{{ callC.draft }}" onInput="{{ callC.set }}" onKeyDown="{{ callC.key }}" placeholder="Message the room. Try /giphy" autocomplete="off" style="flex: 1; min-width: 0; font: inherit; font-size: 16px; color: #ECEFF8; background: #182238; border: 1.5px solid #2A3757; border-radius: 14px; padding: 13px 16px">
+            <button type="button" onClick="{{ callC.toggleEmoji }}" aria-label="Emoji" title="Emoji" style="{{ callC.emojiBtnStyle }}">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"></path></svg>
+            </button>
+            <button type="button" onClick="{{ callC.send }}" aria-label="Send" style="width: 48px; height: 48px; flex: none; border-radius: 14px; border: 0; background: #FFB347; color: #2A1700; display: grid; place-items: center; cursor: pointer">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"></path></svg>
+            </button>
+          </div>
+        </div>
+    </aside>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":760}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      view: 'deck', voice: 'loft', muted: false, deafened: false, camera: false, chat: false,
+      deckDraft: '/giphy gg', callDraft: '', seenMention: false, gifShuffle: 0, emojiFor: null,
+      deck: [
+        { who: 'jo', text: 'homework first, back around 10 😴', time: '21:58', reactions: [{ e: '🫡', who: ['ana'] }] },
+        { who: 'ana', text: 'who’s on tonight? @max you said you’d be around', time: '22:31' },
+        { who: 'sam', text: 'we’re in #gaming-loft, come through 🎮', time: '22:33' },
+        { who: 'sam', gif: { q: 'lets go', v: 0 }, time: '22:33', reactions: [{ e: '🔥', who: ['ana', 'leo'] }, { e: '💀', who: ['max'] }] },
+        { who: 'leo', action: 'grabs snacks', time: '22:35' },
+        { who: 'leo', text: '@ana did you get the new map pack', time: '22:36' },
+        { who: 'ana', text: 'yes!! queue in #gaming-loft, I’ll host. #quiet-nook if you need to focus @jo', time: '22:38' },
+        { who: 'ana', text: '🔥🔥🔥', time: '22:38' }
+      ],
+      loftChat: [
+        { who: 'sam', text: 'gg that last round was insane', time: '22:41', reactions: [{ e: '💯', who: ['ana', 'leo'] }] },
+        { who: 'ana', roll: 87, time: '22:42' },
+        { who: 'leo', text: 'who goes first? ¯\\_(ツ)_/¯', time: '22:42' }
+      ]
+    };
+  }
+
+  toggleReaction(listKey, i, e) {
+    const list = this.state[listKey].slice();
+    const m = Object.assign({}, list[i]);
+    const rs = (m.reactions || []).map((r) => ({ e: r.e, who: r.who.slice() }));
+    let r = rs.find((x) => x.e === e);
+    if (!r) { r = { e, who: [] }; rs.push(r); }
+    r.who = r.who.includes('max') ? r.who.filter((w) => w !== 'max') : r.who.concat(['max']);
+    m.reactions = rs.filter((x) => x.who.length);
+    list[i] = m;
+    this.setState({ [listKey]: list, emojiFor: null });
+  }
+
+  renderVals() {
+    const s = this.state;
+    const crew = {
+      ana: { name: 'Ana', color: '#E5487D', speaking: true, muted: false, camera: false },
+      leo: { name: 'Leo', color: '#2FA84F', speaking: false, muted: true, camera: false },
+      sam: { name: 'Sam', color: '#E8A317', speaking: false, muted: false, camera: true },
+      jo:  { name: 'Jo',  color: '#12A594' },
+      max: { name: 'Max', color: '#3F8EFC' }
+    };
+    const voiceRooms = [
+      { id: 'loft', slug: 'gaming-loft', name: 'Gaming Loft', people: ['ana', 'leo', 'sam'] },
+      { id: 'nook', slug: 'quiet-nook', name: 'Quiet Nook', people: [] }
+    ];
+    const bySlug = {};
+    voiceRooms.forEach((r) => { bySlug[r.slug] = r; });
+
+    const EMOJI = [['joy','😂'],['skull','💀'],['fire','🔥'],['sob','😭'],['eyes','👀'],['pray','🙏'],['thumbsup','👍'],['heart','❤️'],
+      ['sunglasses','😎'],['handshake','🤝'],['video_game','🎮'],['trophy','🏆'],['triumph','😤'],['cold','🥶'],['mindblown','🤯'],['salute','🫡'],
+      ['sleepy','😴'],['pizza','🍕'],['moon','🌙'],['tree','🌲'],['sparkles','✨'],['100','💯'],['sweat_smile','😅'],['thinking','🤔']];
+    const emojiByCode = {};
+    EMOJI.forEach(([k, v]) => { emojiByCode[k] = v; });
+
+    const COMMANDS = [
+      { name: 'giphy', args: 'search words', desc: 'Pick and send a GIF' },
+      { name: 'shrug', args: 'message', desc: 'Add ¯\\_(ツ)_/¯ to your message' },
+      { name: 'roll', args: '', desc: 'Roll a number from 1 to 100, for picking who goes first' },
+      { name: 'me', args: 'action', desc: 'Say what you’re doing, like “/me grabs snacks”' }
+    ];
+
+    const micOn = !(s.muted || s.deafened);
+    const me = { name: 'Max', color: '#3F8EFC', speaking: false, muted: !micOn, deafened: s.deafened, camera: s.camera, isMe: true };
+    const peopleOf = (r) => {
+      const list = r.people.map((k) => crew[k]);
+      if (s.voice === r.id) list.push(me);
+      return list;
+    };
+    const initial = (n) => n[0].toUpperCase();
+    const disc = (color, size, extra) => 'width: ' + size + 'px; height: ' + size + 'px; flex: none; border-radius: 50%; display: grid; place-items: center; background: ' + color + '; color: #fff; font-family: Bricolage Grotesque, sans-serif; font-weight: 800; font-size: ' + Math.round(size * 0.45) + 'px; ' + (extra || '');
+    const now = () => { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+
+    const LOOKS = [
+      { cls: 'gif-bounce', bg: 'linear-gradient(135deg, #E5487D, #8B5CF6)' },
+      { cls: 'gif-stripes', bg: 'repeating-linear-gradient(45deg, #12A594 0 14px, #0E7C6F 14px 28px)' },
+      { cls: 'gif-zoom', bg: 'radial-gradient(circle, #FFD27A 0 20%, #E8A317 21% 40%, #B87A0E 41%)' },
+      { cls: 'gif-wiggle', bg: 'linear-gradient(160deg, #3F8EFC, #1C2F6E)' },
+      { cls: 'gif-glow', bg: 'radial-gradient(circle at 50% 120%, #3A2B5C, #0E1322)' },
+      { cls: 'gif-shake', bg: 'linear-gradient(135deg, #F0663A, #E5487D)' }
+    ];
+    const gifLook = (v, q, big) => ({
+      cls: LOOKS[v % 6].cls,
+      text: q.slice(0, 16),
+      style: 'position: relative; overflow: hidden; border: 0; border-radius: 12px; display: grid; place-items: center; padding: 0; ' +
+        (big ? 'width: 280px; max-width: 100%; aspect-ratio: 16 / 10; ' : 'width: 100%; aspect-ratio: 4 / 3; cursor: pointer; ') +
+        'background: ' + LOOKS[v % 6].bg + ';'
+    });
+
+    const parse = (text) => text.split(/(@[a-z]+|#[a-z-]+)/).filter((t) => t !== '').map((t) => {
+      if (t[0] === '@' && crew[t.slice(1)]) {
+        const mine = t.slice(1) === 'max';
+        return { isText: false, isMention: true, isChannel: false, text: '@' + crew[t.slice(1)].name,
+          style: 'padding: 1px 6px; border-radius: 6px; font-weight: 700; ' + (mine ? 'background: rgba(255,179,71,.22); color: #FFD08A;' : 'background: rgba(143,170,255,.16); color: #B9C8FF;') };
+      }
+      if (t[0] === '#' && bySlug[t.slice(1)]) {
+        const r = bySlug[t.slice(1)];
+        const n = peopleOf(r).length;
+        return { isText: false, isMention: false, isChannel: true, text: r.name, title: 'Open ' + r.name,
+          live: n ? n + ' in voice' : '',
+          liveStyle: n ? 'margin-left: 6px; padding: 0 6px; border-radius: 999px; background: rgba(99,214,158,.18); color: #9BE3B9; font-size: 12px' : 'display: none',
+          go: () => this.setState({ view: r.id }),
+          style: 'display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; margin: 0 1px; border: 0; border-radius: 6px; background: rgba(255,179,71,.14); color: #FFD08A; font: inherit; font-weight: 700; cursor: pointer; vertical-align: baseline' };
+      }
+      return { isText: true, isMention: false, isChannel: false, text: t };
+    });
+
+    const emojiOnly = (t) => !!t && /^[\p{Extended_Pictographic}\uFE0F\u200D\s]+$/u.test(t) && Array.from(t.replace(/\s/g, '')).length <= 8;
+
+    const mapMsgs = (list, listKey, fs) => list.map((m, i) => {
+      const p = crew[m.who];
+      const text = m.text || '';
+      const big = emojiOnly(text);
+      const look = m.gif ? gifLook(m.gif.v, m.gif.q, true) : null;
+      return {
+        name: p.name, initial: initial(p.name), time: m.time, parts: parse(text),
+        isPlain: !m.gif && m.roll == null && !m.action,
+        textStyle: 'margin: 0; color: #DDE2F2; overflow-wrap: anywhere; ' + (big ? 'font-size: 40px; line-height: 1.2;' : 'font-size: ' + fs + 'px; line-height: 1.6;'),
+        isAction: !!m.action, actionText: m.action || '',
+        isRoll: m.roll != null, roll: String(m.roll || ''),
+        hasGif: !!m.gif, gifQuery: m.gif ? m.gif.q : '', gifText: look ? look.text : '', gifClass: look ? look.cls : '', gifStyle: look ? look.style : '',
+        gifLabel: m.gif ? 'GIF: ' + m.gif.q : '',
+        react: () => this.setState({ emojiFor: { list: listKey, i } }),
+        hasReactions: !!(m.reactions && m.reactions.length),
+        reactions: (m.reactions || []).map((r) => {
+          const mine = r.who.includes('max');
+          return {
+            e: r.e, count: String(r.who.length), pressed: mine ? 'true' : 'false',
+            toggle: () => this.toggleReaction(listKey, i, r.e),
+            style: 'display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 999px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; ' +
+              (mine ? 'border: 1.5px solid #FFB347; background: rgba(255,179,71,.14); color: #FFD08A;' : 'border: 1.5px solid #2A3757; background: #161F35; color: #C4CAE0;')
+          };
+        }),
+        rowStyle: 'display: flex; gap: 12px; padding: 10px; border-radius: 12px; ' + (/@max\b/.test(text) ? 'background: rgba(255,179,71,.08); box-shadow: inset 0 0 0 1px rgba(255,179,71,.22);' : ''),
+        avatarStyle: disc(p.color, 36, ''),
+        nameStyle: 'font-weight: 700; font-size: 15px; color: color-mix(in srgb, ' + p.color + ' 55%, #FFFFFF);'
+      };
+    });
+
+    const composer = (draftKey, listKey, cKey) => {
+      const draft = s[draftKey];
+      const setDraft = (v) => this.setState({ [draftKey]: v, emojiFor: null });
+      const post = (msg) => this.setState({ [draftKey]: '', gifShuffle: 0, emojiFor: null, [listKey]: s[listKey].concat([Object.assign({ who: 'max', time: now() }, msg)]) });
+      const withEmoji = (t) => t.replace(/:([a-z_0-9]+):/g, (all, k) => emojiByCode[k] || all);
+
+      const gm = draft.match(/^\/giphy\s+(.+)$/i);
+      const gifQuery = gm ? gm[1].trim() : '';
+      const gifs = gifQuery ? [0, 1, 2, 3, 4, 5].map((i) => {
+        const v = (i + s.gifShuffle) % 6;
+        return Object.assign(gifLook(v, gifQuery, false), { label: 'Send GIF ' + (i + 1) + ' for ' + gifQuery, pick: () => post({ gif: { q: gifQuery, v } }) });
+      }) : [];
+
+      const sendNow = () => {
+        const t = draft.trim();
+        if (!t) return;
+        let mm;
+        if ((mm = t.match(/^\/giphy\s+(.+)$/i))) return post({ gif: { q: mm[1].trim(), v: s.gifShuffle % 6 } });
+        if ((mm = t.match(/^\/shrug\s*(.*)$/i))) return post({ text: withEmoji(mm[1] ? mm[1] + ' ' : '') + '¯\\_(ツ)_/¯' });
+        if (/^\/roll\b/i.test(t)) return post({ roll: 1 + Math.floor(Math.random() * 100) });
+        if ((mm = t.match(/^\/me\s+(.+)$/i))) return post({ action: withEmoji(mm[1]) });
+        post({ text: withEmoji(t) });
+      };
+
+      const cm = draft.match(/^\/([a-z]*)$/i);
+      const exact = COMMANDS.find((c) => '/' + c.name === draft.trim().toLowerCase());
+      const cmds = cm ? COMMANDS.filter((c) => c.name.startsWith(cm[1].toLowerCase())).map((c) => ({
+        name: '/' + c.name, args: c.args, desc: c.desc,
+        pick: () => (c.args ? setDraft('/' + c.name + ' ') : (draft.trim() === '/' + c.name ? sendNow() : setDraft('/' + c.name)))
+      })) : [];
+
+      let suggestions = [];
+      let suggestTitle = '';
+      const mt = draft.match(/(^|\s)([@#])([a-z-]*)$/i);
+      const sc = draft.match(/(^|\s):([a-z_0-9]{2,})$/i);
+      if (mt) {
+        const q = mt[3].toLowerCase();
+        const head = draft.slice(0, draft.length - mt[2].length - mt[3].length);
+        if (mt[2] === '@') {
+          suggestTitle = 'Friends';
+          suggestions = Object.keys(crew).filter((k) => k !== 'max' && k.startsWith(q)).map((k) => ({
+            icon: initial(crew[k].name), iconStyle: disc(crew[k].color, 28, ''), label: crew[k].name, hint: '@' + k,
+            pick: () => setDraft(head + '@' + k + ' ')
+          }));
+        } else {
+          suggestTitle = 'Voice rooms';
+          suggestions = voiceRooms.filter((r) => r.slug.startsWith(q)).map((r) => ({
+            icon: '#', iconStyle: 'width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: #26324F; color: #FFD08A; font-weight: 700', label: r.name,
+            hint: peopleOf(r).length ? peopleOf(r).length + ' in voice' : 'empty',
+            pick: () => setDraft(head + '#' + r.slug + ' ')
+          }));
+        }
+      } else if (sc) {
+        const q = sc[2].toLowerCase();
+        const head = draft.slice(0, draft.length - q.length - 1);
+        suggestTitle = 'Emoji';
+        suggestions = EMOJI.filter(([k]) => k.includes(q)).slice(0, 6).map(([k, v]) => ({
+          icon: v, iconStyle: 'width: 28px; height: 28px; display: grid; place-items: center; font-size: 22px', label: ':' + k + ':', hint: '',
+          pick: () => setDraft(head + v + ' ')
+        }));
+      }
+
+      const target = s.emojiFor;
+      const reacting = target && typeof target === 'object' && target.list === listKey;
+      const emojiOpen = !gifQuery && !cmds.length && !suggestions.length && (target === cKey || reacting);
+      const reactName = reacting ? crew[s[listKey][target.i].who].name : '';
+
+      return {
+        draft,
+        set: (e) => setDraft(e.target.value),
+        key: (e) => {
+          if (e.key === 'Escape') { e.preventDefault(); if (s.emojiFor) this.setState({ emojiFor: null }); else setDraft(''); return; }
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          if (exact && !exact.args) sendNow();
+          else if (cmds.length) cmds[0].pick();
+          else if (suggestions.length) suggestions[0].pick();
+          else sendNow();
+        },
+        send: sendNow,
+        cmdOpen: !gifQuery && cmds.length > 0,
+        cmds,
+        mentionOpen: !gifQuery && !cmds.length && suggestions.length > 0,
+        suggestions, suggestTitle,
+        gifOpen: !!gifQuery, gifQuery, gifs,
+        shuffle: () => this.setState({ gifShuffle: s.gifShuffle + 1 }),
+        cancel: () => setDraft(''),
+        emojiOpen,
+        emojiTitle: reacting ? 'React to ' + reactName + '’s message' : 'Emoji',
+        toggleEmoji: () => this.setState({ emojiFor: s.emojiFor === cKey ? null : cKey }),
+        closeEmoji: () => this.setState({ emojiFor: null }),
+        emojiBtnStyle: 'width: 48px; height: 48px; flex: none; border-radius: 14px; display: grid; place-items: center; cursor: pointer; ' +
+          (target === cKey ? 'border: 1.5px solid #FFB347; background: rgba(255,179,71,.12); color: #FFD08A;' : 'border: 1.5px solid #2A3757; background: #182238; color: #C4CAE0;'),
+        emojis: EMOJI.map(([k, v]) => ({
+          char: v, label: ':' + k + ':',
+          pick: () => (reacting ? this.toggleReaction(listKey, target.i, v) : this.setState({ [draftKey]: draft + v, emojiFor: null }))
+        }))
+      };
+    };
+
+    const rooms = voiceRooms.map((r) => {
+      const ppl = peopleOf(r);
+      const current = s.view === r.id;
+      return {
+        name: r.name,
+        count: ppl.length ? String(ppl.length) : '',
+        current: current ? 'page' : 'false',
+        join: () => this.setState({ view: r.id, voice: r.id }),
+        buttonStyle: 'display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 0 12px; border: 0; border-radius: 10px; cursor: pointer; font: inherit; font-weight: 700; font-size: 16px; ' +
+          (current ? 'background: #212C4B; color: #ECEFF8;' : 'background: transparent; color: #C4CAE0;'),
+        countStyle: ppl.length ? 'min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: ' + (s.voice === r.id ? '#63D69E' : '#26324F') + '; color: ' + (s.voice === r.id ? '#0D2418' : '#C4CAE0') + '; font-size: 13px; display: grid; place-items: center; box-sizing: border-box' : 'display: none',
+        people: ppl.map((p) => ({
+          name: p.isMe ? 'Max (you)' : p.name,
+          initial: initial(p.name),
+          camera: !!p.camera,
+          muted: !!p.muted && !p.deafened,
+          deafened: !!p.deafened,
+          miniStyle: disc(p.color, 24, (p.speaking ? 'box-shadow: 0 0 0 2px #121A2E, 0 0 0 4px #FFB347;' : '') + (p.muted ? ' opacity: .75;' : ''))
+        }))
+      };
+    });
+
+    const viewRoom = voiceRooms.find((r) => r.id === s.view);
+    const voiceRoom = voiceRooms.find((r) => r.id === s.voice);
+    const connectedHere = !!viewRoom && s.voice === viewRoom.id;
+    const stagePeople = viewRoom ? peopleOf(viewRoom) : [];
+    const n = stagePeople.length;
+    const cols = n <= 1 ? 1 : n <= 4 ? 2 : 3;
+    const rows = Math.max(1, Math.ceil(n / cols));
+    const avatarSize = n <= 4 ? 120 : 88;
+    const badge = (on) => 'width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; ' + (on ? 'color: #C4CAE0;' : 'color: #FF8A7E; background: rgba(255,138,126,.14);');
+    const stage = stagePeople.map((p) => ({
+      name: p.isMe ? 'Max (you)' : p.name,
+      initial: initial(p.name),
+      isMe: !!p.isMe, notMe: !p.isMe,
+      camera: !!p.camera, noCamera: !p.camera,
+      micOn: !p.muted, micOff: !!p.muted,
+      micBadgeStyle: badge(!p.muted),
+      camBadgeStyle: 'width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; color: ' + (p.camera ? '#9BE3B9' : '#7F89A8') + ';',
+      tileStyle: 'position: relative; overflow: hidden; height: 100%; min-height: 200px; box-sizing: border-box; border-radius: 22px; display: grid; place-items: center; background: color-mix(in srgb, ' + p.color + ' 20%, #172036); ' +
+        (p.speaking && connectedHere ? 'border: 2px solid #FFB347; box-shadow: 0 0 0 5px rgba(255,179,71,.16), 0 0 56px rgba(255,179,71,.30);' : 'border: 2px solid #222D49;') +
+        (connectedHere ? '' : ' opacity: .6;'),
+      videoStyle: 'position: absolute; inset: 0; background: radial-gradient(circle at 70% 25%, rgba(255,214,150,.35), transparent 45%), linear-gradient(160deg, color-mix(in srgb, ' + p.color + ' 45%, #2A2F45), #151A2B);',
+      avatarStyle: disc(p.color, avatarSize, (p.speaking && connectedHere ? 'box-shadow: 0 0 0 5px #FFB347; ' : '') + (p.muted ? ' opacity: .7;' : '')),
+      pillAvatarStyle: disc(p.color, 26, p.speaking && connectedHere ? 'box-shadow: 0 0 0 2px #FFB347;' : '')
+    }));
+
+    const iconBtn = (active) => 'width: 44px; height: 44px; border-radius: 12px; border: 0; display: grid; place-items: center; cursor: pointer; ' +
+      (active ? 'background: #3A1C22; color: #FF8A7E;' : 'background: transparent; color: #C4CAE0;');
+    const pillBtn = (off) => 'width: 32px; height: 32px; border-radius: 50%; border: 0; display: grid; place-items: center; cursor: pointer; ' +
+      (off ? 'background: rgba(255,138,126,.16); color: #FF8A7E;' : 'background: #26324F; color: #ECEFF8;');
+    const inVoice = rooms.reduce((sum, r) => sum + (r.count ? Number(r.count) : 0), 0);
+
+    return {
+      rooms,
+      onlineText: '5 online, ' + inVoice + ' in voice',
+      openDeck: () => this.setState({ view: 'deck', seenMention: true }),
+      deckCurrent: s.view === 'deck' ? 'page' : 'false',
+      deckBtnStyle: 'display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 0 12px; border: 0; border-radius: 10px; cursor: pointer; font: inherit; font-weight: 700; font-size: 16px; ' +
+        (s.view === 'deck' ? 'background: #212C4B; color: #ECEFF8;' : 'background: transparent; color: #ECEFF8;'),
+      deckHasMention: !s.seenMention && s.view !== 'deck',
+      isDeck: s.view === 'deck',
+      isVoiceView: !!viewRoom,
+      deckMessages: mapMsgs(s.deck, 'deck', 16),
+      callMessages: mapMsgs(s.loftChat, 'loftChat', 15),
+      deckC: composer('deckDraft', 'deck', 'deckC'),
+      callC: composer('callDraft', 'loftChat', 'callC'),
+      voiceOn: !!voiceRoom,
+      voiceRoomName: voiceRoom ? voiceRoom.name : '',
+      openVoiceRoom: () => voiceRoom && this.setState({ view: voiceRoom.id }),
+      viewName: viewRoom ? viewRoom.name : '',
+      hereText: viewRoom ? (n ? n + ' in voice' + (stagePeople.some((p) => p.name === 'Ana') ? ', Ana is talking' : '') : 'Empty right now') : '',
+      connectedHere,
+      notConnectedHere: !!viewRoom && !connectedHere,
+      joinLabel: s.voice ? 'Switch to this room' : 'Join voice',
+      joinView: () => viewRoom && this.setState({ voice: viewRoom.id }),
+      emptyRoom: !!viewRoom && n === 0,
+      gridStyle: 'flex: 1; min-height: 0; padding: 24px; display: grid; gap: 16px; grid-template-columns: repeat(' + cols + ', minmax(0, 1fr)); grid-template-rows: repeat(' + rows + ', minmax(200px, 1fr));' + (n ? '' : ' display: none;'),
+      stage,
+      showCallChat: connectedHere && s.chat && viewRoom.id === 'loft',
+      micOn, micOff: !micOn,
+      mutedPressed: micOn ? 'false' : 'true',
+      muteLabel: micOn ? 'Mute' : 'Unmute',
+      muteBtnStyle: iconBtn(!micOn),
+      pillMicStyle: pillBtn(!micOn),
+      camOn: s.camera, camOff: !s.camera,
+      camPressed: s.camera ? 'true' : 'false',
+      camLabel: s.camera ? 'Turn camera off' : 'Turn camera on',
+      pillCamStyle: s.camera ? 'width: 32px; height: 32px; border-radius: 50%; border: 0; display: grid; place-items: center; cursor: pointer; background: #1E3A2E; color: #9BE3B9;' : pillBtn(false),
+      deafPressed: s.deafened ? 'true' : 'false',
+      deafLabel: s.deafened ? 'Undeafen' : 'Deafen',
+      deafBtnStyle: iconBtn(s.deafened),
+      chatPressed: s.chat ? 'true' : 'false',
+      chatBtnStyle: 'display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; border-radius: 12px; font: inherit; font-weight: 700; cursor: pointer; ' +
+        (s.chat ? 'border: 1.5px solid #FFB347; background: rgba(255,179,71,.12); color: #FFD08A;' : 'border: 1.5px solid #2E3B5E; background: transparent; color: #ECEFF8;'),
+      toggleMute: () => this.setState({ muted: !s.muted, deafened: s.deafened && s.muted ? false : s.deafened }),
+      toggleDeafen: () => this.setState({ deafened: !s.deafened }),
+      toggleCamera: () => this.setState({ camera: !s.camera }),
+      toggleChat: () => this.setState({ chat: !s.chat }),
+      leave: () => this.setState({ voice: null, chat: false })
+    };
+  }
+}
+</script>
+</body>
+</html>

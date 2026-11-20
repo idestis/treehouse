@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Create your account · Treehouse{% endblock %}
+{% block main_class %}page narrow{% endblock %}
+{% block content %}
+<h1>Create your account</h1>
+<p class="lead">You need an invite code from the person who runs this Treehouse.</p>
+{% if let Some(e) = error %}<p class="alert error" role="alert">{{ e }}</p>{% endif %}
+<form method="post" action="/join" class="stack">
+  <label>Invite code
+    <input name="code" value="{{ code }}" class="code-input" autocapitalize="characters" autocomplete="off" required>
+  </label>
+  <label>Username
+    <input name="username" value="{{ username }}" autocomplete="username" autocapitalize="none" minlength="3" maxlength="24" required>
+    <span class="hint">For signing in. Letters, numbers, - and _.</span>
+  </label>
+  <label>Your name
+    <input name="display_name" value="{{ display_name }}" maxlength="32" required>
+    <span class="hint">This is what your friends see.</span>
+  </label>
+  <label>Password
+    <input name="password" type="password" autocomplete="new-password" minlength="10" required>
+    <span class="hint">At least 10 characters. A short sentence works well.</span>
+  </label>
+  <label>Password again
+    <input name="password2" type="password" autocomplete="new-password" minlength="10" required>
+  </label>
+  <button class="primary">Create account</button>
+</form>
+<p class="muted small">Already have an account? <a href="/login">Sign in</a>.</p>
+{% endblock %}

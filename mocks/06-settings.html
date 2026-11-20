@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Treehouse: settings</title>
+<link rel="stylesheet" href="assets/fonts.css">
+<script src="assets/mock-runtime.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#0E1322}
+a{color:#FFB347}a:hover{color:#FFD08A}
+a:focus-visible,button:focus-visible,select:focus-visible{outline:3px solid #FFB347;outline-offset:2px}
+</style>
+</helmet>
+<div style="width: 100%; min-height: 760px; box-sizing: border-box; background: #0E1322; color: #ECEFF8; font-family: 'Atkinson Hyperlegible', 'Segoe UI', system-ui, sans-serif; display: flex; flex-wrap: wrap">
+
+  <aside style="flex: 1 1 240px; min-width: 0; background: #121A2E; border-right: 1px solid #1F2943; padding: 22px 12px; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px">
+    <p style="margin: 0 10px 12px; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 22px; letter-spacing: -0.02em">Settings</p>
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+      <button type="button" onClick="{{ t.pick }}" aria-current="{{ t.current }}" style="{{ t.style }}">{{ t.label }}</button>
+    </sc-for>
+  </aside>
+
+  <main style="flex: 999 1 560px; min-width: 0; padding: 26px 36px 40px; box-sizing: border-box; display: flex; flex-direction: column; gap: 26px">
+    <div style="display: flex; justify-content: flex-end">
+      <a href="05-deck-and-voice-rooms.html" style="display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; border-radius: 12px; border: 1.5px solid #2E3B5E; color: #ECEFF8; text-decoration: none; font-weight: 700">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+        Back to the treehouse
+      </a>
+    </div>
+
+    <sc-if value="{{ showComputer }}" hint-placeholder-val="{{ true }}">
+      <section style="display: flex; flex-direction: column; gap: 22px; max-width: 640px">
+        <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 34px; letter-spacing: -0.03em">This computer</h1>
+        <div style="display: flex; flex-direction: column; gap: 18px; padding: 22px; border-radius: 18px; background: #141C31; border: 1.5px solid #222D49">
+          <div style="display: flex; align-items: center; gap: 14px">
+            <span style="width: 52px; height: 52px; border-radius: 14px; background: #2B2350; display: grid; place-items: center; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 22px; color: #C9B8FF">N</span>
+            <div style="display: flex; flex-direction: column; flex: 1; min-width: 0">
+              <span style="font-weight: 700; font-size: 18px">Night Owls</span>
+              <span style="color: #A9B1CC; font-size: 15px">owls.example.net, signed in as max</span>
+            </div>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 10px">
+            <a href="02-sign-in.html" style="display: inline-flex; align-items: center; height: 46px; padding: 0 18px; border-radius: 12px; background: #2A1820; border: 1.5px solid #5A2A30; color: #FF8A7E; text-decoration: none; font-weight: 700">Sign out</a>
+            <a href="01-find-your-treehouse.html" style="display: inline-flex; align-items: center; height: 46px; padding: 0 18px; border-radius: 12px; border: 1.5px solid #2E3B5E; color: #ECEFF8; text-decoration: none; font-weight: 700">Switch treehouse</a>
+          </div>
+          <p style="margin: 0; color: #A9B1CC; font-size: 14px; line-height: 1.5">Signing out removes your login from this computer only. Your account and friends stay put.</p>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <h2 style="margin: 0 0 8px; font-size: 18px">Where you’re signed in</h2>
+          <div style="display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid #1F2943">
+            <div style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 700">Max’s gaming PC</span><span style="color: #9BE3B9; font-size: 14px">This computer</span></div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; padding: 14px 0">
+            <div style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 700">School laptop</span><span style="color: #A9B1CC; font-size: 14px">Last used 3 days ago</span></div>
+            <button type="button" style="height: 40px; padding: 0 14px; border-radius: 10px; border: 1.5px solid #2E3B5E; background: transparent; color: #ECEFF8; font: inherit; font-weight: 700; cursor: pointer">Sign it out</button>
+          </div>
+        </div>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{ showProfile }}" hint-placeholder-val="{{ false }}">
+      <section style="display: flex; flex-direction: column; gap: 22px; max-width: 640px">
+        <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 34px; letter-spacing: -0.03em">Profile</h1>
+        <div style="display: flex; align-items: center; gap: 18px">
+          <span style="width: 84px; height: 84px; border-radius: 50%; background: #3F8EFC; display: grid; place-items: center; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 38px; color: #fff">M</span>
+          <div style="display: flex; flex-direction: column; gap: 6px; flex: 1">
+            <label for="dn" style="font-weight: 700; font-size: 15px">Name your crew sees</label>
+            <input id="dn" value="Max" style="font: inherit; font-size: 17px; color: #ECEFF8; background: #182238; border: 1.5px solid #2A3757; border-radius: 12px; padding: 12px 14px">
+          </div>
+        </div>
+        <p style="margin: 0; color: #A9B1CC; font-size: 15px">Your color, username and password live here too. Changes show up for friends right away.</p>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{ showSound }}" hint-placeholder-val="{{ false }}">
+      <section style="display: flex; flex-direction: column; gap: 20px; max-width: 640px">
+        <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 34px; letter-spacing: -0.03em">Sound</h1>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <label for="mic" style="font-weight: 700; font-size: 15px">Microphone</label>
+          <select id="mic" style="font: inherit; font-size: 16px; color: #ECEFF8; background: #182238; border: 1.5px solid #2A3757; border-radius: 12px; padding: 12px 14px"><option>HyperX Cloud II headset</option><option>Built-in microphone</option></select>
+          <div style="display: flex; align-items: center; gap: 10px; margin-top: 6px">
+            <span style="color: #A9B1CC; font-size: 14px">Say something</span>
+            <span style="flex: 1; height: 8px; border-radius: 999px; background: #1F2943; overflow: hidden"><span style="display: block; width: 58%; height: 100%; background: #FFB347; border-radius: 999px"></span></span>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <label for="out" style="font-weight: 700; font-size: 15px">Speakers or headphones</label>
+          <select id="out" style="font: inherit; font-size: 16px; color: #ECEFF8; background: #182238; border: 1.5px solid #2A3757; border-radius: 12px; padding: 12px 14px"><option>HyperX Cloud II headset</option><option>Speakers</option></select>
+        </div>
+        <p style="margin: 0; padding: 14px 16px; border-radius: 14px; background: #141C31; color: #C4CAE0; font-size: 15px; line-height: 1.5">Echo removal, background-noise removal and volume leveling are always on, so your keyboard and fans stay out of the call.</p>
+        <h2 style="margin: 8px 0 0; font-size: 18px">Hotkeys</h2>
+        <div style="display: flex; flex-direction: column">
+          <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #1F2943"><span>Mute</span><kbd style="font: inherit; font-weight: 700; padding: 3px 10px; border-radius: 8px; background: #1F2943">Ctrl + M</kbd></div>
+          <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #1F2943"><span>Deafen</span><kbd style="font: inherit; font-weight: 700; padding: 3px 10px; border-radius: 8px; background: #1F2943">Ctrl + D</kbd></div>
+          <div style="display: flex; justify-content: space-between; padding: 12px 0"><span>Push to talk</span><span style="color: #A9B1CC">Off</span></div>
+        </div>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{ showSecurity }}" hint-placeholder-val="{{ false }}">
+      <section style="display: flex; flex-direction: column; gap: 18px; max-width: 640px">
+        <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 34px; letter-spacing: -0.03em">Security</h1>
+        <div style="display: flex; align-items: center; gap: 14px; padding: 18px; border-radius: 16px; background: #141C31; border: 1.5px solid #222D49">
+          <div style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 700">Two-step sign-in</span><span style="color: #9BE3B9; font-size: 14px">On, using an authenticator app</span></div>
+          <button type="button" style="height: 40px; padding: 0 14px; border-radius: 10px; border: 1.5px solid #2E3B5E; background: transparent; color: #ECEFF8; font: inherit; font-weight: 700; cursor: pointer">Backup codes</button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px; padding: 18px; border-radius: 16px; background: #141C31; border: 1.5px solid #222D49">
+          <div style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 700">Password</span><span style="color: #A9B1CC; font-size: 14px">Changed 2 months ago</span></div>
+          <button type="button" style="height: 40px; padding: 0 14px; border-radius: 10px; border: 1.5px solid #2E3B5E; background: transparent; color: #ECEFF8; font: inherit; font-weight: 700; cursor: pointer">Change</button>
+        </div>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{ showInvites }}" hint-placeholder-val="{{ false }}">
+      <section style="display: flex; flex-direction: column; gap: 18px; max-width: 640px">
+        <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 34px; letter-spacing: -0.03em">Invite friends</h1>
+        <p style="margin: 0; color: #A9B1CC; font-size: 15px">Only crew admins see this. Each invite works once.</p>
+        <div style="display: flex; flex-direction: column; gap: 12px; padding: 20px; border-radius: 18px; background: #141C31; border: 2px dashed #3A4870">
+          <span style="font-weight: 700">New invite for Kai</span>
+          <span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 36px; letter-spacing: 0.1em">7QH4M-RX2PD</span>
+          <div style="display: flex; flex-wrap: wrap; gap: 10px">
+            <button type="button" style="height: 44px; padding: 0 18px; border-radius: 12px; border: 0; background: #FFB347; color: #2A1700; font: inherit; font-weight: 700; cursor: pointer">Copy invite link</button>
+            <span style="align-self: center; color: #A9B1CC; font-size: 14px">Expires in 7 days</span>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column">
+          <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #1F2943"><span style="flex: 1">Ana</span><span style="color: #9BE3B9; font-size: 14px">Joined</span></div>
+          <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0"><span style="flex: 1">Kai</span><span style="color: #FFD08A; font-size: 14px">Waiting</span><button type="button" style="height: 36px; padding: 0 12px; border-radius: 10px; border: 1.5px solid #2E3B5E; background: transparent; color: #ECEFF8; font: inherit; font-weight: 700; cursor: pointer">Cancel</button></div>
+        </div>
+      </section>
+    </sc-if>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":760}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { tab: 'computer' };
+  }
+  renderVals() {
+    const tab = this.state.tab;
+    const list = [['profile', 'Profile'], ['sound', 'Sound and hotkeys'], ['security', 'Security'], ['invites', 'Invite friends'], ['computer', 'This computer']];
+    return {
+      tabs: list.map(([id, label]) => ({
+        label,
+        current: id === tab ? 'page' : 'false',
+        pick: () => this.setState({ tab: id }),
+        style: 'text-align: left; min-height: 44px; padding: 0 12px; border: 0; border-radius: 10px; cursor: pointer; font: inherit; font-weight: 700; font-size: 16px; ' +
+          (id === tab ? 'background: #212C4B; color: #ECEFF8;' : 'background: transparent; color: #C4CAE0;')
+      })),
+      showComputer: tab === 'computer',
+      showProfile: tab === 'profile',
+      showSound: tab === 'sound',
+      showSecurity: tab === 'security',
+      showInvites: tab === 'invites'
+    };
+  }
+}
+</script>
+</body>
+</html>

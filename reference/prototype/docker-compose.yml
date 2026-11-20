@@ -1,0 +1,38 @@
+# Treehouse: web portal + API, LiveKit voice server, and Caddy for HTTPS.
+# Everything uses host networking: LiveKit needs a wide UDP port range,
+# and this keeps the setup simple on a single small server.
+services:
+  treehouse:
+    build: ./server
+    network_mode: host
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      BIND_ADDR: 127.0.0.1:8080
+      DATABASE_URL: sqlite:///app/data/treehouse.db
+    volumes:
+      - ./data:/app/data
+
+  livekit:
+    image: livekit/livekit-server:latest   # pin a specific version once it works for you
+    network_mode: host
+    restart: unless-stopped
+    command: --config /etc/livekit.yaml
+    environment:
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+
+  caddy:
+    image: caddy:2
+    network_mode: host
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

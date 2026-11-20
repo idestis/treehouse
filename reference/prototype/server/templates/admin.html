@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}People & invites · Treehouse<script>
+  document.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = 'Copied'; }
+    catch { prompt('Copy this link:', b.dataset.copy); }
+    setTimeout(() => b.textContent = 'Copy link', 1500);
+  }));
+</script>
+{% endblock %}
+{% block content %}
+<h1>People &amp; invites</h1>
+
+<section>
+  <h2>Invite someone</h2>
+  {% if let Some(link) = new_link %}
+  <div class="pair">
+    <p>Send this link to your friend. It works once.</p>
+    <p class="link-box"><input readonly value="{{ link }}" onclick="this.select()" aria-label="Invite link"></p>
+  </div>
+  {% endif %}
+  <form method="post" action="/admin/invites" class="invite-form">
+    <label>Who is it for?
+      <input name="note" maxlength="60" placeholder="e.g. Max from school">
+    </label>
+    <label>Valid for
+      <select name="days">
+        <option value="1">1 day</option>
+        <option value="3">3 days</option>
+        <option value="7" selected>7 days</option>
+        <option value="30">30 days</option>
+      </select>
+    </label>
+    <label class="check"><input type="checkbox" name="make_admin" value="1"> Can manage people</label>
+    <button class="primary">Create invite</button>
+  </form>
+</section>
+
+<section>
+  <h2>People</h2>
+  <ul class="rows">
+    {% for u in users %}
+    <li class="{% if u.disabled %}paused{% endif %}">
+      <span class="avatar" style="--c: {{ u.color }}">{{ u.initial }}</span>
+      <div class="grow">
+        <strong>{{ u.display_name }}</strong> <span class="muted">@{{ u.username }}</span><br>
+        <span class="muted small">
+          {% if u.admin %}Admin. {% endif %}{% if u.disabled %}Paused. {% endif %}{{ u.devices }} {% if u.devices == 1 %}computer{% else %}computers{% endif %}. Two-step sign-in {% if u.mfa %}on{% else %}off{% endif %}.
+        </span>
+      </div>
+      {% if !u.is_self %}
+      <div class="actions">
+        {% if u.mfa %}
+        <form method="post" action="/admin/users/{{ u.id }}/reset-mfa" onsubmit="return confirm('Turn off two-step sign-in for {{ u.display_name }}?')"><button class="quiet">Reset two-step</button></form>
+        {% endif %}
+        <form method="post" action="/admin/users/{{ u.id }}/toggle"><button class="quiet">{% if u.disabled %}Resume{% else %}Pause{% endif %}</button></form>
+      </div>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section>
+  <h2>Invites</h2>
+  {% if invites.is_empty() %}
+  <p class="muted">No invites yet.</p>
+  {% else %}
+  <ul class="rows">
+    {% for i in invites %}
+    <li>
+      <div class="grow">
+        <strong class="mono">{{ i.code }}</strong>{% if !i.note.is_empty() %} <span class="muted">for {{ i.note }}</span>{% endif %}<br>
+        <span class="muted small">{{ i.status }}{% if i.admin %}. Can manage people{% endif %}</span>
+      </div>
+      {% if i.open %}
+      <div class="actions">
+        <button type="button" class="quiet" data-copy="{{ i.link }}">Copy link</button>
+        <form method="post" action="/admin/invites/{{ i.code }}/delete"><button class="quiet">Cancel</button></form>
+      </div>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+<script>
+  document.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = 'Copied'; }
+    catch { prompt('Copy this link:', b.dataset.copy); }
+    setTimeout(() => b.textContent = 'Copy link', 1500);
+  }));
+</script>
+{% endblock %}
