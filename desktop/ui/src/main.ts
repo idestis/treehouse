@@ -12,6 +12,20 @@ import { checkForUpdates, initUpdates } from "./updates";
 
 const root = document.getElementById("app")!;
 
+// It's an app, not a web page: no browser context menu (Reload / Inspect Element)
+// except in text fields, where Cut / Copy / Paste and spelling are useful.
+addEventListener("contextmenu", (e) => {
+  const t = e.target as HTMLElement | null;
+  const editable = t?.closest("input, textarea, [contenteditable='true']");
+  const selection = getSelection()?.toString();
+  if (!editable && !selection) e.preventDefault();
+});
+// No reloading the window (it would drop your session and any call).
+addEventListener("keydown", (e) => {
+  const reload = e.key === "F5" || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "r");
+  if (reload) e.preventDefault();
+});
+
 start(root, { name: "find" });
 if ("__TAURI_INTERNALS__" in window) {
   void initUpdates();
