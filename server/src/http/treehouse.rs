@@ -1,16 +1,9 @@
 //! Server info, people, rooms.
 
-use axum::{
-    Json,
-    extract::{Path, State},
-};
+use axum::{Json, extract::State};
 use serde_json::{Value, json};
 
-use crate::{
-    auth::Authed,
-    error::{AppError, AppResult},
-    http::AppState,
-};
+use crate::{auth::Authed, error::AppResult, http::AppState};
 
 /// Public: what a client shows before signing in, and the header copy after.
 pub async fn server_info(State(st): State<AppState>) -> AppResult<Json<Value>> {
@@ -46,23 +39,4 @@ pub async fn rooms(State(st): State<AppState>, Authed(_): Authed) -> AppResult<J
         .fetch_one(&st.db)
         .await?;
     Ok(Json(list))
-}
-
-/// Voice tokens arrive with LiveKit (milestone 7).
-pub async fn voice_token(
-    State(st): State<AppState>,
-    Authed(_): Authed,
-    Path(id): Path<i64>,
-) -> AppResult<Json<Value>> {
-    let kind = sqlx::query_scalar!("SELECT kind FROM rooms WHERE id = $1", id)
-        .fetch_optional(&st.db)
-        .await?
-        .ok_or_else(|| AppError::not_found("That room is gone."))?;
-    if kind != "voice" {
-        return Err(AppError::bad("not_voice", "That isn't a voice room."));
-    }
-    Err(AppError::unavailable(
-        "voice_off",
-        "Voice isn't set up on this server yet.",
-    ))
 }

@@ -1,4 +1,7 @@
 # LiveKit voice server. API keys come from LIVEKIT_KEYS (see docker-compose.yml).
+# The webhook section (to https://APP_DOMAIN/api/livekit/webhook, signed with
+# LIVEKIT_API_KEY) is appended at container start by docker-compose.yml,
+# because this file can't read environment variables. Don't add one here.
 port: 7880
 bind_addresses: ["0.0.0.0"]     # Caddy reaches it via host.docker.internal; firewall 7880 off the internet
 rtc:

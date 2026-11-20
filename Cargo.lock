@@ -6007,6 +6007,7 @@ dependencies = [
  "axum",
  "base64 0.22.1",
  "futures-util",
+ "hmac",
  "image",
  "qrcode",
  "rand 0.9.5",

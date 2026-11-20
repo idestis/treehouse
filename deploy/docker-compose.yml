@@ -59,9 +59,18 @@ services:
     image: livekit/livekit-server:v1.9
     restart: unless-stopped
     network_mode: host
-    command: --config /etc/livekit.yaml
+    # A LiveKit config file can't read environment variables, so the webhook
+    # section (it needs the API key and APP_DOMAIN) is appended at start.
+    # Webhooks tell the server who is in which voice room.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        { cat /etc/livekit.yaml; printf '\nwebhook:\n  api_key: "%s"\n  urls: ["https://%s/api/livekit/webhook"]\n' "$$LIVEKIT_API_KEY" "$$APP_DOMAIN"; } > /tmp/livekit.yaml
+        exec /livekit-server --config /tmp/livekit.yaml
     environment:
       LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
+      APP_DOMAIN: ${APP_DOMAIN}
     volumes:
       - ./livekit.yaml:/etc/livekit.yaml:ro
 

@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE voice_members\n                 SET room_id = $2, lk_sid = $3, muted = false, camera = false, screen = false, joined_at = now()\n                 WHERE user_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3ce7c92c21e1433c05d6a6777a6c8c6b8e9d001677851f3119f8df6655493e44"
+}

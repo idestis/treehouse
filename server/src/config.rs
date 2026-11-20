@@ -28,6 +28,26 @@ pub struct Config {
     pub shutdown_grace: Duration,
     /// `GIPHY_API_KEY`: GIF search; GIFs are off without it.
     pub giphy_api_key: Option<String>,
+    /// `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`: voice. Voice is
+    /// off unless all three are set.
+    pub livekit: Option<LiveKit>,
+}
+
+#[derive(Clone)]
+pub struct LiveKit {
+    /// Public ws:// or wss:// URL the app connects to.
+    pub url: String,
+    pub api_key: String,
+    pub api_secret: String,
+}
+
+impl std::fmt::Debug for LiveKit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LiveKit")
+            .field("url", &self.url)
+            .field("api_key", &self.api_key)
+            .finish_non_exhaustive()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -67,8 +87,23 @@ impl Config {
             giphy_api_key: env::var("GIPHY_API_KEY")
                 .ok()
                 .filter(|k| !k.trim().is_empty()),
+            livekit: livekit_from_env(),
         })
     }
+}
+
+fn livekit_from_env() -> Option<LiveKit> {
+    let get = |name: &str| {
+        env::var(name)
+            .ok()
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty())
+    };
+    Some(LiveKit {
+        url: get("LIVEKIT_URL")?.trim_end_matches('/').to_string(),
+        api_key: get("LIVEKIT_API_KEY")?,
+        api_secret: get("LIVEKIT_API_SECRET")?,
+    })
 }
 
 fn var_or<T>(name: &str, default: T) -> Result<T>

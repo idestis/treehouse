@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM voice_left WHERE left_at < now() - interval '1 day'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "be8f9a30565a26c6e6ebbb77100eb4ec9c12899151a0606026c4472ad7de5999"
+}

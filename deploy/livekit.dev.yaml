@@ -1,0 +1,26 @@
+# LiveKit for local dev (`task db` starts it next to postgres-test).
+# The app connects to ws://localhost:7880; media goes over UDP 50000-50020
+# (or TCP 7881), all published on 127.0.0.1 only.
+port: 7880
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 50020
+  # Inside Docker Desktop the container's own IP isn't reachable from the
+  # Mac; advertise localhost, where the ports above are published.
+  use_external_ip: false
+  node_ip: 127.0.0.1
+room:
+  empty_timeout: 60
+  max_participants: 12
+# DEV ONLY, not a real secret: the same pair is in Taskfile.yml (server:dev).
+# Never reuse it on a real server; there, keys come from LIVEKIT_KEYS.
+keys:
+  devkey: treehouse-dev-secret-0123456789-not-for-production
+# Who is in which room: LiveKit tells the dev server (task server:dev, port 8090).
+webhook:
+  api_key: devkey
+  urls:
+    - http://host.docker.internal:8090/api/livekit/webhook
+logging:
+  level: info

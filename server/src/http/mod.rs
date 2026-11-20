@@ -4,6 +4,7 @@ mod chat;
 mod invites;
 mod session;
 mod treehouse;
+mod voice;
 
 use std::{sync::Arc, time::Duration};
 
@@ -53,7 +54,9 @@ pub fn router(state: AppState) -> Router {
         .route("/me/devices/{id}", delete(account::sign_out_device))
         .route("/people", get(treehouse::people))
         .route("/rooms", get(treehouse::rooms))
-        .route("/rooms/{id}/voice-token", post(treehouse::voice_token))
+        .route("/rooms/{id}/voice-token", post(voice::voice_token))
+        .route("/rooms/{id}/voice-state", post(voice::voice_state))
+        .route("/livekit/webhook", post(voice::webhook))
         .route("/channels/{id}/messages", get(chat::list).post(chat::send))
         .route("/messages/{id}", delete(chat::delete))
         .route(

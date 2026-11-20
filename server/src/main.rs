@@ -16,6 +16,7 @@ mod events;
 mod gifs;
 mod http;
 mod jobs;
+mod livekit;
 mod perms;
 mod setup;
 mod util;
@@ -108,6 +109,7 @@ async fn serve() -> Result<()> {
         setup_invite_ttl_min = cfg.setup_invite_ttl.as_secs() / 60,
         max_voice_rooms = cfg.max_voice_rooms,
         gifs = cfg.giphy_api_key.is_some(),
+        voice = cfg.livekit.is_some(),
         "starting"
     );
 

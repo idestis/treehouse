@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT room_id, lk_sid FROM voice_members WHERE user_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "room_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "lk_sid",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "5f69e0d33877376b10f2ca460d693318eeef3daa20e0bbe965fe70b11cbbc3e3"
+}

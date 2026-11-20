@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT kind FROM rooms WHERE id = $1",
+  "query": "DELETE FROM voice_members WHERE room_id = $1 RETURNING lk_sid",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "kind",
+        "name": "lk_sid",
         "type_info": "Text"
       }
     ],
@@ -15,8 +15,8 @@
       ]
     },
     "nullable": [
-      false
+      true
     ]
   },
-  "hash": "33b36b5c869ee901852ebedffe791849265c162c785c66008d020fca33e45670"
+  "hash": "9da81b53fddcaff19689f50f236294b52bc6d4533896d7ccf51b4d63463193a3"
 }
