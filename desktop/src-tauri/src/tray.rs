@@ -3,7 +3,7 @@
 //! closing the window hides it here instead of quitting.
 
 use tauri::{
-    AppHandle, Manager, Runtime,
+    AppHandle, Emitter, Manager, Runtime,
     image::Image,
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -20,6 +20,9 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
         &[
             &MenuItem::with_id(app, "tray.open", "Open Treehouse", true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(app, "tray.settings", "Settings…", true, None::<&str>)?,
+            &MenuItem::with_id(app, "tray.updates", "Check for Updates…", true, None::<&str>)?,
+            &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "tray.quit", "Quit Treehouse", true, None::<&str>)?,
         ],
     )?;
@@ -31,6 +34,15 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
         .show_menu_on_left_click(false)
         .on_menu_event(|app, ev| match ev.id().as_ref() {
             "tray.open" => show(app),
+            // The UI decides what these mean (e.g. settings need a signed-in user).
+            "tray.settings" => {
+                show(app);
+                let _ = app.emit("menu-command", "settings");
+            }
+            "tray.updates" => {
+                show(app);
+                let _ = app.emit("menu-command", "check-updates");
+            }
             "tray.quit" => app.exit(0),
             _ => {}
         })
