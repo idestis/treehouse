@@ -6106,7 +6106,7 @@ dependencies = [
 
 [[package]]
 name = "treehouse-desktop"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "anyhow",
  "block2",
@@ -6137,7 +6137,7 @@ dependencies = [
 
 [[package]]
 name = "treehouse-server"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "anyhow",
  "argon2",
