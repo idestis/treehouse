@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE mfa SET backup_code_hashes = array_remove(backup_code_hashes, $2)\n             WHERE user_id = $1 AND $2 = ANY(backup_code_hashes) RETURNING user_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "f003a1c62136e769ca6dcc44d84ca6857458710badbb7723a43ae2992b7b5625"
+}

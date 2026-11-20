@@ -30,6 +30,8 @@ pub struct AppState {
     pub cfg: Arc<Config>,
     pub events: broadcast::Sender<events::Event>,
     pub gifs: Arc<Gifs>,
+    /// Limits concurrent argon2/zxcvbn work (see `auth::hashing_limit`).
+    pub hashing: Arc<tokio::sync::Semaphore>,
 }
 
 pub fn router(state: AppState) -> Router {
