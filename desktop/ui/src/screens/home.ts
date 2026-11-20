@@ -694,6 +694,27 @@ register("home", (root) => {
     if (room && stageSub) stageSub.textContent = talkingText(stageMembers(room));
   }
 
+  /** Before sharing: what it's for decides the quality (remembered for next time). */
+  function shareMenu(anchor: HTMLElement) {
+    document.querySelector(".share-menu")?.remove();
+    const r = anchor.getBoundingClientRect();
+    const menu = h("div", { class: "status-menu share-menu", role: "menu", style: { left: `${Math.max(12, r.left + r.width / 2 - 150)}px`, bottom: `${innerHeight - r.top + 10}px` } });
+    const close = () => { menu.remove(); removeEventListener("mousedown", outside, true); removeEventListener("keydown", esc, true); };
+    const outside = (e: MouseEvent) => { if (!menu.contains(e.target as Node) && e.target !== anchor) close(); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); close(); } };
+    const option = (mode: "text" | "motion", title: string, hint: string) =>
+      h("button", { class: `sm-item share-opt ${prefs.screenMode === mode ? "on" : ""}`, type: "button", role: "menuitem",
+        onclick: () => { prefs.screenMode = mode; close(); void call.setScreenShare(true); } },
+        h("span", { class: "grow col" }, h("strong", null, title), h("span", { class: "muted small" }, hint)),
+        prefs.screenMode === mode && h("span", { class: "lantern" }, "✓"));
+    mount(menu,
+      h("p", { class: "muted small sm-sub" }, "Share your screen for"),
+      option("text", "Reading together", "Sharp text: docs, code, websites (1080p, 15 fps)"),
+      option("motion", "Watching or playing", "Smooth motion: videos and games (1080p, 30 fps)"));
+    document.body.appendChild(menu);
+    setTimeout(() => { addEventListener("mousedown", outside, true); addEventListener("keydown", esc, true); });
+  }
+
   function renderBar() {
     const room = viewedRoom();
     if (!room || !barEl) return;
@@ -704,7 +725,7 @@ register("home", (root) => {
     mount(barEl,
       btn(`${call.muted ? "Unmute" : "Mute"} (${formatKey(keys.mute)})`, call.muted ? "micOff" : "mic", call.muted ? "off" : "", call.muted, toggleMute),
       btn(call.camera ? "Turn camera off" : "Turn camera on", call.camera ? "video" : "videoOff", call.camera ? "on" : "", call.camera, () => void call.setCamera(!call.camera), !live),
-      btn(call.screen ? "Stop sharing" : "Share your screen", call.screen ? "monitorOff" : "monitor", call.screen ? "on" : "", call.screen, () => void call.setScreenShare(!call.screen), !live),
+      btn(call.screen ? "Stop sharing" : "Share your screen", call.screen ? "monitorOff" : "monitor", call.screen ? "on" : "", call.screen, (e?: Event) => { if (call.screen) void call.setScreenShare(false); else shareMenu((e?.currentTarget as HTMLElement) ?? barEl!); }, !live),
       btn("Leave", "hangup", "leave", null, () => void leave()));
   }
 

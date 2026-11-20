@@ -224,6 +224,8 @@ fieldset.plain legend { padding: 0; margin-bottom: 10px; }
 .sb-add { display: block; width: 100%; text-align: left; padding: 10px 12px; border-radius: 12px; color: var(--mist); font-weight: 700; font-size: 15px; }
 .sb-add:hover { background: #18213a; color: var(--moon); }
 .sb-note { padding: 8px 12px; }
+.share-menu { width: 300px; }
+.share-opt.on { background: var(--active); }
 .room-menu { width: 260px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45); }
 .sm-sub { padding: 4px 12px 0; }
 .sm-head.start { align-items: flex-start; gap: 2px; }
