@@ -114,7 +114,7 @@ pub async fn admin(db: &PgPool, action: &str, username: &str) -> Result<()> {
                 .await?;
         }
         "unblock" => {
-            sqlx::query!("UPDATE users SET blocked_at = NULL, blocked_reason = NULL, locked_until = NULL, failed_logins = 0 WHERE id = $1", id)
+            sqlx::query!("UPDATE users SET blocked_at = NULL, blocked_reason = NULL, locked_until = NULL, failed_logins = 0, failed_mfa = 0 WHERE id = $1", id)
                 .execute(&mut *tx)
                 .await?;
         }

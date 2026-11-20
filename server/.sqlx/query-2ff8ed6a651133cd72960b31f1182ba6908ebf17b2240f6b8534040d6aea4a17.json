@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE mfa SET confirmed_at = now(), backup_code_hashes = $2, last_totp_step = $3 WHERE user_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "ByteaArray",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2ff8ed6a651133cd72960b31f1182ba6908ebf17b2240f6b8534040d6aea4a17"
+}

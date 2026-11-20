@@ -15,7 +15,7 @@ use crate::{
     events,
     http::{
         AppState,
-        session::{clean_display_name, totp, valid_color},
+        session::{clean_display_name, totp, totp_step, valid_color},
     },
     util,
 };
@@ -136,24 +136,40 @@ pub async fn change_password(
     let treehouse = sqlx::query_scalar!("SELECT name FROM treehouse")
         .fetch_one(&st.db)
         .await?;
-    auth::check_new_password(&p.new, &[&user.username, &user.display_name, &treehouse])?;
-    let mut tx = st.db.begin().await?;
-    let hash = sqlx::query_scalar!(
-        "SELECT password_hash FROM users WHERE id = $1 FOR UPDATE",
-        user.id
+    // Hashing runs on the blocking pool with no connection held; the write
+    // transaction then re-checks that the hash we verified is still current.
+    let new_hash = auth::check_and_hash_async(
+        &st.hashing,
+        p.new,
+        vec![user.username.clone(), user.display_name.clone(), treehouse],
     )
-    .fetch_one(&mut *tx)
     .await?;
-    if !auth::verify_password(&hash, &p.current) {
+    let hash = sqlx::query_scalar!("SELECT password_hash FROM users WHERE id = $1", user.id)
+        .fetch_one(&st.db)
+        .await?;
+    if !auth::verify_password_async(&st.hashing, hash.clone(), p.current).await? {
         return Err(AppError::bad(
             "bad_password",
             "Your current password is wrong.",
         ));
     }
+    let mut tx = st.db.begin().await?;
+    let current = sqlx::query_scalar!(
+        "SELECT password_hash FROM users WHERE id = $1 FOR UPDATE",
+        user.id
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    if current != hash {
+        return Err(AppError::conflict(
+            "password_changed",
+            "Your password just changed. Try again.",
+        ));
+    }
     sqlx::query!(
         "UPDATE users SET password_hash = $2 WHERE id = $1",
         user.id,
-        auth::hash_password(&p.new)?
+        new_hash
     )
     .execute(&mut *tx)
     .await?;
@@ -227,21 +243,25 @@ pub async fn mfa_confirm(
         ));
     }
     let code: String = p.code.chars().filter(char::is_ascii_digit).collect();
-    if !totp(&row.totp_secret, &user.username, "Treehouse")?
-        .check_current(&code)
-        .unwrap_or(false)
-    {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| anyhow::anyhow!("clock before 1970: {e}"))?
+        .as_secs();
+    let t = totp(&row.totp_secret, &user.username, "Treehouse")?;
+    // Record the step so the setup code can't be used again to sign in.
+    let Some(step) = totp_step(&t, &code, now, None) else {
         return Err(AppError::bad(
             "bad_code",
             "That code didn't work. Check your app and try the newest one.",
         ));
-    }
+    };
     let codes: Vec<String> = (0..10).map(|_| util::backup_code()).collect();
     let hashes: Vec<Vec<u8>> = codes.iter().map(|c| util::sha256(c)).collect();
     sqlx::query!(
-        "UPDATE mfa SET confirmed_at = now(), backup_code_hashes = $2 WHERE user_id = $1",
+        "UPDATE mfa SET confirmed_at = now(), backup_code_hashes = $2, last_totp_step = $3 WHERE user_id = $1",
         user.id,
-        &hashes
+        &hashes,
+        step
     )
     .execute(&mut *tx)
     .await?;
