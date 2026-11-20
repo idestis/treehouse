@@ -109,6 +109,16 @@ tasks:
     cmds:
       - cargo run -p treehouse-server
 
+  server:invite:
+    desc: New setup invite for the dev server (only while nobody is an admin); prints the link and code
+    deps: [db]
+    env:
+      DATABASE_URL: "{{.DEV_DATABASE_URL}}"
+      SQLX_OFFLINE: "true"
+      PUBLIC_URL: http://localhost:8090
+    cmds:
+      - cargo run -q -p treehouse-server -- setup-invite
+
   test:
     desc: Workspace tests (integration tests use the dev Postgres) + TypeScript check
     deps: [db]
