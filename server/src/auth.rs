@@ -288,6 +288,28 @@ impl User {
     }
 }
 
+/// A signed-in user for tests that call handler bodies directly.
+#[cfg(test)]
+pub fn test_user(id: i64) -> User {
+    User {
+        id,
+        username: format!("user{id}"),
+        display_name: format!("User {id}"),
+        color: "#63D69E".into(),
+        role: Role::Member,
+        is_owner: false,
+        session_id: 0,
+        mfa_enabled: false,
+        mods_require_mfa: false,
+        avatar: None,
+        status: "online".into(),
+        status_emoji: None,
+        status_text: None,
+        join_sound: "none".into(),
+        leave_sound: "none".into(),
+    }
+}
+
 #[derive(Debug, Serialize)]
 pub struct MeOut {
     pub id: i64,

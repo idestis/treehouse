@@ -3,7 +3,7 @@
 use axum::{Json, extract::State};
 use serde_json::{Value, json};
 
-use crate::{auth::Authed, error::AppResult, http::AppState};
+use crate::{auth::Authed, error::AppResult, http::AppState, perms::Role};
 
 /// Public: what a client shows before signing in, and the header copy after.
 pub async fn server_info(State(st): State<AppState>) -> AppResult<Json<Value>> {
@@ -19,15 +19,19 @@ pub async fn server_info(State(st): State<AppState>) -> AppResult<Json<Value>> {
     })))
 }
 
-pub async fn people(State(st): State<AppState>, Authed(_): Authed) -> AppResult<Json<Value>> {
+/// Everyone who can sign in. Admins also see blocked people (to unblock them).
+pub async fn people(State(st): State<AppState>, Authed(user): Authed) -> AppResult<Json<Value>> {
+    let with_blocked = user.role == Role::Admin;
     let list = sqlx::query_scalar!(
         r#"SELECT COALESCE(jsonb_agg(jsonb_build_object(
                'id', u.id, 'username', u.username::text, 'display_name', u.display_name, 'color', u.color, 'role', u.role,
                'avatar', (SELECT a.version FROM avatars a WHERE a.user_id = u.id),
                'status', u.status, 'status_emoji', u.status_emoji, 'status_text', u.status_text, 'join_sound', u.join_sound, 'leave_sound', u.leave_sound,
-               'online', EXISTS (SELECT 1 FROM connections c WHERE c.user_id = u.id AND c.last_ping > now() - interval '90 seconds')
+               'is_owner', u.is_owner, 'blocked', u.blocked_at IS NOT NULL,
+               'online', u.blocked_at IS NULL AND EXISTS (SELECT 1 FROM connections c WHERE c.user_id = u.id AND c.last_ping > now() - interval '90 seconds')
            ) ORDER BY lower(u.display_name)), '[]'::jsonb) AS "list!"
-           FROM users u WHERE u.blocked_at IS NULL"#
+           FROM users u WHERE u.blocked_at IS NULL OR $1"#,
+        with_blocked
     )
     .fetch_one(&st.db)
     .await?;

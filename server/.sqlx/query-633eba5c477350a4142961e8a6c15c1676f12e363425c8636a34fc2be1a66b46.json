@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COALESCE(jsonb_agg(jsonb_build_object(\n               'id', u.id, 'username', u.username::text, 'display_name', u.display_name, 'color', u.color, 'role', u.role,\n               'avatar', (SELECT a.version FROM avatars a WHERE a.user_id = u.id),\n               'status', u.status, 'status_emoji', u.status_emoji, 'status_text', u.status_text, 'join_sound', u.join_sound, 'leave_sound', u.leave_sound,\n               'is_owner', u.is_owner, 'blocked', u.blocked_at IS NOT NULL,\n               'online', u.blocked_at IS NULL AND EXISTS (SELECT 1 FROM connections c WHERE c.user_id = u.id AND c.last_ping > now() - interval '90 seconds')\n           ) ORDER BY lower(u.display_name)), '[]'::jsonb) AS \"list!\"\n           FROM users u WHERE u.blocked_at IS NULL OR $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "list!",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bool"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "633eba5c477350a4142961e8a6c15c1676f12e363425c8636a34fc2be1a66b46"
+}

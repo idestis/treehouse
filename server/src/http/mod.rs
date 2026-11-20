@@ -2,6 +2,7 @@ mod account;
 mod avatars;
 mod chat;
 mod invites;
+mod people;
 mod rooms;
 mod session;
 mod treehouse;
@@ -56,6 +57,9 @@ pub fn router(state: AppState) -> Router {
         .route("/me/devices", get(account::devices))
         .route("/me/devices/{id}", delete(account::sign_out_device))
         .route("/people", get(treehouse::people))
+        .route("/people/{id}/role", patch(people::set_role))
+        .route("/people/{id}/block", post(people::block))
+        .route("/people/{id}/unblock", post(people::unblock))
         .route("/rooms", get(treehouse::rooms).post(rooms::create))
         .route("/rooms/{id}", patch(rooms::update).delete(rooms::delete))
         .route("/rooms/{id}/voice-token", post(voice::voice_token))

@@ -27,6 +27,9 @@ export interface Api {
   mfaConfirm(code: string): Promise<{ backup_codes: string[] }>;
   treehouse(): Promise<Treehouse>;
   people(): Promise<Person[]>;
+  setRole(user_id: number, role: Role): Promise<void>;
+  block(user_id: number): Promise<void>;
+  unblock(user_id: number): Promise<void>;
   rooms(): Promise<Room[]>;
 
   messages(channel_id: number): Promise<Message[]>;

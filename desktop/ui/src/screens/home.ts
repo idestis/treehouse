@@ -4,7 +4,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { api } from "../api";
 import type { Gif, LiveEvent, Me, Message, Person, Presence, Room, Treehouse, VoiceMember } from "../api/types";
-import { errorText } from "../api/types";
+import { errorText, isApiError } from "../api/types";
 import { go, register, session } from "../app";
 import { personAvatar } from "../avatars";
 import { inkText, tint } from "../colors";
@@ -52,6 +52,8 @@ register("home", (root) => {
 
   // ── state (a view of what the server sent) ──
   let people = new Map<number, Person>();
+  /** Admins only: blocked accounts, listed so they can be unblocked. */
+  let blockedPeople: Person[] = [];
   let rooms: Room[] = [];
   let treehouse: Treehouse = { name: session.server?.name ?? "Treehouse", version: "", message_ttl_hours: 72, max_voice_rooms: 3, gifs: false };
   let offline = false;
@@ -68,7 +70,7 @@ register("home", (root) => {
   const voiceRooms = () => rooms.filter((r) => r.kind === "voice");
   /** The room your call is in (connecting, connected or reconnecting). */
   const myVoiceRoom = () => voiceRooms().find((r) => r.id === call.roomId);
-  const person = (id: number): Person => people.get(id) ?? { id, username: "gone", display_name: t("home.someone"), color: "#7C8BA8", role: "member", online: false, avatar: null, status: "online", status_emoji: null, status_text: null, join_sound: "none", leave_sound: "none" };
+  const person = (id: number): Person => people.get(id) ?? { id, username: "gone", display_name: t("home.someone"), color: "#7C8BA8", role: "member", is_owner: false, blocked: false, online: false, avatar: null, status: "online", status_emoji: null, status_text: null, join_sound: "none", leave_sound: "none" };
 
   // ── layout ──
   const sidebar = h("aside", { class: "sidebar" });
@@ -86,15 +88,19 @@ register("home", (root) => {
     const all = [...people.values()].sort((a, b) => a.display_name.localeCompare(b.display_name));
     const row = (p: Person) => {
       const inVoice = voiceRooms().find((r) => r.members.some((m) => m.user_id === p.id));
-      return h("li", { class: `crew-row ${p.online ? "" : "away"}` },
+      const manage = canManage(p);
+      const open = (e: Event) => { e.stopPropagation(); personMenu(p, e.currentTarget as HTMLElement); };
+      return h("li", { class: `crew-row ${p.online ? "" : "away"} ${manage ? "manage" : ""}`, onclick: manage ? open : undefined },
         h("span", { class: "me-avatar" }, personAvatar(p, 32), p.online && h("span", { class: `online-dot sm ${p.status}` })),
         h("span", { class: "grow col min0" },
-          h("span", { class: "crew-name" }, p.display_name, p.id === me.id ? t("home.youSuffix") : ""),
-          inVoice ? h("span", { class: "leaf small" }, t("home.inRoom", { room: inVoice.name }))
-            : p.status_text || p.status_emoji ? h("span", { class: "muted small ellipsis" }, `${p.status_emoji ?? ""} ${p.status_text ?? ""}`.trim())
+          h("span", { class: "crew-name", title: p.display_name }, p.display_name, p.id === me.id ? t("home.youSuffix") : ""),
+          p.blocked ? h("span", { class: "ember small" }, t("home.blockedHint"))
+            : inVoice ? h("span", { class: "leaf small" }, t("home.inRoom", { room: inVoice.name }))
+            : p.status_text || p.status_emoji ? h("span", { class: "muted small ellipsis", title: statusLine(p) }, statusLine(p))
             : p.online && p.status !== "online" ? h("span", { class: `small presence-${p.status}` }, presenceLabel(p.status))
             : h("span", { class: "muted small" }, `@${p.username}`)),
-        ROLE_TAG[p.role] && h("span", { class: `role-tag ${p.role}` }, ROLE_TAG[p.role]));
+        ROLE_TAG[p.role] && h("span", { class: `role-tag ${p.role}` }, ROLE_TAG[p.role]),
+        manage && h("button", { class: "crew-more", type: "button", "aria-haspopup": "menu", "aria-label": t("home.personOptionsFor", { name: p.display_name }), onclick: open }, icon("more", 18)));
     };
     const online = all.filter((p) => p.online);
     const away = all.filter((p) => !p.online);
@@ -103,7 +109,61 @@ register("home", (root) => {
       h("p", { class: "sb-label" }, t("home.onlineCount", { n: online.length })),
       h("ul", { class: "crew-list" }, online.map(row)),
       away.length > 0 && h("p", { class: "sb-label" }, t("home.offlineCount", { n: away.length })),
-      away.length > 0 && h("ul", { class: "crew-list" }, away.map(row)));
+      away.length > 0 && h("ul", { class: "crew-list" }, away.map(row)),
+      blockedPeople.length > 0 && h("p", { class: "sb-label" }, t("home.blockedCount", { n: blockedPeople.length })),
+      blockedPeople.length > 0 && h("ul", { class: "crew-list" }, blockedPeople.map(row)));
+  }
+
+  /** Custom status as one line: emoji and text. */
+  function statusLine(p: Person) { return `${p.status_emoji ?? ""} ${p.status_text ?? ""}`.trim(); }
+
+  /** Whether to offer the people menu. Only hides it: the server decides (spec §2). */
+  function canManage(p: Person) {
+    return me.role === "admin" && p.id !== me.id && !p.is_owner && (p.role !== "admin" || me.is_owner);
+  }
+
+  /** Admin menu on a People row: role, block, unblock. Changes arrive back as a `people` event. */
+  function personMenu(p: Person, anchor: HTMLElement) {
+    document.querySelector(".person-menu")?.remove();
+    const rect = anchor.getBoundingClientRect();
+    const menu = h("div", { class: "status-menu person-menu", role: "menu", style: { left: `${Math.max(12, Math.min(rect.right - 300, innerWidth - 312))}px`, top: `${Math.min(rect.bottom + 6, innerHeight - 320)}px` } });
+    const close = () => { menu.remove(); removeEventListener("mousedown", outside, true); removeEventListener("keydown", esc, true); };
+    const outside = (e: MouseEvent) => { if (!menu.contains(e.target as Node)) close(); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); close(); } };
+    const run = async (action: () => Promise<void>) => {
+      try { await action(); close(); } catch (e) { toast(errorText(e), "error"); }
+    };
+    const confirmBox = (text: string, label: string, danger: boolean, action: () => Promise<void>) =>
+      h("div", { class: `sm-confirm ${danger ? "" : "calm"}` },
+        h("p", { class: "small" }, text),
+        h("div", { class: "row gap-6" },
+          h("button", { class: `btn ${danger ? "danger" : "primary"} sm`, type: "button", onclick: () => run(action) }, label),
+          h("button", { class: "btn ghost sm", type: "button", onclick: () => draw() }, t("common.cancel"))));
+    const roleItem = (role: Person["role"]) =>
+      h("button", { class: `sm-item ${p.role === role ? "on" : ""}`, type: "button", role: "menuitemradio", "aria-checked": String(p.role === role),
+        onclick: () => {
+          if (p.role === role) return;
+          if (role === "admin") draw("admin");
+          else void run(() => api.setRole(p.id, role));
+        } },
+        h("span", { class: "grow" }, t(`role.${role}`)), p.role === role && icon("check", 16));
+    const draw = (confirming?: "admin" | "block") => mount(menu,
+      h("div", { class: "sm-head col start" }, h("strong", null, p.display_name), h("span", { class: "muted small" }, `@${p.username}`)),
+      p.blocked
+        ? h("button", { class: "sm-item", type: "button", role: "menuitem", onclick: () => run(() => api.unblock(p.id)) }, t("home.unblock"))
+        : [
+            h("p", { class: "sb-label sm-label" }, t("home.roleHint")),
+            confirming === "admin"
+              ? confirmBox(t("home.makeAdminQ", { name: p.display_name }), t("home.makeAdmin"), false, () => api.setRole(p.id, "admin"))
+              : (["member", "moderator", "admin"] as const).map(roleItem),
+            h("div", { class: "sm-sep" }),
+            confirming === "block"
+              ? confirmBox(t("home.blockQ", { name: p.display_name }), t("home.block"), true, () => api.block(p.id))
+              : h("button", { class: "sm-item danger", type: "button", role: "menuitem", onclick: () => draw("block") }, t("home.block")),
+          ]);
+    draw();
+    document.body.appendChild(menu);
+    setTimeout(() => { addEventListener("mousedown", outside, true); addEventListener("keydown", esc, true); });
   }
 
   const keys = loadHotkeys();
@@ -582,7 +642,7 @@ register("home", (root) => {
   function statusBits(p: Person) {
     return [
       p.online && p.status !== "online" && h("span", { class: `small presence-${p.status}` }, h("span", { class: `online-dot inline ${p.status}` }), " ", presenceLabel(p.status)),
-      (p.status_emoji || p.status_text) && h("span", { class: "muted small ellipsis" }, `${p.status_emoji ?? ""} ${p.status_text ?? ""}`.trim()),
+      (p.status_emoji || p.status_text) && h("span", { class: "muted small ellipsis", title: statusLine(p) }, statusLine(p)),
     ];
   }
   const statusTag = (p: Person) => h("span", { class: "msg-status", "data-status-for": String(p.id) }, statusBits(p));
@@ -1279,12 +1339,13 @@ register("home", (root) => {
   async function load() {
     try {
       const [ps, rs, th] = await Promise.all([api.people(), api.rooms(), api.treehouse()]);
-      people = new Map(ps.map((p) => [p.id, p]));
+      people = new Map(ps.filter((p) => !p.blocked).map((p) => [p.id, p]));
+      blockedPeople = ps.filter((p) => p.blocked).sort((a, b) => a.display_name.localeCompare(b.display_name));
       rooms = rs;
       treehouse = th;
       const self = people.get(me.id);
       // You're online by definition while this screen is open, even before the live connection registers.
-      if (self) { self.online = true; Object.assign(me, { display_name: self.display_name, color: self.color, avatar: self.avatar }); }
+      if (self) { self.online = true; Object.assign(me, { display_name: self.display_name, color: self.color, avatar: self.avatar, role: self.role, is_owner: self.is_owner }); }
       // Rooms that emptied lose their chat; drop what we held.
       for (const r of rooms) if (r.kind === "voice" && !r.members.some((m) => m.user_id === me.id) && r.id !== call.roomId) cache.delete(r.id);
       renderSidebar();
@@ -1292,6 +1353,12 @@ register("home", (root) => {
       if (view.kind === "voice" || !lists.size) renderMain();
       else for (const ch of lists.keys()) refreshLists(ch);
     } catch (e) {
+      // Made an admin (or moderator, when required): two-step sign-in comes first.
+      if (isApiError(e) && e.error === "mfa_setup_needed") {
+        try { Object.assign(me, await api.me()); } catch { /* the setup screen loads it again */ }
+        go({ name: "mfasetup" });
+        return;
+      }
       toast(errorText(e), "error");
     }
   }

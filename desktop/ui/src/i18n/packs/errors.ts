@@ -61,6 +61,9 @@ export const en = {
   "err.bad_expiry": "Invites last 1 hour, 1 day, 3 days or 7 days.",
   "err.bad_uses": "An invite works for 1 to 5 people.",
   "err.invite_gone": "That invite was already used or cancelled.",
+  "err.person_gone": "That person isn't here anymore.",
+  "err.last_admin": "There must be at least one admin. Make someone else an admin first.",
+  "err.owner_stays_admin": "The owner always stays an admin.",
 
   // Rooms and voice
   "err.bad_room_name": "Room names are 1 to 40 characters.",
@@ -147,6 +150,9 @@ export const es: Pack<typeof en> = {
   "err.bad_expiry": "Las invitaciones duran 1 hora, 1 día, 3 días o 7 días.",
   "err.bad_uses": "Una invitación sirve para 1 a 5 personas.",
   "err.invite_gone": "Esa invitación ya se usó o se canceló.",
+  "err.person_gone": "Esa persona ya no está.",
+  "err.last_admin": "Tiene que haber al menos un admin. Primero haz admin a otra persona.",
+  "err.owner_stays_admin": "El dueño siempre sigue siendo admin.",
 
   "err.bad_room_name": "El nombre de la sala lleva de 1 a 40 caracteres.",
   "err.bad_capacity": "En una sala caben de 2 a 10 personas.",
@@ -231,6 +237,9 @@ export const uk: Pack<typeof en, UkPlural> = {
   "err.bad_expiry": "Запрошення діє 1 годину, 1 день, 3 дні або 7 днів.",
   "err.bad_uses": "Запрошення працює для 1–5 людей.",
   "err.invite_gone": "Це запрошення вже використали або скасували.",
+  "err.person_gone": "Цієї людини тут уже немає.",
+  "err.last_admin": "Має лишитися хоча б один адмін. Спершу зроби адміном когось іншого.",
+  "err.owner_stays_admin": "Власник завжди лишається адміном.",
 
   "err.bad_room_name": "Назва кімнати — від 1 до 40 символів.",
   "err.bad_capacity": "У кімнату вміщується від 2 до 10 людей.",

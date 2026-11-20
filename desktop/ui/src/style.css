@@ -444,6 +444,14 @@ fieldset.plain legend { padding: 0; margin-bottom: 10px; }
 .crew-row { display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 12px; }
 .crew-row:hover { background: #18213a; }
 .crew-row.away { opacity: 0.55; }
+/* Admins: a row they can manage opens the people menu (role, block). */
+.crew-row.manage { cursor: pointer; }
+.crew-more { width: 28px; height: 28px; margin-left: -6px; border-radius: 8px; display: grid; place-items: center; color: var(--mist); opacity: 0; flex: none; }
+.crew-row:hover .crew-more, .crew-more:focus-visible { opacity: 1; }
+.crew-more:hover { background: var(--active); color: var(--moon); }
+.person-menu .sm-label { padding: 4px 12px 2px; margin: 0; }
+.person-menu .sm-item.on { color: var(--lantern); }
+.sm-confirm.calm { color: var(--moon); }
 .crew-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .online-dot.sm { width: 12px; height: 12px; border-color: var(--canopy); }
 .role-tag { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }

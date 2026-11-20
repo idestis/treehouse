@@ -130,3 +130,15 @@ The spec doesn't mention languages. The desktop app now ships English, Español 
 - **Readable on night:** names are drawn in the person's color, so a custom hex needs at least 3:1 contrast against `night` (#0E1322); darker ones get `color_too_dark`. Every palette swatch passes (tested). The picker warns early with the same formula, but the server decides. Initials switch to dark text on light colors.
 - **Picking your own:** a "+" swatch is a real `<input type="color">`, so it opens the system picker. The macOS color panel has its own eyedropper. Where the web view has the `EyeDropper` API (WebView2 on Windows), an extra "pick from screen" swatch appears. The swatches update in place instead of re-rendering, so an open system picker keeps sending to the same input.
 - **Older apps** show a gradient person with no color (an invalid CSS color is ignored), which is harmless.
+
+## 2026-11-20: People admin lives in The Deck's People column, not a Crew tab
+
+Spec §7.6 plans a **Crew** settings tab for people, roles, blocking and two-step resets. We put these controls where people already are: the People column in The Deck (online, offline, and for admins a **Blocked** section). This replaces the Crew tab for these three actions. Two-step reset is still only available through the CLI.
+
+- **Endpoints (spec §9.3):** `PATCH /api/people/{id}/role` `{ "role": … }`, `POST /api/people/{id}/block` (optional `{ "reason": … }`), `POST /api/people/{id}/unblock`. Code is in `server/src/http/people.rs` and the checks are `perms::can_change_role` and `perms::can_block`.
+- **Who can do what:** admins only, and only the owner acts on other admins (`can_act_on`). The owner always stays an admin (the schema requires it). An admin may step down themselves; the app doesn't offer this, but the server allows it. Nobody blocks themselves.
+- **One transaction:** lock the treehouse row, re-read the actor (their role may have changed since the request was authenticated), lock the target, check, write, add a `mod_log` row, and emit `people`. The "at least one admin" count only includes admins who aren't blocked.
+- **Block:** sets `blocked_at`, deletes their sessions (existing triggers close their live connections on commit), removes them from voice, and queues `remove_participant` jobs in the outbox for their LiveKit identity and their overlay identity. Their messages stay until they expire. Unblock also clears the login lockout.
+- **`GET /api/people`** now has `is_owner` and `blocked` fields. Admins also get blocked people, marked `blocked: true`; everyone else sees only active accounts, as before.
+- **Becoming an admin** means two-step sign-in is required, so the next `people` refresh gets `mfa_setup_needed` and the app opens two-step setup.
+- **Moderators** get no controls here yet. Their tools (mute, kick, timeouts) arrive with sanctions in milestone 8.

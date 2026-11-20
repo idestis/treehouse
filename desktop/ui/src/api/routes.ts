@@ -23,6 +23,9 @@ export function routes(call: Call): Omit<Api, "servers" | "probe" | "forgetLogin
     mfaConfirm: (code) => call("POST", "/api/me/mfa/confirm", { code }),
     treehouse: () => call("GET", "/api/server-info"),
     people: () => call("GET", "/api/people"),
+    setRole: (id, role) => call("PATCH", `/api/people/${id}/role`, { role }),
+    block: (id) => call("POST", `/api/people/${id}/block`, {}),
+    unblock: (id) => call("POST", `/api/people/${id}/unblock`),
     rooms: () => call("GET", "/api/rooms"),
 
     messages: (id) => call("GET", `/api/channels/${id}/messages`),

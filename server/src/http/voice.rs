@@ -223,7 +223,7 @@ async fn emit_voice(conn: &mut PgConnection, room_id: i64) -> AppResult<()> {
 
 /// After someone left `room_id`: tell everyone, and clear the room's chat
 /// if nobody is left (spec §5).
-async fn after_leave(conn: &mut PgConnection, room_id: i64) -> AppResult<()> {
+pub(super) async fn after_leave(conn: &mut PgConnection, room_id: i64) -> AppResult<()> {
     emit_voice(conn, room_id).await?;
     clear_chat_if_empty(conn, room_id).await
 }

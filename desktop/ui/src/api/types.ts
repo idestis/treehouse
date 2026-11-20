@@ -39,6 +39,10 @@ export interface Person {
   display_name: string;
   color: string;
   role: Role;
+  /** The account that used the setup invite: always an admin. */
+  is_owner: boolean;
+  /** Only admins see blocked people (so they can unblock them). */
+  blocked: boolean;
   online: boolean;
   avatar: number | null;
   status: Presence;

@@ -96,6 +96,27 @@ pub fn can_invite_as(actor: Actor, role: Role) -> Result<(), Denied> {
     }
 }
 
+/// Promote or demote: admins only, on people `can_act_on` allows. An admin
+/// may also step down themselves (the last-admin rule is checked in the
+/// transaction, not here).
+pub fn can_change_role(actor: Actor, target_id: i64, from: Role, to: Role) -> Result<(), Denied> {
+    if actor.role != Role::Admin {
+        return Err(Denied);
+    }
+    if actor.id == target_id {
+        return if to <= from { Ok(()) } else { Err(Denied) };
+    }
+    can_act_on(actor, from)
+}
+
+/// Block or unblock: admins only, never themselves, on people `can_act_on` allows.
+pub fn can_block(actor: Actor, target_id: i64, target_role: Role) -> Result<(), Denied> {
+    if actor.role != Role::Admin || actor.id == target_id {
+        return Err(Denied);
+    }
+    can_act_on(actor, target_role)
+}
+
 /// Rooms (create, rename, resize, delete) are admin-only (spec §2).
 pub fn can_manage_rooms(actor: Actor) -> Result<(), Denied> {
     if actor.role == Role::Admin {
@@ -163,6 +184,36 @@ mod tests {
         );
         assert_eq!(
             can_invite_as(a(Role::Admin, false), Role::Admin),
+            Err(Denied)
+        );
+    }
+
+    #[test]
+    fn roles_and_blocking() {
+        let admin = a(Role::Admin, false);
+        let owner = a(Role::Admin, true);
+        // Admins promote members and moderators, up to admin.
+        assert!(can_change_role(admin, 2, Role::Member, Role::Admin).is_ok());
+        assert!(can_change_role(admin, 2, Role::Moderator, Role::Member).is_ok());
+        // Only the owner demotes another admin.
+        assert_eq!(
+            can_change_role(admin, 2, Role::Admin, Role::Member),
+            Err(Denied)
+        );
+        assert!(can_change_role(owner, 2, Role::Admin, Role::Member).is_ok());
+        // Stepping down yourself is fine; moderators change nobody's role.
+        assert!(can_change_role(admin, 1, Role::Admin, Role::Moderator).is_ok());
+        assert_eq!(
+            can_change_role(a(Role::Moderator, false), 2, Role::Member, Role::Moderator),
+            Err(Denied)
+        );
+        // Blocking follows the same hierarchy, never yourself.
+        assert!(can_block(admin, 2, Role::Moderator).is_ok());
+        assert_eq!(can_block(admin, 2, Role::Admin), Err(Denied));
+        assert!(can_block(owner, 2, Role::Admin).is_ok());
+        assert_eq!(can_block(owner, 1, Role::Admin), Err(Denied));
+        assert_eq!(
+            can_block(a(Role::Moderator, false), 2, Role::Member),
             Err(Denied)
         );
     }
