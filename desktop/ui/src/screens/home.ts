@@ -3,14 +3,18 @@
 // refused by the server.
 import { invoke } from "@tauri-apps/api/core";
 import { api } from "../api";
-import type { Gif, LiveEvent, Me, Message, Person, Room, Treehouse } from "../api/types";
+import type { Gif, LiveEvent, Me, Message, Person, Presence, Room, Treehouse } from "../api/types";
 import { errorText } from "../api/types";
 import { go, register, session } from "../app";
 import { personAvatar } from "../avatars";
+import { chime, notificationsOn, setNotifications } from "../notify";
 import { format as formatKey, load as loadHotkeys, matches } from "../hotkeys";
 import { h, icon, mount, time, toast } from "../dom";
 
 const EMOJI = ["😂", "😭", "💀", "🔥", "💯", "❤️", "👍", "👎", "😎", "🥲", "😴", "🤔", "😤", "🙃", "😅", "🤯", "🥳", "😈", "👀", "🙏", "🫡", "🤝", "👋", "🎮", "🕹️", "🏆", "⚡", "✨", "🎉", "🍕", "🍿", "🥤", "🌙", "⭐", "🦉", "🌲", "🎧", "🎤", "📣", "✅", "❌", "⏰"];
+
+const PRESENCE_LABEL: Record<Presence, string> = { online: "Online", away: "Away", busy: "Busy", brb: "Be right back" };
+const STATUS_PRESETS: [string, string][] = [["🎮", "In a game"], ["📚", "Homework"], ["🍕", "Eating"], ["🎧", "Listening to music"], ["😴", "Sleeping"]];
 
 // Last reactions you used, for the hover toolbar (a per-computer convenience).
 const RECENT_KEY = "treehouse.recentEmoji";
@@ -53,7 +57,7 @@ register("home", (root) => {
   const deck = () => rooms.find((r) => r.kind === "deck");
   const voiceRooms = () => rooms.filter((r) => r.kind === "voice");
   const myVoiceRoom = () => voiceRooms().find((r) => r.members.some((m) => m.user_id === me.id));
-  const person = (id: number): Person => people.get(id) ?? { id, username: "gone", display_name: "Someone", color: "#7C8BA8", role: "member", online: false, avatar: null };
+  const person = (id: number): Person => people.get(id) ?? { id, username: "gone", display_name: "Someone", color: "#7C8BA8", role: "member", online: false, avatar: null, status: "online", status_emoji: null, status_text: null };
 
   // ── layout ──
   const sidebar = h("aside", { class: "sidebar" });
@@ -72,10 +76,13 @@ register("home", (root) => {
     const row = (p: Person) => {
       const inVoice = voiceRooms().find((r) => r.members.some((m) => m.user_id === p.id));
       return h("li", { class: `crew-row ${p.online ? "" : "away"}` },
-        h("span", { class: "me-avatar" }, personAvatar(p, 32), p.online && h("span", { class: "online-dot sm" })),
+        h("span", { class: "me-avatar" }, personAvatar(p, 32), p.online && h("span", { class: `online-dot sm ${p.status}` })),
         h("span", { class: "grow col min0" },
           h("span", { class: "crew-name" }, p.display_name, p.id === me.id ? " (you)" : ""),
-          inVoice ? h("span", { class: "leaf small" }, `In ${inVoice.name}`) : h("span", { class: "muted small" }, `@${p.username}`)),
+          inVoice ? h("span", { class: "leaf small" }, `In ${inVoice.name}`)
+            : p.status_text || p.status_emoji ? h("span", { class: "muted small ellipsis" }, `${p.status_emoji ?? ""} ${p.status_text ?? ""}`.trim())
+            : p.online && p.status !== "online" ? h("span", { class: `small presence-${p.status}` }, PRESENCE_LABEL[p.status])
+            : h("span", { class: "muted small" }, `@${p.username}`)),
         ROLE_TAG[p.role] && h("span", { class: `role-tag ${p.role}` }, ROLE_TAG[p.role]));
     };
     const online = all.filter((p) => p.online);
@@ -128,8 +135,10 @@ register("home", (root) => {
         h("div", { class: "grow col" }, h("span", { class: "leaf strong" }, h("span", { class: "dot" }), "Voice connected"), h("span", { class: "small" }, current.name)),
         h("button", { class: "icon-btn danger", "aria-label": "Leave voice", title: "Leave voice", onclick: () => leave() }, icon("hangup", 22))),
       h("footer", { class: "sb-me" },
-        h("span", { class: "me-avatar" }, personAvatar(me, 40), h("span", { class: "online-dot" })),
-        h("div", { class: "grow col min0" }, h("strong", null, me.display_name), h("span", { class: "muted small" }, `@${me.username}`)),
+        h("button", { class: "me-button", type: "button", "aria-haspopup": "menu", "aria-label": "Your status and settings", onclick: (e: Event) => statusMenu(e.currentTarget as HTMLElement) },
+          h("span", { class: "me-avatar" }, personAvatar(me, 40), h("span", { class: `online-dot ${me.status}` })),
+          h("span", { class: "grow col min0" }, h("strong", null, me.display_name),
+            h("span", { class: "muted small ellipsis" }, me.status_text || me.status_emoji ? `${me.status_emoji ?? ""} ${me.status_text ?? ""}`.trim() : PRESENCE_LABEL[me.status]))),
         h("button", { class: `icon-btn ${local.muted ? "ember" : ""}`, "aria-pressed": String(local.muted), "aria-label": `${local.muted ? "Unmute" : "Mute"} (${formatKey(keys.mute)})`, title: `${local.muted ? "Unmute" : "Mute"} (${formatKey(keys.mute)})`, onclick: toggleMute }, icon(local.muted ? "micOff" : "mic", 22)),
         h("button", { class: `icon-btn ${local.deafened ? "ember" : ""}`, "aria-pressed": String(local.deafened), "aria-label": `${local.deafened ? "Undeafen" : "Deafen"} (${formatKey(keys.deafen)})`, title: `${local.deafened ? "Undeafen" : "Deafen"} (${formatKey(keys.deafen)})`, onclick: toggleDeafen }, icon(local.deafened ? "headphonesOff" : "headphones", 22)),
       ),
@@ -542,8 +551,74 @@ register("home", (root) => {
 
   const seeingDeck = () => view.kind === "deck" && !document.hidden && document.hasFocus();
 
+  /** Sounds and the tray/Dock badge pause when notifications are off or you're busy. */
+  const notifying = () => notificationsOn() && me.status !== "busy";
+
   function reportUnread() {
-    if ("__TAURI_INTERNALS__" in window) void invoke("set_unread", { count: deckMentions }).catch(() => {});
+    if ("__TAURI_INTERNALS__" in window) void invoke("set_unread", { count: notifying() ? deckMentions : 0 }).catch(() => {});
+  }
+
+  /** Drop-up from your name: custom status, presence, notifications, settings, sign out. */
+  function statusMenu(anchor: HTMLElement) {
+    document.querySelector(".status-menu")?.remove();
+    const r = anchor.getBoundingClientRect();
+    const menu = h("div", { class: "status-menu", role: "menu", style: { left: `${r.left}px`, bottom: `${innerHeight - r.top + 8}px` } });
+    const close = () => { menu.remove(); removeEventListener("mousedown", outside, true); removeEventListener("keydown", esc, true); };
+    const outside = (e: MouseEvent) => { if (!menu.contains(e.target as Node) && !document.querySelector(".emoji-pop")?.contains(e.target as Node)) close(); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); close(); } };
+
+    const save = async (patch: Parameters<typeof api.updateMe>[0]) => {
+      try {
+        Object.assign(me, await api.updateMe(patch));
+        session.me = me;
+        const self = people.get(me.id);
+        if (self) Object.assign(self, { status: me.status, status_emoji: me.status_emoji, status_text: me.status_text });
+        reportUnread();
+        renderSidebar();
+      } catch (e) { toast(errorText(e), "error"); }
+    };
+
+    const draw = (editing = false) => {
+      const custom = me.status_text || me.status_emoji;
+      let emoji = me.status_emoji ?? "💬";
+      const emojiBtn = h("button", { class: "status-emoji", type: "button", "aria-label": "Pick an emoji" }, emoji);
+      emojiBtn.onclick = () => emojiPicker(emojiBtn, (e) => { emoji = e; emojiBtn.textContent = e; });
+      const text = h("input", { class: "status-input", maxlength: 60, placeholder: "What’s happening?", value: me.status_text ?? "" });
+      const commit = async () => { await save({ status_emoji: emoji, status_text: text.value }); draw(); };
+      text.addEventListener("keydown", (e) => { if (e.key === "Enter") void commit(); });
+      mount(menu,
+        h("div", { class: "sm-head" }, personAvatar(me, 36), h("div", { class: "col min0" }, h("strong", null, me.display_name), h("span", { class: "muted small" }, `@${me.username}`))),
+        editing
+          ? h("div", { class: "sm-edit" },
+              h("div", { class: "row gap-6" }, emojiBtn, text),
+              h("div", { class: "sm-presets" }, STATUS_PRESETS.map(([e, t]) => h("button", { class: "chip", type: "button", onclick: () => { emoji = e; emojiBtn.textContent = e; text.value = t; text.focus(); } }, `${e} ${t}`))),
+              h("div", { class: "row gap-6" },
+                h("button", { class: "btn primary sm", type: "button", onclick: () => void commit() }, "Save"),
+                custom && h("button", { class: "btn ghost sm", type: "button", onclick: async () => { await save({ status_emoji: "", status_text: "" }); draw(); } }, "Clear"),
+                h("button", { class: "link muted", type: "button", onclick: () => draw() }, "Cancel")))
+          : h("button", { class: "sm-status", type: "button", role: "menuitem", onclick: () => { draw(true); menu.querySelector<HTMLInputElement>(".status-input")?.focus(); } },
+              h("span", { class: "status-emoji static" }, me.status_emoji ?? "😀"),
+              h("span", { class: "grow" }, custom ? (me.status_text || "Status set") : "Update your status")),
+        h("div", { class: "sm-group", role: "group", "aria-label": "Presence" },
+          (Object.keys(PRESENCE_LABEL) as Presence[]).map((p) =>
+            h("button", { class: `sm-item ${me.status === p ? "on" : ""}`, type: "button", role: "menuitemradio", "aria-checked": String(me.status === p), onclick: () => void save({ status: p }).then(() => draw()) },
+              h("span", { class: `online-dot inline ${p}` }), h("span", { class: "grow" }, PRESENCE_LABEL[p]),
+              p === "busy" && h("span", { class: "muted small" }, "pauses notifications"),
+              me.status === p && h("span", { class: "lantern" }, "✓")))),
+        h("button", { class: "sm-item", type: "button", role: "menuitemcheckbox", "aria-checked": String(notificationsOn()), onclick: () => { setNotifications(!notificationsOn()); reportUnread(); draw(); } },
+          h("span", { class: "grow" }, "Notifications"), h("span", { class: "muted small" }, notificationsOn() ? (me.status === "busy" ? "Paused while busy" : "On") : "Off")),
+        h("div", { class: "sm-sep" }),
+        h("button", { class: "sm-item", type: "button", role: "menuitem", onclick: () => { close(); go({ name: "settings" }); } }, "Profile and settings"),
+        h("button", { class: "sm-item danger", type: "button", role: "menuitem", onclick: async () => {
+          close();
+          try { await api.logout(); } catch { await api.forgetLogin().catch(() => {}); }
+          session.me = null;
+          go({ name: "signin" });
+        } }, "Sign out"));
+    };
+    draw();
+    document.body.appendChild(menu);
+    setTimeout(() => { addEventListener("mousedown", outside, true); addEventListener("keydown", esc, true); });
   }
 
   const onFocus = () => {
@@ -594,6 +669,7 @@ register("home", (root) => {
         if (e.message.channel_id === deck()?.id && e.message.mentions.includes(me.id) && e.message.author_id !== me.id && !seeingDeck()) {
           deckMentions++;
           reportUnread();
+          if (notifying()) chime();
           renderSidebar();
         }
         break;

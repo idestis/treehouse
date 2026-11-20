@@ -17,7 +17,13 @@ export interface Me {
   mfa_setup_needed: boolean;
   /** Avatar version, null when they use initials. */
   avatar: number | null;
+  status: Presence;
+  status_emoji: string | null;
+  status_text: string | null;
 }
+
+/** What people choose to show; being connected (online) is separate. */
+export type Presence = "online" | "away" | "busy" | "brb";
 
 export type LoginResult =
   | { status: "ok"; me: Me }
@@ -31,6 +37,9 @@ export interface Person {
   role: Role;
   online: boolean;
   avatar: number | null;
+  status: Presence;
+  status_emoji: string | null;
+  status_text: string | null;
 }
 
 export interface VoiceMember {
