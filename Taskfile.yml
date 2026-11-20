@@ -83,7 +83,7 @@ tasks:
       - open "../target/debug/bundle/macos/{{.APP}}.app"
 
   db:
-    desc: Start the throwaway dev/test Postgres (127.0.0.1:55432, data in tmpfs)
+    desc: Start the throwaway dev/test Postgres (127.0.0.1:55432, data in tmpfs) and a dev LiveKit (ws://localhost:7880)
     cmds:
       - docker compose -f deploy/docker-compose.test.yml up -d --wait
 
@@ -97,6 +97,10 @@ tasks:
       LOG_FORMAT: pretty
       BIND_ADDR: 127.0.0.1:8090
       PUBLIC_URL: http://localhost:8090
+      # Dev LiveKit from task db. Dev-only pair, same as deploy/livekit.dev.yaml.
+      LIVEKIT_URL: ws://localhost:7880
+      LIVEKIT_API_KEY: devkey
+      LIVEKIT_API_SECRET: treehouse-dev-secret-0123456789-not-for-production
     cmds:
       - cargo run -p treehouse-server
 
