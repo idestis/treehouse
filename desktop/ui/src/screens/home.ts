@@ -11,6 +11,7 @@ import { chime, notificationsOn, setNotifications } from "../notify";
 import { playJoinSound, playSound } from "../sounds";
 import { prefs } from "../voice";
 import { call, type CallEvent, type Capture, type Video } from "../call";
+import { popout } from "../popout";
 import { format as formatKey, load as loadHotkeys, matches, toAccelerator } from "../hotkeys";
 import { ago, h, icon, icons, mount, time, toast } from "../dom";
 
@@ -832,6 +833,7 @@ register("home", (root) => {
       btn(`${call.muted ? "Unmute" : "Mute"} (${formatKey(keys.mute)})`, call.muted ? "micOff" : "mic", call.muted ? "off" : "", call.muted, toggleMute),
       btn(call.camera ? "Turn camera off" : "Turn camera on", call.camera ? "video" : "videoOff", call.camera ? "on" : "off", call.camera, () => void call.setCamera(!call.camera), !live),
       btn(call.screen ? "Stop sharing" : "Share your screen", call.screen ? "monitorOff" : "monitor", call.screen ? "on" : "", call.screen, (e?: Event) => { if (call.screen) void call.setScreenShare(false); else shareMenu((e?.currentTarget as HTMLElement) ?? barEl!); }, !live),
+      popout.available && btn(popout.open ? "Close the people window" : "Pop out people", "popout", popout.open ? "on" : "", popout.open, () => popout.toggle(), !live && !popout.open),
       btn("Leave", "hangup", "leave", null, () => void leave()));
   }
 
@@ -1229,6 +1231,7 @@ register("home", (root) => {
 
   const unsubscribe = api.subscribe(onEvent);
   const unsubscribeCall = call.on(onCall);
+  const unsubscribePopout = popout.on(renderBar);
   addEventListener("keydown", onKey);
   void setupPushToTalk();
   addEventListener("focus", onFocus);
@@ -1240,6 +1243,7 @@ register("home", (root) => {
   return () => {
     unsubscribe();
     unsubscribeCall();
+    unsubscribePopout();
     for (const [track, el] of videoEls) track.detach(el);
     videoEls.clear();
     removeEventListener("keydown", onKey);

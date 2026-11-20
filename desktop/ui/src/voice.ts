@@ -52,6 +52,9 @@ export const prefs = {
   /** Join, leave and mention sounds, separate from people's voices (0–100, default 70). */
   get soundsVolume() { const n = Number(read("treehouse.soundsVolume")); return read("treehouse.soundsVolume") !== "" && Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 70; },
   set soundsVolume(v: number) { write("treehouse.soundsVolume", String(Math.round(v))); },
+  /** Desktop app: open the small "people on top" window when you start sharing (on by default). */
+  get overlayWhileSharing() { return read("treehouse.overlayWhileSharing") !== "0"; },
+  set overlayWhileSharing(v: boolean) { write("treehouse.overlayWhileSharing", v ? "1" : "0"); },
   /** Output volume in percent (0–100) for everyone you hear. */
   get outputVolume() { return percent(OUT_GAIN_KEY); },
   set outputVolume(v: number) { write(OUT_GAIN_KEY, String(Math.round(v))); },

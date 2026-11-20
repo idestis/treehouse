@@ -9,7 +9,7 @@
 use axum::{
     Json,
     body::Bytes,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode, header::AUTHORIZATION},
 };
 use serde::Deserialize;
@@ -37,15 +37,31 @@ async fn lock(conn: &mut PgConnection) -> AppResult<()> {
     Ok(())
 }
 
+#[derive(Deserialize, Default)]
+#[serde(default)]
+pub struct TokenQuery {
+    /// A hidden, watch-only token for the desktop overlay window.
+    overlay: bool,
+}
+
 /// `POST /api/rooms/{id}/voice-token`: join or refresh. Refused while timed
 /// out or when the room is full.
+///
+/// `?overlay=true` asks for the desktop overlay's token instead (people on
+/// top while you share): only while you're in the room, it can't publish,
+/// LiveKit hides it, and it neither counts toward capacity nor marks the
+/// room as used.
 pub async fn voice_token(
     State(st): State<AppState>,
     Authed(user): Authed,
     Path(id): Path<i64>,
+    Query(q): Query<TokenQuery>,
 ) -> AppResult<Json<Value>> {
     let mut tx = st.db.begin().await?;
-    lock(&mut tx).await?;
+    // The overlay token only reads, so it doesn't need the voice lock.
+    if !q.overlay {
+        lock(&mut tx).await?;
+    }
     let room = sqlx::query!("SELECT kind, name, capacity FROM rooms WHERE id = $1", id)
         .fetch_optional(&mut *tx)
         .await?
@@ -71,6 +87,32 @@ pub async fn voice_token(
                 until_text(until, OffsetDateTime::now_utc())
             ),
         ));
+    }
+
+    if q.overlay {
+        sqlx::query!(
+            "SELECT muted, camera, screen FROM voice_members WHERE user_id = $1 AND room_id = $2",
+            user.id,
+            id
+        )
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::conflict("not_in_room", "Join the room first."))?;
+        tx.commit().await?;
+        let (token, expires_at) = livekit::overlay_token(
+            lk,
+            user.id,
+            &user.display_name,
+            id,
+            OffsetDateTime::now_utc(),
+        )?;
+        return Ok(Json(json!({
+            "url": lk.url,
+            "token": token,
+            "expires_at": expires_at.format(&Rfc3339)?,
+            "livekit_room": livekit::room_name(id),
+            "identity": livekit::overlay_identity(user.id),
+        })));
     }
 
     let others = sqlx::query_scalar!(
@@ -213,27 +255,52 @@ pub async fn webhook(
     }
     let ev: WebhookEvent = serde_json::from_slice(&body)
         .map_err(|_| AppError::bad("bad_webhook", "That webhook isn't valid JSON."))?;
-    let room_id = ev.room.as_ref().and_then(|r| livekit::room_id(&r.name));
-    let participant = ev
-        .participant
-        .as_ref()
-        .and_then(|p| Some((p.identity.parse::<i64>().ok()?, p.sid.as_str())));
-    tracing::debug!(event = %ev.event, ?room_id, ?participant, "livekit webhook");
+    let action = webhook_action(&ev);
+    tracing::debug!(event = %ev.event, ?action, "livekit webhook");
+    if action == Action::Ignore {
+        return Ok(StatusCode::OK);
+    }
 
     let mut tx = st.db.begin().await?;
     lock(&mut tx).await?;
-    match (ev.event.as_str(), room_id, participant) {
-        ("participant_joined", Some(room), Some((user, sid))) => {
-            joined(&mut tx, room, user, sid).await?;
-        }
-        ("participant_left" | "participant_connection_aborted", Some(room), Some((user, sid))) => {
-            left(&mut tx, room, user, sid).await?;
-        }
-        ("room_finished", Some(room), _) => finished(&mut tx, room).await?,
-        _ => {}
+    match action {
+        Action::Joined { room, user, sid } => joined(&mut tx, room, user, sid).await?,
+        Action::Left { room, user, sid } => left(&mut tx, room, user, sid).await?,
+        Action::Finished { room } => finished(&mut tx, room).await?,
+        Action::Ignore => {}
     }
     tx.commit().await?;
     Ok(StatusCode::OK)
+}
+
+/// What a webhook means for `voice_members`.
+#[derive(Debug, PartialEq, Eq)]
+enum Action<'a> {
+    Joined { room: i64, user: i64, sid: &'a str },
+    Left { room: i64, user: i64, sid: &'a str },
+    Finished { room: i64 },
+    Ignore,
+}
+
+/// Only people's own voice connections (identity = user id) count; the
+/// hidden overlay (`<id>-overlay`) and anything else LiveKit reports are
+/// ignored, so they never add members or events.
+fn webhook_action(ev: &WebhookEvent) -> Action<'_> {
+    let Some(room) = ev.room.as_ref().and_then(|r| livekit::room_id(&r.name)) else {
+        return Action::Ignore;
+    };
+    let person = ev
+        .participant
+        .as_ref()
+        .and_then(|p| Some((livekit::user_identity(&p.identity)?, p.sid.as_str())));
+    match (ev.event.as_str(), person) {
+        ("participant_joined", Some((user, sid))) => Action::Joined { room, user, sid },
+        ("participant_left" | "participant_connection_aborted", Some((user, sid))) => {
+            Action::Left { room, user, sid }
+        }
+        ("room_finished", _) => Action::Finished { room },
+        _ => Action::Ignore,
+    }
 }
 
 async fn joined(conn: &mut PgConnection, room: i64, user: i64, sid: &str) -> AppResult<()> {
@@ -377,5 +444,60 @@ mod tests {
         assert_eq!(until_text(later, now), "10:26 UTC");
         let days = now + time::Duration::days(3);
         assert_eq!(until_text(days, now), "November 21, 08:26 UTC");
+    }
+
+    fn event(json: &str) -> WebhookEvent {
+        serde_json::from_str(json).unwrap()
+    }
+
+    #[test]
+    fn webhooks_for_people() {
+        let e = event(
+            r#"{"event":"participant_joined","room":{"name":"room-2"},"participant":{"sid":"PA_1","identity":"3"}}"#,
+        );
+        assert_eq!(
+            webhook_action(&e),
+            Action::Joined {
+                room: 2,
+                user: 3,
+                sid: "PA_1"
+            }
+        );
+        for ev in ["participant_left", "participant_connection_aborted"] {
+            let e = event(&format!(
+                r#"{{"event":"{ev}","room":{{"name":"room-2"}},"participant":{{"sid":"PA_1","identity":"3"}}}}"#
+            ));
+            assert_eq!(
+                webhook_action(&e),
+                Action::Left {
+                    room: 2,
+                    user: 3,
+                    sid: "PA_1"
+                }
+            );
+        }
+        let e = event(r#"{"event":"room_finished","room":{"name":"room-2"}}"#);
+        assert_eq!(webhook_action(&e), Action::Finished { room: 2 });
+    }
+
+    #[test]
+    fn webhooks_for_overlays_are_ignored() {
+        for ev in [
+            "participant_joined",
+            "participant_left",
+            "participant_connection_aborted",
+        ] {
+            for identity in ["3-overlay", "treehouse-server", "", "-3"] {
+                let e = event(&format!(
+                    r#"{{"event":"{ev}","room":{{"name":"room-2"}},"participant":{{"sid":"PA_9","identity":"{identity}"}}}}"#
+                ));
+                assert_eq!(webhook_action(&e), Action::Ignore, "{ev} {identity}");
+            }
+        }
+        // Not one of our rooms.
+        let e = event(
+            r#"{"event":"participant_joined","room":{"name":"lobby"},"participant":{"sid":"PA_1","identity":"3"}}"#,
+        );
+        assert_eq!(webhook_action(&e), Action::Ignore);
     }
 }

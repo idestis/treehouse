@@ -35,7 +35,8 @@ export interface Api {
   react(id: number, emoji: string, on: boolean): Promise<Reaction[]>;
   gifs(q: string): Promise<Gif[]>;
 
-  voiceToken(room_id: number): Promise<VoiceGrant>;
+  /** `overlay`: the hidden, watch-only token for the desktop "people on top" window. */
+  voiceToken(room_id: number, opts?: { overlay?: boolean }): Promise<VoiceGrant>;
   createRoom(input: { name: string; capacity?: number }): Promise<{ id: number; slug: string }>;
   updateRoom(id: number, patch: { name?: string; capacity?: number }): Promise<void>;
   deleteRoom(id: number, everyone: boolean): Promise<void>;

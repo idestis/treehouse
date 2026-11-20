@@ -3,7 +3,9 @@
 //! Token format: https://docs.livekit.io/home/get-started/authentication/
 //!
 //! Each voice room is the LiveKit room `room-<id>`; each person joins with
-//! their user id (as a string) as the identity.
+//! their user id (as a string) as the identity. The desktop overlay (people
+//! on top while you share) joins as `<user id>-overlay`, hidden and
+//! watch-only; webhooks ignore every identity that isn't a plain user id.
 
 use base64::{
     Engine,
@@ -39,22 +41,78 @@ pub fn voice_token(
     room_id: i64,
     now: OffsetDateTime,
 ) -> anyhow::Result<(String, OffsetDateTime)> {
-    let nbf = now.unix_timestamp();
-    let exp = nbf + TOKEN_TTL_SECS;
-    let claims = json!({
-        "iss": lk.api_key,
-        "sub": user_id.to_string(),
-        "name": display_name,
-        "nbf": nbf,
-        "exp": exp,
-        "video": {
+    sign_grant(
+        lk,
+        &user_id.to_string(),
+        display_name,
+        json!({
             "room": room_name(room_id),
             "roomJoin": true,
             "canPublish": true,
             "canSubscribe": true,
             "canPublishData": false,
             "canPublishSources": ["microphone", "camera", "screen_share", "screen_share_audio"],
-        },
+        }),
+        now,
+    )
+}
+
+/// The identity of someone's overlay connection: `<user id>-overlay`.
+pub fn overlay_identity(user_id: i64) -> String {
+    format!("{user_id}-overlay")
+}
+
+/// A watch-only token for the desktop "people on top" window: it can
+/// subscribe but never publish, and LiveKit hides it from everyone else.
+/// Its identity isn't a plain user id, so webhooks ignore it.
+pub fn overlay_token(
+    lk: &LiveKit,
+    user_id: i64,
+    display_name: &str,
+    room_id: i64,
+    now: OffsetDateTime,
+) -> anyhow::Result<(String, OffsetDateTime)> {
+    sign_grant(
+        lk,
+        &overlay_identity(user_id),
+        display_name,
+        json!({
+            "room": room_name(room_id),
+            "roomJoin": true,
+            "canPublish": false,
+            "canSubscribe": true,
+            "canPublishData": false,
+            "hidden": true,
+        }),
+        now,
+    )
+}
+
+/// The user id behind a LiveKit identity, only for people's own voice
+/// connections (all digits). Overlay and any other identities give `None`.
+pub fn user_identity(identity: &str) -> Option<i64> {
+    if identity.is_empty() || !identity.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    identity.parse().ok()
+}
+
+fn sign_grant(
+    lk: &LiveKit,
+    identity: &str,
+    display_name: &str,
+    video: Value,
+    now: OffsetDateTime,
+) -> anyhow::Result<(String, OffsetDateTime)> {
+    let nbf = now.unix_timestamp();
+    let exp = nbf + TOKEN_TTL_SECS;
+    let claims = json!({
+        "iss": lk.api_key,
+        "sub": identity,
+        "name": display_name,
+        "nbf": nbf,
+        "exp": exp,
+        "video": video,
     });
     Ok((
         sign_hs256(&lk.api_secret, &claims)?,
@@ -198,6 +256,44 @@ mod tests {
         assert!(verify_hs256("another-secret-another-secret-123", &token, 1_800_000_000).is_none());
         // Expired a while ago.
         assert!(verify_hs256(&lk.api_secret, &token, 1_800_000_000 + 900 + 120).is_none());
+    }
+
+    #[test]
+    fn overlay_token_claims() {
+        let lk = lk();
+        let now = OffsetDateTime::from_unix_timestamp(1_800_000_000).unwrap();
+        let (token, exp) = overlay_token(&lk, 42, "Kai", 3, now).unwrap();
+        assert_eq!(exp.unix_timestamp(), 1_800_000_000 + 15 * 60);
+
+        let c = verify_hs256(&lk.api_secret, &token, 1_800_000_000).unwrap();
+        assert_eq!(c["iss"], "devkey");
+        assert_eq!(c["sub"], "42-overlay");
+        assert_eq!(c["name"], "Kai");
+        assert_eq!(c["nbf"], 1_800_000_000);
+        assert_eq!(c["exp"], 1_800_000_000 + 900);
+        let v = &c["video"];
+        assert_eq!(v["room"], "room-3");
+        assert_eq!(v["roomJoin"], true);
+        assert_eq!(v["canSubscribe"], true);
+        assert_eq!(v["canPublish"], false);
+        assert_eq!(v["canPublishData"], false);
+        assert_eq!(v["hidden"], true);
+        assert!(v.get("canPublishSources").is_none());
+        // Webhooks never take it for a person.
+        assert_eq!(user_identity(c["sub"].as_str().unwrap()), None);
+    }
+
+    #[test]
+    fn user_identities() {
+        assert_eq!(user_identity("5"), Some(5));
+        assert_eq!(user_identity("123456"), Some(123_456));
+        assert_eq!(user_identity(&overlay_identity(3)), None);
+        assert_eq!(user_identity("3-overlay"), None);
+        assert_eq!(user_identity("+3"), None);
+        assert_eq!(user_identity("-3"), None);
+        assert_eq!(user_identity(" 3"), None);
+        assert_eq!(user_identity(""), None);
+        assert_eq!(user_identity("99999999999999999999999"), None);
     }
 
     fn webhook_auth(lk: &LiveKit, body: &[u8]) -> String {
