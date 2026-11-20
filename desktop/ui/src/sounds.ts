@@ -21,6 +21,7 @@ export const LEAVE_SOUNDS: { value: SoundName; label: string }[] = [
   { value: "mmbye", label: "Mm-bye" },
   { value: "female-bye", label: "Bye!" },
   { value: "kiddo-bye", label: "Bye bye (kiddo)" },
+  { value: "fart", label: "Fart" },
   { value: "none", label: "No sound" },
 ];
 

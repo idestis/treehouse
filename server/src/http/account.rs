@@ -42,7 +42,7 @@ const STATUSES: [&str; 4] = ["online", "away", "busy", "brb"];
 const JOIN_SOUNDS: [&str; 7] = [
     "ding", "doink", "fart", "quack", "hewya", "yeah-boy", "none",
 ];
-const LEAVE_SOUNDS: [&str; 4] = ["female-bye", "kiddo-bye", "mmbye", "none"];
+const LEAVE_SOUNDS: [&str; 5] = ["female-bye", "kiddo-bye", "mmbye", "fart", "none"];
 
 pub async fn update_me(
     State(st): State<AppState>,
