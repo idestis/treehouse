@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO voice_members (room_id, user_id, lk_sid) VALUES ($1, $2, $3)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "904ba166fcd93d3a1c05c7864bc4eaf1d1fcbd2f0c1889abd7789a66fcc75fe8"
+}

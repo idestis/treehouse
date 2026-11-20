@@ -64,6 +64,10 @@ async fn cleanup(db: &PgPool) -> AppResult<()> {
     sqlx::query!("DELETE FROM mod_log WHERE at < now() - interval '90 days'")
         .execute(db)
         .await?;
+    // LiveKit webhook tombstones only need to outlive a late retry.
+    sqlx::query!("DELETE FROM voice_left WHERE left_at < now() - interval '1 day'")
+        .execute(db)
+        .await?;
 
     // Connections of a replica that died without saying goodbye.
     let stale = sqlx::query!(

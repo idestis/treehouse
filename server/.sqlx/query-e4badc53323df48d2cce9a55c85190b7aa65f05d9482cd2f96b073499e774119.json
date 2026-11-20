@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT (EXISTS (SELECT 1 FROM rooms WHERE id = $1 AND kind = 'voice')\n               AND EXISTS (SELECT 1 FROM users WHERE id = $2 AND blocked_at IS NULL)) AS \"ok!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ok!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "e4badc53323df48d2cce9a55c85190b7aa65f05d9482cd2f96b073499e774119"
+}

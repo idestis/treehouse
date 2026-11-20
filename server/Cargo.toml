@@ -23,6 +23,7 @@ sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio",
 tower-http = { version = "0.6", features = ["trace", "timeout"] }
 tracing = "0.1"
 argon2 = "0.5"
+hmac = "0.12"
 base64 = "0.22"
 futures-util = "0.3"
 qrcode = { version = "0.14", default-features = false }

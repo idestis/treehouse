@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM voice_members\n         WHERE user_id = $1 AND room_id = $2 AND ($3 = '' OR lk_sid IS NULL OR lk_sid = $3)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f898760692b34a358dc8bcce4019da60848464d6fc977f2eb5723a4ff84d2bea"
+}

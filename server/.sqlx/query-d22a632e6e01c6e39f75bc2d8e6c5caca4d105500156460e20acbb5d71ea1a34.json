@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM messages WHERE channel_id = $1\n           AND EXISTS (SELECT 1 FROM rooms WHERE id = $1 AND kind = 'voice')\n           AND NOT EXISTS (SELECT 1 FROM voice_members WHERE room_id = $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d22a632e6e01c6e39f75bc2d8e6c5caca4d105500156460e20acbb5d71ea1a34"
+}

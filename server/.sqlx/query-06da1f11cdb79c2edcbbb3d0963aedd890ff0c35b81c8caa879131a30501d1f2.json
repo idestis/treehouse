@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT muted, camera, screen FROM voice_members WHERE user_id = $1 AND room_id = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "muted",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 1,
+        "name": "camera",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 2,
+        "name": "screen",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "06da1f11cdb79c2edcbbb3d0963aedd890ff0c35b81c8caa879131a30501d1f2"
+}
