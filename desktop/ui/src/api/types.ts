@@ -63,6 +63,7 @@ export interface Room {
   name: string;
   slug: string;
   capacity: number | null;
+  last_used_at?: string | null;
   members: VoiceMember[];
 }
 

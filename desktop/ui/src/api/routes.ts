@@ -32,6 +32,9 @@ export function routes(call: Call): Omit<Api, "servers" | "probe" | "forgetLogin
     gifs: (q) => call("GET", `/api/gifs?q=${encodeURIComponent(q)}`),
 
     voiceToken: (id) => call("POST", `/api/rooms/${id}/voice-token`),
+    createRoom: (input) => call("POST", "/api/rooms", input),
+    updateRoom: (id, patch) => call("PATCH", `/api/rooms/${id}`, patch),
+    deleteRoom: (id, everyone) => call("DELETE", `/api/rooms/${id}${everyone ? "?everyone=true" : ""}`),
     voiceState: (id, state) => call("POST", `/api/rooms/${id}/voice-state`, state),
 
     invites: () => call("GET", "/api/invites"),

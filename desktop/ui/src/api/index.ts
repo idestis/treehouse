@@ -36,6 +36,9 @@ export interface Api {
   gifs(q: string): Promise<Gif[]>;
 
   voiceToken(room_id: number): Promise<VoiceGrant>;
+  createRoom(input: { name: string; capacity?: number }): Promise<{ id: number; slug: string }>;
+  updateRoom(id: number, patch: { name?: string; capacity?: number }): Promise<void>;
+  deleteRoom(id: number, everyone: boolean): Promise<void>;
   voiceState(room_id: number, state: VoiceState): Promise<void>;
 
   invites(): Promise<Invite[]>;

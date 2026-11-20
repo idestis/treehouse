@@ -114,10 +114,10 @@ register("settings", (root, screen) => {
     const out = dropdown("s-out", [{ value: "", label: "System default" }], prefs.speaker);
     const bar = h("span", { class: "meter-fill" });
     let micGainNode: GainNode | null = null;
-    const slider = (id: string, label: string, value: number, onInput: (v: number) => void, extra?: Node) => {
+    const slider = (id: string, label: string, value: number, onInput: (v: number) => void, extra?: Node, max = 200) => {
       const out = h("span", { class: "range-value" }, `${value}%`);
-      const input = h("input", { id, type: "range", class: "range", min: 0, max: 200, step: 5, value, "aria-valuetext": `${value} percent` });
-      const paint = () => input.style.setProperty("--fill", `${Number(input.value) / 2}%`);
+      const input = h("input", { id, type: "range", class: "range", min: 0, max, step: 5, value, "aria-valuetext": `${value} percent` });
+      const paint = () => input.style.setProperty("--fill", `${(Number(input.value) / max) * 100}%`);
       input.addEventListener("input", () => {
         const v = Number(input.value);
         out.textContent = `${v}%`;
@@ -132,9 +132,10 @@ register("settings", (root, screen) => {
     const micVolume = slider("s-mic-gain", "Microphone volume", prefs.micGain, (v) => {
       prefs.micGain = v;
       if (micGainNode) micGainNode.gain.value = v / 100;
+      call.setMicGain(v);
     });
     const testSound = h("button", { class: "btn ghost sm", type: "button", onclick: () => chime(prefs.outputVolume / 100) }, "Play test sound");
-    const outVolume = slider("s-out-gain", "Output volume", prefs.outputVolume, (v) => { prefs.outputVolume = v; }, testSound);
+    const outVolume = slider("s-out-gain", "Output volume", prefs.outputVolume, (v) => { prefs.outputVolume = v; call.setOutputVolume(v); }, testSound, 100);
     const problem = h("div", { class: "mic-problem", role: "alert", hidden: true });
     let stream: MediaStream | null = null;
     let ctx: AudioContext | null = null;
@@ -216,6 +217,10 @@ register("settings", (root, screen) => {
         h("div", { class: "field" }, h("label", { for: "s-out" }, "Speakers or headphones"), out.el),
         outVolume,
         joinSoundField(),
+        h("h3", { class: "subhead" }, "Voice rooms"),
+        toggle("Join voice when I open a room", "Otherwise double-click a room or press Join voice.", prefs.autoJoin, (v) => { prefs.autoJoin = v; }),
+        toggle("Join with my microphone muted", "Unmute when you’re ready to talk.", prefs.joinMuted, (v) => { prefs.joinMuted = v; }),
+        toggle("Turn my camera on when I join", "Off means it stays off until you turn it on.", prefs.joinCamera, (v) => { prefs.joinCamera = v; }),
         h("p", { class: "info-box" }, "Echo removal, background-noise removal and volume leveling are always on, so your keyboard and fans stay out of the call."),
         h("h3", { class: "subhead" }, "Hotkeys"),
         h("p", { class: "muted small" }, "Click a shortcut, then press the keys you want. Esc cancels; Backspace clears."),
@@ -224,6 +229,12 @@ register("settings", (root, screen) => {
     void fill();
     void listen().then(fill);
     return stop;
+  }
+
+  function toggle(label: string, hint: string, on: boolean, onChange: (v: boolean) => void) {
+    const box = h("input", { type: "checkbox", checked: on });
+    box.addEventListener("change", () => onChange(box.checked));
+    return h("label", { class: "toggle-row" }, h("span", { class: "grow col" }, h("span", null, label), h("span", { class: "muted small" }, hint)), box, h("span", { class: "switch", "aria-hidden": "true" }));
   }
 
   /** Your join sound: what everyone in a voice room hears when you come in. */

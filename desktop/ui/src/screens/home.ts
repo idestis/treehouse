@@ -8,9 +8,11 @@ import { errorText } from "../api/types";
 import { go, register, session } from "../app";
 import { personAvatar } from "../avatars";
 import { chime, notificationsOn, setNotifications } from "../notify";
+import { playJoinSound } from "../sounds";
+import { prefs } from "../voice";
 import { call, type CallEvent, type Capture, type Video } from "../call";
 import { format as formatKey, load as loadHotkeys, matches } from "../hotkeys";
-import { h, icon, icons, mount, time, toast } from "../dom";
+import { ago, h, icon, icons, mount, time, toast } from "../dom";
 
 const EMOJI = ["😂", "😭", "💀", "🔥", "💯", "❤️", "👍", "👎", "😎", "🥲", "😴", "🤔", "😤", "🙃", "😅", "🤯", "🥳", "😈", "👀", "🙏", "🫡", "🤝", "👋", "🎮", "🕹️", "🏆", "⚡", "✨", "🎉", "🍕", "🍿", "🥤", "🌙", "⭐", "🦉", "🌲", "🎧", "🎤", "📣", "✅", "❌", "⏰"];
 
@@ -118,14 +120,20 @@ register("home", (root) => {
       ),
       h("nav", { class: "sb-scroll" },
         h("p", { class: "sb-label" }, "Chat"),
-        d && h("button", { class: `sb-row ${view.kind === "deck" ? "active" : ""}`, onclick: () => show({ kind: "deck" }) },
-          icon("hash", 20, "muted"), h("span", { class: "grow" }, d.slug),
-          deckMentions > 0 && view.kind !== "deck" && h("span", { class: "badge lantern" }, `@${deckMentions}`)),
+        d && (renaming === d.id ? renameRow(d) : h("div", { class: "sb-row-wrap" },
+          h("button", { class: `sb-row ${view.kind === "deck" ? "active" : ""}`, onclick: () => show({ kind: "deck" }) },
+            icon("hash", 20, "muted"), h("span", { class: "grow" }, d.slug),
+            deckMentions > 0 && view.kind !== "deck" && h("span", { class: "badge lantern" }, `@${deckMentions}`)),
+          me.role === "admin" && roomMenuButton(d))),
         h("p", { class: "sb-label" }, "Voice rooms"),
         voiceRooms().map((r) => [
-          h("button", { class: `sb-row ${view.kind === "voice" && view.roomId === r.id ? "active" : ""}`, onclick: () => openRoom(r) },
-            icon("speaker", 20, "muted"), h("span", { class: "grow" }, r.name),
-            r.members.length > 0 && h("span", { class: "badge leaf" }, String(r.members.length))),
+          renaming === r.id ? renameRow(r) : h("div", { class: "sb-row-wrap" },
+            h("button", { class: `sb-row ${view.kind === "voice" && view.roomId === r.id ? "active" : ""}`,
+              title: r.id === call.roomId ? r.name : `${r.name}: double-click to join`,
+              onclick: () => previewRoom(r), ondblclick: () => void joinRoom(r) },
+              icon("speaker", 20, "muted"), h("span", { class: "grow" }, r.name),
+              r.members.length > 0 && h("span", { class: "badge leaf" }, String(r.members.length))),
+            me.role === "admin" && roomMenuButton(r)),
           r.members.length > 0 && h("ul", { class: "sb-members", "data-room": String(r.id) }, r.members.map((m) => {
             const p = person(m.user_id);
             const talking = r.id === call.roomId && call.speaking.includes(m.user_id);
@@ -137,6 +145,7 @@ register("home", (root) => {
               m.camera && h("span", { title: "Camera on", class: "row" }, icon("video", 18, "leaf")));
           })),
         ]),
+        me.role === "admin" && newRoomControl(),
       ),
       current && h("div", { class: "sb-voice" },
         h("button", { class: "grow col sb-voice-info", title: "Open the room", onclick: () => show({ kind: "voice", roomId: current.id }) },
@@ -525,17 +534,23 @@ register("home", (root) => {
     stageEl = h("section", { class: "stage", "aria-label": `People in ${room.name}` });
     barEl = h("div", { class: "call-bar", role: "toolbar", "aria-label": "Call controls" });
     problemEl = h("div", { class: "call-problem", role: "alert", hidden: true });
+    // Previewing: just "Join voice" top-right. In the call: room chat and Leave.
+    const inCall = call.roomId === room.id;
+    headerFor = inCall ? room.id : null;
+    const full = room.capacity !== null && room.members.length >= room.capacity;
     mount(main,
       h("header", { class: "main-head" },
         h("div", { class: "col grow" }, h("h1", { class: "title" }, room.name), stageSub),
-        h("button", { class: `btn outline-lantern ${roomChatOpen ? "on" : ""}`, "aria-pressed": String(roomChatOpen), onclick: () => { roomChatOpen = !roomChatOpen; renderMain(); } }, icon("chat", 20), "Room chat"),
-        h("button", { class: "btn outline-ember", onclick: () => void leave() }, "Leave")),
+        inCall
+          ? [h("button", { class: `btn outline-lantern ${roomChatOpen ? "on" : ""}`, "aria-pressed": String(roomChatOpen), onclick: () => { roomChatOpen = !roomChatOpen; renderMain(); } }, icon("chat", 20), "Room chat"),
+             h("button", { class: "btn outline-ember", onclick: () => void leave() }, "Leave")]
+          : h("button", { class: "btn primary", disabled: full, title: full ? undefined : "Or double-click the room", onclick: () => void joinRoom(room) }, icon("speaker", 20), full ? "Room is full" : "Join voice")),
       stageEl, problemEl, barEl);
     renderStage();
     renderBar();
     renderProblem();
-    side.hidden = !roomChatOpen;
-    if (roomChatOpen) {
+    side.hidden = !(roomChatOpen && inCall);
+    if (roomChatOpen && inCall) {
       mount(side,
         h("header", { class: "rc-head" },
           h("div", { class: "col grow" }, h("h2", { class: "rc-title" }, "Room chat"), h("p", { class: "muted small" }, `Only for people in ${room.name}. Cleared when everyone leaves.`)),
@@ -548,6 +563,7 @@ register("home", (root) => {
   // ─── Voice stage ─────────────────────────────────────────────────
 
   let stageEl: HTMLElement | null = null;
+  let headerFor: number | null = null;
   let stageSub: HTMLElement | null = null;
   let barEl: HTMLElement | null = null;
   let problemEl: HTMLElement | null = null;
@@ -681,11 +697,7 @@ register("home", (root) => {
   function renderBar() {
     const room = viewedRoom();
     if (!room || !barEl) return;
-    if (call.roomId !== room.id) {
-      const full = room.capacity !== null && room.members.length >= room.capacity;
-      mount(barEl, h("button", { class: "btn primary", disabled: full, onclick: () => void openRoom(room) }, full ? "Room is full" : "Join voice"));
-      return;
-    }
+    if (call.roomId !== room.id) { mount(barEl); return; } // Join lives in the header
     const live = call.status === "connected";
     const btn = (label: string, ic: keyof typeof icons, cls: string, pressed: boolean | null, onclick: () => void, disabled = false) =>
       h("button", { class: `call-btn ${cls}`, type: "button", title: label, "aria-label": label, "aria-pressed": pressed === null ? undefined : String(pressed), disabled, onclick }, icon(ic, 24));
@@ -694,6 +706,109 @@ register("home", (root) => {
       btn(call.camera ? "Turn camera off" : "Turn camera on", call.camera ? "video" : "videoOff", call.camera ? "on" : "", call.camera, () => void call.setCamera(!call.camera), !live),
       btn(call.screen ? "Stop sharing" : "Share your screen", call.screen ? "monitorOff" : "monitor", call.screen ? "on" : "", call.screen, () => void call.setScreenShare(!call.screen), !live),
       btn("Leave", "hangup", "leave", null, () => void leave()));
+  }
+
+  // ─── Room admin (admins only; the server checks too) ─────────────
+
+  let renaming: number | null = null;
+  let creating = false;
+
+  function renameRow(r: Room) {
+    const input = h("input", { class: "sb-input", value: r.name, maxlength: 40, "aria-label": `New name for ${r.name}` });
+    let finished = false;
+    const done = async (save: boolean) => {
+      if (finished) return;
+      finished = true;
+      const name = input.value.trim();
+      renaming = null;
+      if (save && name && name !== r.name) {
+        try { await api.updateRoom(r.id, { name }); } catch (e) { toast(errorText(e), "error"); }
+      }
+      renderSidebar();
+    };
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") void done(true); if (e.key === "Escape") void done(false); });
+    input.addEventListener("blur", () => void done(true));
+    requestAnimationFrame(() => { input.focus(); input.select(); });
+    return h("div", { class: "sb-row editing" }, icon(r.kind === "deck" ? "hash" : "speaker", 20, "muted"), input);
+  }
+
+  function roomMenuButton(r: Room) {
+    const btn = h("button", { class: "sb-more", type: "button", "aria-label": `${r.name} options`, title: "Room options" }, icon("more", 18));
+    btn.onclick = (e) => { e.stopPropagation(); roomMenu(r, btn); };
+    return btn;
+  }
+
+  function roomMenu(r: Room, anchor: HTMLElement) {
+    document.querySelector(".room-menu")?.remove();
+    const rect = anchor.getBoundingClientRect();
+    const menu = h("div", { class: "status-menu room-menu", role: "menu", style: { left: `${rect.left}px`, top: `${rect.bottom + 6}px` } });
+    const close = () => { menu.remove(); removeEventListener("mousedown", outside, true); removeEventListener("keydown", esc, true); };
+    const outside = (e: MouseEvent) => { if (!menu.contains(e.target as Node)) close(); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); close(); } };
+    const busy = r.members.length;
+    const draw = (confirming = false) => mount(menu,
+      h("div", { class: "sm-head col start" }, h("strong", null, r.name),
+        r.kind === "voice" && h("span", { class: "muted small" }, r.last_used_at ? `Last used ${ago(r.last_used_at)}` : "Not used yet")),
+      r.kind === "voice" && sizeSlider(r),
+      h("button", { class: "sm-item", type: "button", role: "menuitem", onclick: () => { close(); renaming = r.id; renderSidebar(); } }, "Rename"),
+      r.kind === "voice" && (confirming
+        ? h("div", { class: "sm-confirm" },
+            h("p", { class: "small" }, busy ? `${busy} ${busy === 1 ? "person is" : "people are"} in ${r.name}. They’ll be moved to The Deck.` : `Delete ${r.name}? Its chat goes too.`),
+            h("div", { class: "row gap-6" },
+              h("button", { class: "btn danger sm", type: "button", onclick: async () => {
+                try { await api.deleteRoom(r.id, busy > 0); close(); if (view.kind === "voice" && view.roomId === r.id) show({ kind: "deck" }); }
+                catch (e) { toast(errorText(e), "error"); }
+              } }, busy ? "Move everyone and delete" : "Delete"),
+              h("button", { class: "btn ghost sm", type: "button", onclick: () => draw(false) }, "Cancel")))
+        : h("button", { class: "sm-item danger", type: "button", role: "menuitem", onclick: () => draw(true) },
+            busy ? "Move everyone to The Deck and delete…" : "Delete room…")));
+    draw();
+    document.body.appendChild(menu);
+    setTimeout(() => { addEventListener("mousedown", outside, true); addEventListener("keydown", esc, true); });
+  }
+
+  /** Room size 2–10: shows the number while dragging, saves on release. */
+  function sizeSlider(r: Room) {
+    const value = r.capacity ?? 10;
+    const out = h("strong", { class: "lantern" }, `${value} people`);
+    const input = h("input", { type: "range", class: "range", min: 2, max: 10, step: 1, value, "aria-label": "Room size" });
+    const paint = () => { input.style.setProperty("--fill", `${((Number(input.value) - 2) / 8) * 100}%`); out.textContent = `${input.value} people`; };
+    input.addEventListener("input", paint);
+    input.addEventListener("change", async () => {
+      const n = Number(input.value);
+      if (n === r.capacity) return;
+      try { await api.updateRoom(r.id, { capacity: n }); }
+      catch (e) { toast(errorText(e), "error"); input.value = String(r.capacity ?? 10); paint(); }
+    });
+    paint();
+    return h("div", { class: "sm-group size-group" },
+      h("div", { class: "row between sm-sub" }, h("span", { class: "muted small" }, "Room size"), out),
+      h("div", { class: "size-row" }, input),
+      r.members.length > 0 && h("span", { class: "muted small sm-sub" }, `${r.members.length} in the room now`));
+  }
+
+  function newRoomControl() {
+    const count = voiceRooms().length;
+    if (count >= treehouse.max_voice_rooms) {
+      return h("p", { class: "muted small sb-note" }, `You have ${count} rooms. Delete one to add another.`);
+    }
+    if (!creating) {
+      return h("button", { class: "sb-add", type: "button", onclick: () => { creating = true; renderSidebar(); } }, "+ New room");
+    }
+    const input = h("input", { class: "sb-input", maxlength: 40, placeholder: "Room name", "aria-label": "New room name" });
+    const done = async (save: boolean) => {
+      const name = input.value.trim();
+      if (!creating) return;
+      creating = false;
+      if (save && name) {
+        try { await api.createRoom({ name }); } catch (e) { toast(errorText(e), "error"); }
+      }
+      renderSidebar();
+    };
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") void done(true); if (e.key === "Escape") void done(false); });
+    input.addEventListener("blur", () => void done(true));
+    requestAnimationFrame(() => input.focus());
+    return h("div", { class: "sb-row editing" }, icon("speaker", 20, "muted"), input);
   }
 
   // ─── Capture problems (denied, missing, unsupported) ─────────────
@@ -740,7 +855,10 @@ register("home", (root) => {
 
   function onCall(e: CallEvent) {
     switch (e.type) {
-      case "status": renderSidebar(); renderStage(); renderBar(); break;
+      case "status":
+        // Joining or leaving the room you're looking at swaps its header (Join ↔ Room chat / Leave).
+        if (view.kind === "voice" && (headerFor === view.roomId) !== (call.roomId === view.roomId)) { renderSidebar(); renderMain(); break; }
+        renderSidebar(); renderStage(); renderBar(); break;
       case "local": renderSidebar(); renderStage(); renderBar(); break;
       case "tracks": case "quality": renderStage(); break;
       case "speaking": renderSpeaking(); break;
@@ -841,6 +959,23 @@ register("home", (root) => {
     renderMain();
   }
 
+  /** One click: look at the room (and join right away if you chose that in Settings). */
+  function previewRoom(r: Room) {
+    if (r.id === call.roomId || !prefs.autoJoin) {
+      if (!(view.kind === "voice" && view.roomId === r.id)) { roomChatOpen = false; spotlight = null; }
+      return show({ kind: "voice", roomId: r.id });
+    }
+    void joinRoom(r);
+  }
+
+  /** Double-click, the Join button, or auto-join. Applies your "when I join" settings. */
+  async function joinRoom(r: Room) {
+    if (r.id === call.roomId) return show({ kind: "voice", roomId: r.id });
+    if (call.status === "idle") await call.setMuted(prefs.joinMuted);
+    await openRoom(r);
+    if (call.roomId === r.id && prefs.joinCamera && !call.camera) void call.setCamera(true);
+  }
+
   async function openRoom(r: Room) {
     if (r.id === call.roomId) return show({ kind: "voice", roomId: r.id });
     problem = null;
@@ -891,6 +1026,11 @@ register("home", (root) => {
       case "voice": {
         const r = rooms.find((x) => x.id === e.room_id);
         if (!r) { void load(); break; }
+        // Join sounds: whoever just came into the room you're in (you too), on top of the talk.
+        if (r.id === call.roomId) {
+          const before = new Set(r.members.map((m) => m.user_id));
+          for (const m of e.members) if (!before.has(m.user_id)) playJoinSound(person(m.user_id).join_sound);
+        }
         r.members = e.members;
         // Room chat is only readable by people in the room, and it's cleared when the room empties.
         if (!e.members.some((m) => m.user_id === me.id) && call.roomId !== r.id) cache.delete(r.id);

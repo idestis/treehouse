@@ -26,7 +26,7 @@ const MIC_GAIN_KEY = "treehouse.micGain";
 const OUT_GAIN_KEY = "treehouse.outputVolume";
 const percent = (k: string) => {
   const n = Number(read(k));
-  return Number.isFinite(n) && read(k) !== "" ? Math.min(200, Math.max(0, n)) : 100;
+  return Number.isFinite(n) && read(k) !== "" ? Math.min(k === OUT_GAIN_KEY ? 100 : 200, Math.max(0, n)) : 100;
 };
 
 export const prefs = {
@@ -37,7 +37,16 @@ export const prefs = {
   /** Microphone volume in percent (0–200), applied after the fixed processing. */
   get micGain() { return percent(MIC_GAIN_KEY); },
   set micGain(v: number) { write(MIC_GAIN_KEY, String(Math.round(v))); },
-  /** Output volume in percent (0–200) for everyone you hear. */
+  /** Open a voice room = join it right away (otherwise: double-click or the Join button). */
+  get autoJoin() { return read("treehouse.autoJoin") === "1"; },
+  set autoJoin(v: boolean) { write("treehouse.autoJoin", v ? "1" : "0"); },
+  /** Join with the microphone muted. */
+  get joinMuted() { return read("treehouse.joinMuted") === "1"; },
+  set joinMuted(v: boolean) { write("treehouse.joinMuted", v ? "1" : "0"); },
+  /** Turn the camera on when joining (off by default, spec §10). */
+  get joinCamera() { return read("treehouse.joinCamera") === "1"; },
+  set joinCamera(v: boolean) { write("treehouse.joinCamera", v ? "1" : "0"); },
+  /** Output volume in percent (0–100) for everyone you hear. */
   get outputVolume() { return percent(OUT_GAIN_KEY); },
   set outputVolume(v: number) { write(OUT_GAIN_KEY, String(Math.round(v))); },
 };

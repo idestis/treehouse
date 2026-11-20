@@ -113,6 +113,18 @@ export const call = {
     return out;
   },
 
+  /** Settings → Sound sliders, applied live to a call in progress. */
+  setMicGain(percent: number) {
+    if (micGain) micGain.gain.value = percent / 100;
+    else if (percent !== 100 && room) {
+      const pub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+      if (pub?.track) void withMicGain(pub.track as LocalAudioTrack);
+    }
+  },
+  setOutputVolume(percent: number) {
+    for (const el of audioSink.querySelectorAll("audio")) el.volume = percent / 100;
+  },
+
   on(fn: (e: CallEvent) => void): () => void {
     listeners.add(fn);
     return () => listeners.delete(fn);
@@ -251,10 +263,40 @@ function roomOptions(): Partial<RoomOptions> {
   };
 }
 
+/** Microphone volume (Settings → Sound) as a gain stage after the fixed processing. */
+let micGain: GainNode | null = null;
+function gainProcessor() {
+  let processed: MediaStreamTrack | undefined;
+  const p = {
+    name: "treehouse-mic-gain",
+    get processedTrack() { return processed; },
+    async init(opts: { track: MediaStreamTrack; audioContext: AudioContext }) {
+      const ctx = opts.audioContext;
+      micGain = ctx.createGain();
+      micGain.gain.value = prefs.micGain / 100;
+      const dst = ctx.createMediaStreamDestination();
+      ctx.createMediaStreamSource(new MediaStream([opts.track])).connect(micGain).connect(dst);
+      processed = dst.stream.getAudioTracks()[0];
+    },
+    async restart(opts: { track: MediaStreamTrack; audioContext: AudioContext }) { await p.destroy(); await p.init(opts); },
+    async destroy() { micGain?.disconnect(); micGain = null; processed?.stop(); processed = undefined; },
+  };
+  return p;
+}
+
+async function withMicGain(track: LocalAudioTrack) {
+  if (prefs.micGain === 100) return;
+  try {
+    await track.setAudioContext(new AudioContext());
+    await track.setProcessor(gainProcessor());
+  } catch { /* the level stays at 100% if the web view can't process audio */ }
+}
+
 async function publishMic(r: Room) {
   let track: LocalAudioTrack | null = null;
   try {
     track = await createLocalAudioTrack({ ...AUDIO_CAPTURE, deviceId: prefs.mic || undefined });
+    await withMicGain(track);
     // Start muted when you asked for it, so not a moment of sound goes out.
     if (call.muted) await track.mute();
     if (room !== r) { track.stop(); return; }
@@ -319,6 +361,7 @@ function wire(r: Room) {
     if (track.kind === Track.Kind.Audio) {
       const el = track.attach() as HTMLAudioElement;
       el.muted = local.deafened;
+      el.volume = prefs.outputVolume / 100;
       void setSink(el, prefs.speaker);
       audioSink.appendChild(el);
     } else emit({ type: "tracks" });
