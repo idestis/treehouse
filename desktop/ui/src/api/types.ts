@@ -20,6 +20,8 @@ export interface Me {
   status: Presence;
   status_emoji: string | null;
   status_text: string | null;
+  /** Sound others hear when this person joins a voice room. */
+  join_sound: "ding" | "fart" | "quack" | "hewya" | "none";
 }
 
 /** What people choose to show; being connected (online) is separate. */
@@ -40,6 +42,8 @@ export interface Person {
   status: Presence;
   status_emoji: string | null;
   status_text: string | null;
+  /** Sound others hear when this person joins a voice room. */
+  join_sound: "ding" | "fart" | "quack" | "hewya" | "none";
 }
 
 export interface VoiceMember {

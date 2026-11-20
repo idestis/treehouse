@@ -18,7 +18,7 @@ export interface Api {
   forgetLogin(): Promise<void>;
 
   me(): Promise<Me>;
-  updateMe(patch: Partial<Pick<Me, "display_name" | "color" | "status" | "status_emoji" | "status_text">>): Promise<Me>;
+  updateMe(patch: Partial<Pick<Me, "display_name" | "color" | "status" | "status_emoji" | "status_text" | "join_sound">>): Promise<Me>;
   changePassword(current: string, next: string): Promise<void>;
   avatar(user_id: number): Promise<{ version: number; data_url: string }>;
   uploadAvatar(dataUrl: string): Promise<Me>;

@@ -10,6 +10,7 @@ import { ACTIONS, type Action, conflicts, DEFAULTS as DEFAULT_KEYS, format as fo
 import { dropdown, dropdownOpen } from "../dropdown";
 import { strengthMeter } from "../password";
 import { chime } from "../notify";
+import { JOIN_SOUNDS, type JoinSound, playJoinSound } from "../sounds";
 import { AUDIO_CAPTURE, prefs } from "../voice";
 import { colorPicker, tilePreview } from "./auth";
 
@@ -212,6 +213,7 @@ register("settings", (root, screen) => {
         problem,
         h("div", { class: "field" }, h("label", { for: "s-out" }, "Speakers or headphones"), out.el),
         outVolume,
+        joinSoundField(),
         h("p", { class: "info-box" }, "Echo removal, background-noise removal and volume leveling are always on, so your keyboard and fans stay out of the call."),
         h("h3", { class: "subhead" }, "Hotkeys"),
         h("p", { class: "muted small" }, "Click a shortcut, then press the keys you want. Esc cancels; Backspace clears."),
@@ -220,6 +222,22 @@ register("settings", (root, screen) => {
     void fill();
     void listen().then(fill);
     return stop;
+  }
+
+  /** Your join sound: what everyone in a voice room hears when you come in. */
+  function joinSoundField() {
+    const pick = dropdown("s-join", JOIN_SOUNDS, me.join_sound);
+    pick.onChange = async (v) => {
+      playJoinSound(v as JoinSound);
+      try {
+        Object.assign(me, await api.updateMe({ join_sound: v as JoinSound }));
+        session.me = me;
+      } catch (x) { toast(errorText(x), "error"); pick.value = me.join_sound; }
+    };
+    const play = h("button", { class: "btn ghost sm", type: "button", onclick: () => playJoinSound(pick.value as JoinSound) }, "Play");
+    return h("div", { class: "field" }, h("label", { for: "s-join" }, "Your join sound"),
+      h("div", { class: "row gap-14" }, h("div", { class: "grow" }, pick.el), play),
+      h("p", { class: "muted small" }, "Everyone in the voice room hears it when you join."));
   }
 
   function hotkeyRows() {

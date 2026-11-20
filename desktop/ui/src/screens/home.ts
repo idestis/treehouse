@@ -57,7 +57,7 @@ register("home", (root) => {
   const deck = () => rooms.find((r) => r.kind === "deck");
   const voiceRooms = () => rooms.filter((r) => r.kind === "voice");
   const myVoiceRoom = () => voiceRooms().find((r) => r.members.some((m) => m.user_id === me.id));
-  const person = (id: number): Person => people.get(id) ?? { id, username: "gone", display_name: "Someone", color: "#7C8BA8", role: "member", online: false, avatar: null, status: "online", status_emoji: null, status_text: null };
+  const person = (id: number): Person => people.get(id) ?? { id, username: "gone", display_name: "Someone", color: "#7C8BA8", role: "member", online: false, avatar: null, status: "online", status_emoji: null, status_text: null, join_sound: "none" };
 
   // ── layout ──
   const sidebar = h("aside", { class: "sidebar" });
