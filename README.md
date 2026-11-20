@@ -144,6 +144,8 @@ docker compose -f deploy/docker-compose.yml exec treehouse treehouse admin unblo
 
 Download them from [GitHub Releases](https://github.com/idestis/treehouse/releases/latest): [Treehouse.dmg](https://github.com/idestis/treehouse/releases/latest/download/Treehouse.dmg) for macOS and [Treehouse-setup.exe](https://github.com/idestis/treehouse/releases/latest/download/Treehouse-setup.exe) for Windows. Once installed, the app updates itself from the same releases.
 
+Each release also carries the server for linux/arm64, as a bare binary and as a Docker image (`docker load -i treehouse-server-linux-arm64-image.tar.gz`). To run from the prebuilt image, skip `--build` in step 2.
+
 ## Develop
 
 Prerequisites: Rust (1.90 or newer), Node and npm, Docker, and [go-task](https://taskfile.dev).
@@ -167,9 +169,48 @@ Other useful tasks:
 | `task up` / `task down` | Run the full production stack locally from `deploy/.env` |
 | `task dmg` | Universal, Developer ID–signed macOS DMG |
 | `task windows` | Windows x64 installer, cross-compiled from a Mac with `cargo-xwin` |
-| `task release` | Preview the notes, bump the version, build both platforms, tag, and publish the GitHub release (the app's update feed) |
+| `task server:release` | linux/arm64 server: a bare binary and a `docker save` image, in `build/` |
+| `task release:check` | Is this machine ready to release? Checks every key, certificate and tool |
+| `task release` | Check, preview the notes, bump the version, build the DMG, the .exe and the arm64 server, write `CHANGELOG.md`, tag, push, and publish the GitHub release (the app's update feed) |
 
 Release tooling reads the root `.env` (copy [.env.example](.env.example)). [CLAUDE.md](CLAUDE.md) has the working rules, conventions and the build order.
+
+## Fork it and ship your own
+
+Everything is built and released from one Mac: no CI, no hosted secrets. A fork publishes to its own GitHub Releases, and its apps update from there. Here's what has to be yours.
+
+| What | Why | How |
+|---|---|---|
+| A **public** GitHub repo | Releases host the downloads and the update feed (`releases/latest/download/latest.json`). The app downloads them without signing in, so the repo must be public | Fork, then `gh auth login`. The repo is read from your `origin` remote (or set `GITHUB_REPO=owner/name` in `.env`) |
+| **Update signing key** | Every update is signed; the app refuses updates that don't match the public key it was built with | `task updater:keys` writes `~/.tauri/treehouse.key` and prints the public key: paste it into `plugins.updater.pubkey` in [`desktop/src-tauri/tauri.conf.json`](desktop/src-tauri/tauri.conf.json). **Back the key up.** If you lose it, installed apps can never update again |
+| **Apple Developer ID** (paid Apple Developer account) | macOS opens only signed, notarized apps without warnings | Put a *Developer ID Application* certificate in your login keychain, set `TEAM_ID` in `.env`, then run `task notary:setup` once (app-specific password from appleid.apple.com) |
+| **App identifier** (optional, recommended) | Keeps your build from sharing a keychain entry and settings with someone else's Treehouse | Change `identifier` in `tauri.conf.json` (for example `com.yourname.treehouse`) and `productName` if you want a different name |
+| Windows signing | Not needed. The installer is signed with the update key only, so SmartScreen warns once | — |
+| **Server secrets** | They live only on your server, never in the app or the repo | `deploy/.env`: `POSTGRES_PASSWORD`, `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET`, optional `GIPHY_API_KEY` (see [Run your own treehouse](#run-your-own-treehouse)) |
+
+Then, from a clean `main`:
+
+```sh
+cp .env.example .env    # TEAM_ID, optional NOTARY_PROFILE / GITHUB_REPO
+task setup              # Rust targets, cargo-xwin, NSIS, LLVM, npm install
+task updater:keys       # once; paste the public key into tauri.conf.json and commit it
+task notary:setup       # once
+task release:check      # every line should be ✓
+task release            # or pin a version: task release -- 0.1.0
+```
+
+`task release` shows the release notes and asks before it changes anything. Then it bumps the version, builds the notarized DMG, the Windows installer and the linux/arm64 server, writes `CHANGELOG.md`, commits, tags, pushes, and publishes the GitHub release with everything attached:
+
+| Asset | For |
+|---|---|
+| `Treehouse.dmg` | macOS, Apple silicon and Intel |
+| `Treehouse-setup.exe` | Windows x64 |
+| `Treehouse.app.tar.gz`, `*.sig`, `latest.json` | the in-app updater |
+| `treehouse-server-linux-arm64.tar.gz` | the server as a bare binary (glibc 2.36+, for example Debian 12 or Ubuntu 24.04) |
+| `treehouse-server-linux-arm64-image.tar.gz` | the server's Docker image: `docker load -i` it on the server, then `docker compose up -d` |
+| `SHA256SUMS` | checksums for all of the above |
+
+For an x86 server, build the image with `SERVER_PLATFORM=linux/amd64 task server:save` and copy it over.
 
 ```
 treehouse/

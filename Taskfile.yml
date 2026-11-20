@@ -20,7 +20,12 @@ vars:
   APP: Treehouse
   DESKTOP_DIR: desktop
   TAURI_DIR: desktop/src-tauri
-  REPO: idestis/treehouse
+  # owner/name of the GitHub repo that hosts releases and the update feed: GITHUB_REPO
+  # in .env, else the `origin` remote, so a fork publishes to itself.
+  REPO:
+    sh: |
+      [ -n "${GITHUB_REPO:-}" ] && { echo "$GITHUB_REPO"; exit 0; }
+      git remote get-url origin 2>/dev/null | sed -E 's#^(git@github\.com:|https://github\.com/)##; s#\.git$##'
   RELEASES: https://github.com/{{.REPO}}/releases
   # Baked into release builds: always the newest published (non-draft, non-prerelease) release.
   FEED_URL: "{{.RELEASES}}/latest/download/latest.json"
@@ -34,6 +39,9 @@ vars:
   DMG: build/{{.APP}}-{{.VERSION}}.dmg
   TARBALL: build/{{.APP}}.app.tar.gz
   EXE: build/{{.APP}}-{{.VERSION}}-setup.exe
+  # Server release assets (linux/arm64): bare binary and a docker-save image.
+  SERVER_TGZ: build/treehouse-server-{{.VERSION}}-linux-arm64.tar.gz
+  SERVER_IMAGE_TGZ: build/treehouse-server-{{.VERSION}}-linux-arm64-image.tar.gz
   # Ed25519 key for update signatures; public half is plugins.updater.pubkey in tauri.conf.json.
   UPDATER_KEY: "{{.HOME}}/.tauri/treehouse.key"
   # Homebrew's llvm is keg-only; cargo-xwin and tauri need llvm-rc / lld-link from it.
@@ -342,11 +350,27 @@ tasks:
   # ───────────────────────── ship and publish ─────────────────────────
 
   ship:
-    desc: Notarized DMG + update tarball (macOS) and signed installer (Windows) in build/
+    desc: Notarized DMG + update tarball (macOS), signed installer (Windows) and the linux/arm64 server in build/
     cmds:
       - task: mac
       - task: windows
-      - echo "Ready — {{.DMG}}, {{.TARBALL}}, {{.EXE}}"
+      - task: server:release
+      - echo "Ready — {{.DMG}}, {{.TARBALL}}, {{.EXE}}, {{.SERVER_TGZ}}, {{.SERVER_IMAGE_TGZ}}"
+
+  server:release:
+    desc: "linux/arm64 server for the release: Docker image (docker load -i) and bare binary, in build/"
+    cmds:
+      - mkdir -p build
+      - docker build --platform linux/arm64 -f server/Dockerfile -t {{.IMAGE}}:{{.VERSION}} -t {{.IMAGE}}:latest .
+      - docker save {{.IMAGE}}:{{.VERSION}} {{.IMAGE}}:latest | gzip > "{{.SERVER_IMAGE_TGZ}}"
+      # The binary is the one inside the image (Debian bookworm, glibc): runs on any arm64 Linux with glibc ≥ 2.36.
+      - |
+        cid=$(docker create --platform linux/arm64 {{.IMAGE}}:{{.VERSION}})
+        trap 'docker rm -f "$cid" >/dev/null' EXIT
+        rm -rf build/server-bin && mkdir -p build/server-bin
+        docker cp "$cid":/usr/local/bin/treehouse build/server-bin/treehouse
+        tar -C build/server-bin -czf "{{.SERVER_TGZ}}" treehouse
+      - echo "Server — {{.SERVER_TGZ}} (binary), {{.SERVER_IMAGE_TGZ}} (docker load -i)"
 
   publish:
     desc: "GitHub release vVERSION: DMG, .exe, update tarball, signatures and latest.json, created as a draft and published in one step"
@@ -356,6 +380,8 @@ tasks:
     preconditions:
       - sh: test -f "{{.DMG}}" && test -f "{{.TARBALL}}.sig" && test -f "{{.EXE}}.sig"
         msg: "Missing {{.DMG}}, {{.TARBALL}}.sig or {{.EXE}}.sig — run `task ship` first"
+      - sh: test -f "{{.SERVER_TGZ}}" && test -f "{{.SERVER_IMAGE_TGZ}}"
+        msg: "Missing the arm64 server build — run `task server:release` first"
       - sh: git rev-parse -q --verify "refs/tags/v{{.VERSION}}" >/dev/null
         msg: "Tag v{{.VERSION}} doesn't exist — run `task release:tag` first"
       - sh: gh auth status >/dev/null 2>&1
@@ -367,13 +393,16 @@ tasks:
       - cp "{{.DMG}}" "{{.STAGE}}/{{.APP}}.dmg"
       - cp "{{.EXE}}" "{{.STAGE}}/{{.APP}}-setup.exe" && cp "{{.EXE}}.sig" "{{.STAGE}}/{{.APP}}-setup.exe.sig"
       - cp "{{.TARBALL}}" "{{.STAGE}}/{{.APP}}.app.tar.gz" && cp "{{.TARBALL}}.sig" "{{.STAGE}}/{{.APP}}.app.tar.gz.sig"
+      - cp "{{.SERVER_TGZ}}" "{{.STAGE}}/treehouse-server-linux-arm64.tar.gz"
+      - cp "{{.SERVER_IMAGE_TGZ}}" "{{.STAGE}}/treehouse-server-linux-arm64-image.tar.gz"
+      - cd "{{.STAGE}}" && shasum -a 256 {{.APP}}.dmg {{.APP}}-setup.exe {{.APP}}.app.tar.gz treehouse-server-linux-arm64.tar.gz treehouse-server-linux-arm64-image.tar.gz > SHA256SUMS
       - >-
         python3 -I scripts/latest-json.py {{.VERSION}} "{{.BASE}}" "build/notes-{{.VERSION}}.md" "{{.STAGE}}/latest.json"
         darwin-aarch64="{{.STAGE}}/{{.APP}}.app.tar.gz" darwin-x86_64="{{.STAGE}}/{{.APP}}.app.tar.gz"
         windows-x86_64="{{.STAGE}}/{{.APP}}-setup.exe"
-      - '{ cat "build/notes-{{.VERSION}}.md"; printf "\n\n**Download:** [macOS (.dmg)](%s/latest/download/%s.dmg) · [Windows (.exe)](%s/latest/download/%s-setup.exe)\n" "{{.RELEASES}}" "{{.APP}}" "{{.RELEASES}}" "{{.APP}}"; } > "{{.STAGE}}/notes.md"'
+      - '{ cat "build/notes-{{.VERSION}}.md"; printf "\n\n**Download:** [macOS (.dmg)](%s/latest/download/%s.dmg) · [Windows (.exe)](%s/latest/download/%s-setup.exe)\n\n**Server (linux/arm64):** [binary](%s/download/v%s/treehouse-server-linux-arm64.tar.gz) · [Docker image](%s/download/v%s/treehouse-server-linux-arm64-image.tar.gz) (\`docker load -i\`)\n" "{{.RELEASES}}" "{{.APP}}" "{{.RELEASES}}" "{{.APP}}" "{{.RELEASES}}" "{{.VERSION}}" "{{.RELEASES}}" "{{.VERSION}}"; } > "{{.STAGE}}/notes.md"'
       # Draft first with every file attached, then publish: the feed never points at missing files.
-      - gh release create "v{{.VERSION}}" --repo {{.REPO}} --draft --verify-tag --title "{{.APP}} {{.VERSION}}" --notes-file "{{.STAGE}}/notes.md" "{{.STAGE}}"/{{.APP}}.dmg "{{.STAGE}}"/{{.APP}}-setup.exe "{{.STAGE}}"/{{.APP}}-setup.exe.sig "{{.STAGE}}"/{{.APP}}.app.tar.gz "{{.STAGE}}"/{{.APP}}.app.tar.gz.sig "{{.STAGE}}"/latest.json
+      - gh release create "v{{.VERSION}}" --repo {{.REPO}} --draft --verify-tag --title "{{.APP}} {{.VERSION}}" --notes-file "{{.STAGE}}/notes.md" "{{.STAGE}}"/{{.APP}}.dmg "{{.STAGE}}"/{{.APP}}-setup.exe "{{.STAGE}}"/{{.APP}}-setup.exe.sig "{{.STAGE}}"/{{.APP}}.app.tar.gz "{{.STAGE}}"/{{.APP}}.app.tar.gz.sig "{{.STAGE}}"/latest.json "{{.STAGE}}"/treehouse-server-linux-arm64.tar.gz "{{.STAGE}}"/treehouse-server-linux-arm64-image.tar.gz "{{.STAGE}}"/SHA256SUMS
       - gh release edit "v{{.VERSION}}" --repo {{.REPO}} --draft=false --latest
       - 'echo "Published — {{.RELEASES}}/tag/v{{.VERSION}}  feed: {{.FEED_URL}}"'
 
@@ -438,6 +467,7 @@ tasks:
       - sh: gh auth status
         msg: Run `gh auth login`
     cmds:
+      - task: release:check
       - task: release:preview
         vars: { CLI_ARGS: "{{.CLI_ARGS}}" }
       - task: release:confirm
@@ -447,6 +477,29 @@ tasks:
       - task ship
       - task release:tag
       - task publish
+
+  release:check:
+    desc: "Is this machine ready to release? Prints the repo, feed and version, and checks every key and tool"
+    silent: true
+    cmds:
+      - |
+        ok=1; c() { if eval "$2" >/dev/null 2>&1; then echo "  ✓ $1"; else echo "  ✗ $1 — $3"; ok=0; fi; }
+        echo "Repo:    {{.REPO}}"
+        echo "Feed:    {{.FEED_URL}}"
+        echo "Version: {{.VERSION}} (next: $(git cliff --bumped-version 2>/dev/null || echo '?'))"
+        echo
+        c "repo resolved"            'test -n "{{.REPO}}"'                                         "set GITHUB_REPO in .env or add an origin remote"
+        c "gh signed in"             'gh auth status'                                              "gh auth login"
+        c "repo is public"           '[ "$(gh repo view {{.REPO}} --json visibility -q .visibility)" = PUBLIC ]' "the update feed needs a public repo (downloads from a private one need auth)"
+        c "TEAM_ID set"              'test -n "$TEAM_ID"'                                          "add your Apple Team ID to .env"
+        c "Developer ID certificate" 'security find-identity -v -p codesigning | grep "Developer ID Application" | grep -q "$TEAM_ID"' "install a Developer ID Application cert for $TEAM_ID"
+        c "notary profile"           'xcrun notarytool history --keychain-profile "${NOTARY_PROFILE:-treehouse-notary}"' "task notary:setup"
+        c "updater key"              'test -f "{{.UPDATER_KEY}}"'                                  "task updater:keys"
+        c "updater pubkey matches"   'grep -qF "$(tr -d "\n" < "{{.UPDATER_KEY}}.pub")" {{.TAURI_DIR}}/tauri.conf.json' "put ~/.tauri/treehouse.key.pub into plugins.updater.pubkey"
+        c "cargo-xwin + NSIS"        'command -v cargo-xwin && command -v makensis'                "task setup"
+        c "git-cliff"                'command -v git-cliff'                                        "brew install git-cliff"
+        c "Docker running"           'docker info'                                                 "start Docker"
+        echo; [ $ok = 1 ] && echo "Ready: task release" || { echo "Fix the ✗ lines first."; exit 1; }
 
   release:confirm:
     internal: true
