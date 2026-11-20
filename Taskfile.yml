@@ -1,0 +1,473 @@
+# Treehouse: server image, desktop builds (macOS .dmg + Windows .exe, both
+# from this Mac), signing, notarizing and releases. Same pipeline as ../kite,
+# plus a Windows leg:
+#   macOS:   Tauri builds a universal .app + DMG, Developer-ID signed with the
+#            hardened runtime; we sign the DMG, notarize, staple, then tar and
+#            sign the .app for the updater.
+#   Windows: cargo-xwin cross-compiles for x86_64-pc-windows-msvc and NSIS
+#            makes the -setup.exe; the updater installs that same .exe (signed
+#            with the updater key). No Authenticode, so SmartScreen warns once.
+#   Updates: `task publish` uploads the DMG, tarball, .exe and latest.json to a
+#            private R2 bucket served by the Worker in infra/releases.
+# One-time: `task setup`, `task notary:setup`, `task updater:keys`, `task r2:setup`.
+version: "3"
+
+dotenv: [".env"]
+
+vars:
+  APP: Treehouse
+  DESKTOP_DIR: desktop
+  TAURI_DIR: desktop/src-tauri
+  REPO: idestis/treehouse
+  VERSION:
+    sh: sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1
+  MAC_TARGET: universal-apple-darwin
+  WIN_TARGET: x86_64-pc-windows-msvc
+  MAC_BUNDLE: target/{{.MAC_TARGET}}/release/bundle
+  WIN_BUNDLE: target/{{.WIN_TARGET}}/release/bundle/nsis
+  APP_PATH: "{{.MAC_BUNDLE}}/macos/{{.APP}}.app"
+  DMG: build/{{.APP}}-{{.VERSION}}.dmg
+  TARBALL: build/{{.APP}}.app.tar.gz
+  EXE: build/{{.APP}}-{{.VERSION}}-setup.exe
+  # Ed25519 key for update signatures; public half is plugins.updater.pubkey in tauri.conf.json.
+  UPDATER_KEY: "{{.HOME}}/.tauri/treehouse.key"
+  # Homebrew's llvm is keg-only; cargo-xwin and tauri need llvm-rc / lld-link from it.
+  LLVM_BIN:
+    sh: echo "$(brew --prefix llvm 2>/dev/null || echo /opt/homebrew/opt/llvm)/bin"
+  LLD_BIN:
+    sh: echo "$(brew --prefix lld 2>/dev/null || echo /opt/homebrew/opt/lld)/bin"
+  IMAGE: treehouse
+  SERVER_PLATFORM: '{{.SERVER_PLATFORM | default "linux/amd64"}}'
+  COMPOSE: docker compose -f deploy/docker-compose.yml --env-file deploy/.env
+  DEV_DATABASE_URL: postgres://treehouse:treehouse@127.0.0.1:55432/treehouse_test
+
+tasks:
+  default:
+    cmds: [task --list]
+    silent: true
+
+  # ───────────────────────── setup and dev ─────────────────────────
+
+  setup:
+    desc: Check and install tools (Rust targets, cargo-xwin, NSIS, LLVM) and frontend deps
+    cmds:
+      - |
+        for t in cargo rustup node npm xcrun codesign docker; do command -v $t >/dev/null || { echo "missing: $t"; exit 1; }; done
+      - rustup target add aarch64-apple-darwin x86_64-apple-darwin {{.WIN_TARGET}}
+      - command -v cargo-xwin >/dev/null || cargo install --locked cargo-xwin
+      - command -v makensis >/dev/null || brew install nsis
+      - test -x "{{.LLVM_BIN}}/llvm-rc" || brew install llvm
+      - test -x "{{.LLVM_BIN}}/lld-link" || test -x "{{.LLD_BIN}}/lld-link" || brew install lld
+      - |
+        for t in git-cliff gh wrangler; do command -v $t >/dev/null || echo "optional: brew install $t (releases)"; done
+      - npm --prefix {{.DESKTOP_DIR}} install
+
+  dev:
+    desc: Run the desktop app with hot reload
+    dir: "{{.DESKTOP_DIR}}"
+    cmds:
+      - npx tauri dev
+
+  db:
+    desc: Start the throwaway dev/test Postgres (127.0.0.1:55432, data in tmpfs)
+    cmds:
+      - docker compose -f deploy/docker-compose.test.yml up -d --wait
+
+  server:dev:
+    desc: Run the server on localhost:8090 against the dev Postgres (task db). Prints a setup invite on an empty database
+    deps: [db]
+    env:
+      DATABASE_URL: "{{.DEV_DATABASE_URL}}"
+      # Compile from server/.sqlx, not the live DB (it may be empty until the server migrates it).
+      SQLX_OFFLINE: "true"
+      LOG_FORMAT: pretty
+      BIND_ADDR: 127.0.0.1:8090
+      PUBLIC_URL: http://localhost:8090
+    cmds:
+      - cargo run -p treehouse-server
+
+  test:
+    desc: Workspace tests (integration tests use the dev Postgres) + TypeScript check
+    deps: [db]
+    env:
+      DATABASE_URL: "{{.DEV_DATABASE_URL}}"
+      SQLX_OFFLINE: "true"
+    cmds:
+      - cargo test --workspace
+      - npm --prefix {{.DESKTOP_DIR}} exec tsc -- --noEmit -p {{.DESKTOP_DIR}}
+
+  fmt:
+    cmds: [cargo fmt --all]
+
+  lint:
+    cmds:
+      - cargo fmt --all -- --check
+      - cargo clippy --workspace --all-targets -- -D warnings
+
+  verify:
+    desc: fmt check + clippy -D warnings + tests + tsc
+    cmds: [task: lint, task: test]
+
+  icon:
+    desc: "Rebuild app icons from brand/icon/AppIcon.appiconset (macOS grid; MARK_SCALE=0.9 to resize the mark)"
+    cmds:
+      - scripts/make-icons.sh
+
+  # ───────────────────────── server image ─────────────────────────
+
+  db:reset:
+    desc: Wipe the dev Postgres (next task server:dev starts empty with a new setup invite)
+    cmds:
+      - docker compose -f deploy/docker-compose.test.yml down
+
+  sqlx:prepare:
+    desc: Refresh server/.sqlx (offline query data) after changing a query; needs task db
+    dir: server
+    env:
+      DATABASE_URL: "{{.DEV_DATABASE_URL}}"
+    cmds:
+      - cargo sqlx migrate run
+      - cargo sqlx prepare
+
+  server:image:
+    desc: "Build the server Docker image (SERVER_PLATFORM, default linux/amd64): treehouse:VERSION and :latest"
+    cmds:
+      - docker build --platform {{.SERVER_PLATFORM}} -f server/Dockerfile -t {{.IMAGE}}:{{.VERSION}} -t {{.IMAGE}}:latest .
+
+  server:save:
+    desc: Save the image to build/ for copying to the server (docker load -i …)
+    deps: [server:image]
+    cmds:
+      - mkdir -p build
+      - docker save {{.IMAGE}}:{{.VERSION}} {{.IMAGE}}:latest | gzip > build/{{.IMAGE}}-{{.VERSION}}-image.tar.gz
+      - echo "build/{{.IMAGE}}-{{.VERSION}}-image.tar.gz → scp to the server, then docker load -i it"
+
+  up:
+    desc: "Start the full stack locally from deploy/.env (replicas: TREEHOUSE_REPLICAS=2 task up)"
+    preconditions:
+      - sh: test -f deploy/.env
+        msg: "Copy deploy/.env.example to deploy/.env first"
+    cmds:
+      - "{{.COMPOSE}} up -d --build --wait"
+
+  down:
+    cmds: ["{{.COMPOSE}} down"]
+
+  logs:
+    cmds: ["{{.COMPOSE}} logs -f treehouse"]
+
+  # ───────────────────────── desktop: local builds ─────────────────────────
+
+  build:
+    desc: Local macOS .app for this machine. Developer ID signed when available, ad-hoc otherwise; no update feed
+    dir: "{{.DESKTOP_DIR}}"
+    cmds:
+      - |
+        id=$(security find-identity -v -p codesigning | grep "Developer ID Application" | grep "${TEAM_ID:-}" | head -1 | sed -E 's/.*"(.*)"/\1/')
+        [ -n "$id" ] || { id="-"; echo "No Developer ID identity; ad-hoc signing (macOS re-asks for mic/camera after each install)"; }
+        echo "Signing with: $id"
+        env -u APPLE_ID -u APPLE_PASSWORD -u APPLE_API_KEY -u TREEHOUSE_UPDATE_URL APPLE_SIGNING_IDENTITY="$id" \
+          npx tauri build --bundles app
+      - echo "Built target/release/bundle/macos/{{.APP}}.app"
+
+  install:
+    desc: Build and copy Treehouse.app to ~/Applications
+    deps: [build]
+    vars: { DEST: "{{.HOME}}/Applications/{{.APP}}.app" }
+    cmds:
+      - mkdir -p "{{.HOME}}/Applications"
+      - |
+        if pgrep -xq "{{.APP}}"; then
+          osascript -e 'quit app "{{.APP}}"' || true
+          for _ in 1 2 3 4 5 6 7 8 9 10; do pgrep -xq "{{.APP}}" || break; sleep 0.5; done
+        fi
+      - rm -rf "{{.DEST}}"
+      - ditto "target/release/bundle/macos/{{.APP}}.app" "{{.DEST}}"
+      - echo "Installed {{.DEST}}"
+
+  # ───────────────────────── desktop: macOS release ─────────────────────────
+
+  bundle:mac:
+    desc: Universal (Apple silicon + Intel) Developer ID signed .app + DMG, hardened runtime, not yet notarized
+    dir: "{{.DESKTOP_DIR}}"
+    preconditions:
+      - sh: test -n "$TEAM_ID"
+        msg: "TEAM_ID is not set (copy .env.example to .env)"
+    cmds:
+      - |
+        id=$(security find-identity -v -p codesigning | grep "Developer ID Application" | grep "($TEAM_ID)" | head -1 | sed -E 's/.*"(.*)"/\1/')
+        if [ -z "$id" ]; then echo "No 'Developer ID Application (… $TEAM_ID)' identity in the keychain"; exit 1; fi
+        echo "Signing with: $id"
+        [ -n "$R2_PUBLIC_URL" ] && export TREEHOUSE_UPDATE_URL="${R2_PUBLIC_URL%/}/latest.json" || echo "R2_PUBLIC_URL not set: this build has updates off"
+        # No APPLE_ID/APPLE_PASSWORD in env, so Tauri signs but does not notarize; `task notarize` does that.
+        env -u APPLE_ID -u APPLE_PASSWORD -u APPLE_API_KEY APPLE_SIGNING_IDENTITY="$id" \
+          npx tauri build --target {{.MAC_TARGET}} --bundles app,dmg
+      - codesign --verify --deep --strict --verbose=1 "../{{.APP_PATH}}"
+      - lipo -archs "../{{.APP_PATH}}/Contents/MacOS/{{.APP}}"
+
+  dmg:
+    desc: Copy and Developer-ID-sign the DMG (Gatekeeper needs the DMG itself signed)
+    deps: [bundle:mac]
+    cmds:
+      - mkdir -p build
+      - |
+        src=$(ls {{.MAC_BUNDLE}}/dmg/*.dmg | head -1)
+        cp "$src" "{{.DMG}}"
+      - |
+        id=$(security find-identity -v -p codesigning | grep "Developer ID Application" | grep "($TEAM_ID)" | head -1 | awk '{print $2}')
+        [ -n "$id" ] || { echo "No Developer ID identity for $TEAM_ID"; exit 1; }
+        codesign --force --timestamp --sign "$id" "{{.DMG}}"
+      - codesign --verify --strict --verbose=1 "{{.DMG}}"
+
+  notary:setup:
+    desc: One-time — store notarization credentials in the login keychain
+    interactive: true
+    preconditions:
+      - sh: test -n "$TEAM_ID"
+        msg: "TEAM_ID is not set"
+    cmds:
+      - xcrun notarytool store-credentials "${NOTARY_PROFILE:-treehouse-notary}" --team-id "$TEAM_ID"
+
+  notarize:
+    desc: Submit the DMG to Apple, wait, staple and assess
+    preconditions:
+      - sh: test -f "{{.DMG}}"
+        msg: "{{.DMG}} not found — run `task dmg` first"
+    cmds:
+      - xcrun notarytool submit "{{.DMG}}" --keychain-profile "${NOTARY_PROFILE:-treehouse-notary}" --wait
+      - xcrun stapler staple "{{.DMG}}"
+      - xcrun stapler validate "{{.DMG}}"
+      - spctl --assess --type open --context context:primary-signature -v "{{.DMG}}"
+      # Same .app as inside the DMG, so its ticket exists now; stapled for the update tarball.
+      - xcrun stapler staple "{{.APP_PATH}}"
+
+  notarize:log:
+    cmds:
+      - xcrun notarytool log {{.CLI_ARGS}} --keychain-profile "${NOTARY_PROFILE:-treehouse-notary}"
+
+  updater:mac:
+    desc: Tar and sign the notarized .app for the in-app updater
+    preconditions:
+      - sh: test -f "{{.UPDATER_KEY}}"
+        msg: "No updater key at {{.UPDATER_KEY}} — run `task updater:keys` (or restore your backup)"
+    cmds:
+      - mkdir -p build
+      - COPYFILE_DISABLE=1 tar -czf "{{.TARBALL}}" -C "{{.MAC_BUNDLE}}/macos" "{{.APP}}.app"
+      - task: sign
+        vars: { FILE: "{{.TARBALL}}" }
+
+  mac:
+    desc: Signed + notarized + stapled DMG and signed update tarball in build/
+    cmds:
+      - task: dmg
+      - task: notarize
+      - task: updater:mac
+
+  # ───────────────────────── desktop: Windows (cross-built here) ─────────────────────────
+
+  windows:
+    desc: Windows x64 NSIS installer, cross-compiled with cargo-xwin, signed for the updater → build/Treehouse-VERSION-setup.exe
+    dir: "{{.DESKTOP_DIR}}"
+    preconditions:
+      - sh: command -v cargo-xwin && command -v makensis
+        msg: "Missing cargo-xwin or NSIS — run `task setup`"
+    env:
+      # cargo-xwin downloads the MSVC CRT + Windows SDK once (accepting Microsoft's license) and caches it.
+      XWIN_ACCEPT_LICENSE: "1"
+    cmds:
+      - |
+        export PATH="{{.LLVM_BIN}}:{{.LLD_BIN}}:$PATH"
+        [ -n "$R2_PUBLIC_URL" ] && export TREEHOUSE_UPDATE_URL="${R2_PUBLIC_URL%/}/latest.json" || echo "R2_PUBLIC_URL not set: this build has updates off"
+        npx tauri build --runner cargo-xwin --target {{.WIN_TARGET}} --bundles nsis
+      - mkdir -p ../build
+      - cp "$(ls ../{{.WIN_BUNDLE}}/*-setup.exe | head -1)" "../{{.EXE}}"
+      - task: sign
+        vars: { FILE: "{{.EXE}}" }
+      - echo "Built {{.EXE}}"
+
+  # ───────────────────────── updater signing ─────────────────────────
+
+  updater:keys:
+    desc: One-time — create the update signing key (~/.tauri/treehouse.key) and print the public key for tauri.conf.json
+    status:
+      - test -f "{{.UPDATER_KEY}}"
+    cmds:
+      - mkdir -p "$(dirname "{{.UPDATER_KEY}}")"
+      - npm --prefix {{.DESKTOP_DIR}} exec tauri -- signer generate --ci -p "" -w "{{.UPDATER_KEY}}"
+      - chmod 600 "{{.UPDATER_KEY}}"
+      - 'echo "Put this in desktop/src-tauri/tauri.conf.json plugins.updater.pubkey:"; cat "{{.UPDATER_KEY}}.pub"; echo'
+
+  sign:
+    internal: true
+    preconditions:
+      - sh: test -f "{{.UPDATER_KEY}}"
+        msg: "No updater key at {{.UPDATER_KEY}} — run `task updater:keys` (or restore your backup)"
+    cmds:
+      - rm -f "{{.FILE}}.sig"
+      - TAURI_SIGNING_PRIVATE_KEY_PASSWORD="" npm --prefix {{.DESKTOP_DIR}} exec tauri -- signer sign -f "{{.UPDATER_KEY}}" --app-version {{.VERSION}} "$PWD/{{.FILE}}"
+
+  # ───────────────────────── ship and publish ─────────────────────────
+
+  ship:
+    desc: Notarized DMG + update tarball (macOS) and signed installer (Windows) in build/
+    preconditions:
+      - sh: echo "$R2_PUBLIC_URL" | grep -Eq '^https://[A-Za-z0-9.-]+(/[A-Za-z0-9._/-]*)?[^/]$'
+        msg: "R2_PUBLIC_URL must be a plain https URL without a trailing slash, got '$R2_PUBLIC_URL' (it is baked into the app as the update feed)"
+    cmds:
+      - task: mac
+      - task: windows
+      - echo "Ready — {{.DMG}}, {{.TARBALL}}, {{.EXE}}"
+
+  r2:setup:
+    desc: One-time — create the R2 bucket and deploy the releases Worker
+    interactive: true
+    cmds:
+      - wrangler whoami >/dev/null 2>&1 || wrangler login
+      - wrangler r2 bucket info "${R2_BUCKET:-treehouse-releases}" >/dev/null 2>&1 || wrangler r2 bucket create "${R2_BUCKET:-treehouse-releases}"
+      # Only the Worker serves files (country block, rate limits); no direct r2.dev access.
+      - wrangler r2 bucket dev-url disable "${R2_BUCKET:-treehouse-releases}" --force || true
+      - task: r2:deploy
+      - 'echo "Set R2_PUBLIC_URL in .env to the https://treehouse-releases.<subdomain>.workers.dev URL above (no trailing slash)."'
+
+  r2:deploy:
+    desc: Deploy the releases Worker (infra/releases) — blocks RU/BY, rate-limits per IP, GET/HEAD only
+    dir: infra/releases
+    cmds:
+      - wrangler deploy
+
+  publish:
+    desc: Upload DMG, update tarball, Windows installer and latest.json to R2 (the in-app updater feed)
+    vars:
+      BASE: "{{.R2_PUBLIC_URL}}/v{{.VERSION}}"
+      BUCKET: '{{.R2_BUCKET | default "treehouse-releases"}}'
+    preconditions:
+      - sh: test -n "$R2_PUBLIC_URL"
+        msg: "R2_PUBLIC_URL is not set — run `task r2:setup`"
+      - sh: test -f "{{.DMG}}" && test -f "{{.TARBALL}}.sig" && test -f "{{.EXE}}.sig"
+        msg: "Missing {{.DMG}}, {{.TARBALL}}.sig or {{.EXE}}.sig — run `task ship` first"
+    cmds:
+      - task: release:notes
+      - >-
+        python3 -I scripts/latest-json.py {{.VERSION}} "{{.BASE}}" "build/notes-{{.VERSION}}.md" build/latest.json
+        darwin-aarch64="{{.TARBALL}}" darwin-x86_64="{{.TARBALL}}" windows-x86_64="{{.EXE}}"
+      - wrangler r2 object put "{{.BUCKET}}/v{{.VERSION}}/{{.APP}}.app.tar.gz" --file "{{.TARBALL}}" --content-type application/gzip --remote
+      - wrangler r2 object put "{{.BUCKET}}/v{{.VERSION}}/{{.APP}}-{{.VERSION}}.dmg" --file "{{.DMG}}" --content-type application/x-apple-diskimage --remote
+      - wrangler r2 object put "{{.BUCKET}}/v{{.VERSION}}/{{.APP}}-{{.VERSION}}-setup.exe" --file "{{.EXE}}" --content-type application/vnd.microsoft.portable-executable --remote
+      # Stable download links for the newest version.
+      - wrangler r2 object put "{{.BUCKET}}/{{.APP}}.dmg" --file "{{.DMG}}" --content-type application/x-apple-diskimage --cache-control "no-cache" --remote
+      - wrangler r2 object put "{{.BUCKET}}/{{.APP}}-setup.exe" --file "{{.EXE}}" --content-type application/vnd.microsoft.portable-executable --cache-control "no-cache" --remote
+      # The feed goes last, so clients never see a version whose files aren't up yet.
+      - wrangler r2 object put "{{.BUCKET}}/latest.json" --file build/latest.json --content-type application/json --cache-control "no-cache" --remote
+      - 'echo "Published — {{.R2_PUBLIC_URL}}/{{.APP}}.dmg  {{.R2_PUBLIC_URL}}/{{.APP}}-setup.exe  feed: {{.R2_PUBLIC_URL}}/latest.json"'
+
+  # ───────────────────────── versioning and release ─────────────────────────
+
+  release:preview:
+    desc: "Quick look at the next release: version, Ollama summary and user notes (build/notes-X.Y.Z.md). Pin: -- 0.3.0"
+    aliases: [changelog]
+    vars:
+      NEXT:
+        sh: |
+          v="{{.CLI_ARGS}}"; [ -n "$v" ] || v=$(git cliff --bumped-version 2>/dev/null | sed 's/^v//')
+          echo "$v"
+      NOTES: build/notes-{{.NEXT}}.md
+    silent: true
+    cmds:
+      - mkdir -p build
+      - git cliff --config scripts/cliff-release.toml --unreleased 2>/dev/null | sed '/./,$!d' > build/changes.md
+      - |
+        if [ ! -s build/changes.md ] || ! grep -q '^- ' build/changes.md; then
+          echo "Nothing user-facing since $(git describe --tags --abbrev=0 2>/dev/null || echo the start) (only chores/docs/build?)."
+          : > "{{.NOTES}}"; exit 0
+        fi
+        echo "Summarizing with Ollama (${OLLAMA_MODEL:-qwen2.5-coder:7b})…"
+        summary=$(python3 -I scripts/release-summary.py build/changes.md)
+        { [ -n "$summary" ] && printf '%s\n\n' "$summary"; cat build/changes.md; } > "{{.NOTES}}"
+      - |
+        echo
+        echo "══ {{.APP}} $(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//') → {{.NEXT}} ══"
+        echo
+        cat "{{.NOTES}}"
+        echo
+        echo "Notes: {{.NOTES}} (edit before confirming to change what users see)"
+
+  bump:
+    desc: "Set version everywhere: task bump -- 0.2.0 (default: git-cliff --bumped-version)"
+    vars:
+      NEXT:
+        sh: |
+          v="{{.CLI_ARGS}}"; [ -n "$v" ] || v=$(git cliff --bumped-version 2>/dev/null | sed 's/^v//')
+          echo "$v"
+    preconditions:
+      - sh: echo "{{.NEXT}}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'
+        msg: "Version must be semver, got '{{.NEXT}}'"
+      - sh: '! git rev-parse -q --verify "refs/tags/v{{.NEXT}}" >/dev/null'
+        msg: "v{{.NEXT}} is already tagged. Pin one: task release -- X.Y.Z"
+    cmds:
+      - perl -0pi -e 's/^version = ".*?"/version = "{{.NEXT}}"/m' Cargo.toml
+      - |
+        sed -i '' -E 's/"version": "[^"]+"/"version": "{{.NEXT}}"/' {{.TAURI_DIR}}/tauri.conf.json {{.DESKTOP_DIR}}/package.json
+      - npm --prefix {{.DESKTOP_DIR}} install --package-lock-only --silent
+      - cargo check --workspace -q
+      - echo "Version {{.NEXT}}"
+
+  release:
+    desc: "Preview + confirm, then bump (or pin: task release -- 0.2.0), build mac + windows, tag, push, publish to R2, GitHub release"
+    preconditions:
+      - sh: test -z "$(git status --porcelain)"
+        msg: Working tree not clean
+      - sh: '[ "$(git branch --show-current)" = "main" ]'
+        msg: Release from main
+      - sh: gh auth status
+        msg: Run `gh auth login`
+      - sh: test -n "$R2_PUBLIC_URL"
+        msg: "R2_PUBLIC_URL is not set — run `task r2:setup`"
+      - sh: wrangler whoami >/dev/null 2>&1
+        msg: "Not logged in to Cloudflare — run `wrangler login`"
+    cmds:
+      - task: release:preview
+        vars: { CLI_ARGS: "{{.CLI_ARGS}}" }
+      - task: release:confirm
+      - task: bump
+        vars: { CLI_ARGS: "{{.CLI_ARGS}}" }
+      # Fresh processes from here on, so VERSION is re-read after the bump.
+      - task ship
+      - task release:tag
+      - task publish
+      - task release:github
+
+  release:confirm:
+    internal: true
+    prompt: Release this? Nothing is changed until you answer yes.
+    cmds:
+      - ":"
+
+  release:tag:
+    desc: Changelog, release commit, tag and push (run by task release)
+    cmds:
+      - git cliff --tag "v{{.VERSION}}" -o CHANGELOG.md 2>/dev/null
+      - git add Cargo.toml Cargo.lock {{.DESKTOP_DIR}}/package.json {{.DESKTOP_DIR}}/package-lock.json {{.TAURI_DIR}}/tauri.conf.json CHANGELOG.md
+      - 'git commit -m "chore(release): v{{.VERSION}}"'
+      - git tag -a "v{{.VERSION}}" -m "{{.APP}} {{.VERSION}}"
+      - git push origin main "v{{.VERSION}}"
+
+  release:github:
+    desc: GitHub release with notes, the DMG and the Windows installer (run by task release)
+    cmds:
+      - task: release:notes
+      - '{ cat "build/notes-{{.VERSION}}.md"; printf "\n\nDownload: %s/%s.dmg (macOS) · %s/%s-setup.exe (Windows)\n" "$R2_PUBLIC_URL" "{{.APP}}" "$R2_PUBLIC_URL" "{{.APP}}"; } > build/gh-notes.md'
+      - gh release create "v{{.VERSION}}" --repo {{.REPO}} --title "{{.APP}} {{.VERSION}}" --notes-file build/gh-notes.md "{{.DMG}}" "{{.EXE}}"
+
+  release:notes:
+    internal: true
+    status:
+      - test -s "build/notes-{{.VERSION}}.md"
+    cmds:
+      - mkdir -p build
+      - git cliff --config scripts/cliff-release.toml --latest 2>/dev/null | sed '/./,$!d' > build/changes.md
+      - |
+        summary=$(python3 -I scripts/release-summary.py build/changes.md)
+        { [ -n "$summary" ] && printf '%s\n\n' "$summary"; cat build/changes.md; } > "build/notes-{{.VERSION}}.md"
+
+  clean:
+    cmds: [cargo clean, rm -rf build desktop/dist]

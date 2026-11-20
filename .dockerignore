@@ -1,0 +1,6 @@
+# Only the server is built in Docker.
+*
+!Cargo.toml
+!Cargo.lock
+!server/
+!desktop/src-tauri/Cargo.toml

@@ -1,0 +1,13 @@
+/target
+node_modules/
+desktop/dist/
+desktop/src-tauri/gen/
+.DS_Store
+.env
+deploy/.env
+*.dmg
+.task/
+.claude/worktrees/
+/build/
+.wrangler/
+.playwright-mcp/
