@@ -266,6 +266,7 @@ pub async fn webhook(
     match action {
         Action::Joined { room, user, sid } => joined(&mut tx, room, user, sid).await?,
         Action::Left { room, user, sid } => left(&mut tx, room, user, sid).await?,
+        Action::OverlayJoined { room, user } => overlay_joined(&mut tx, room, user).await?,
         Action::Finished { room } => finished(&mut tx, room).await?,
         Action::Ignore => {}
     }
@@ -276,15 +277,31 @@ pub async fn webhook(
 /// What a webhook means for `voice_members`.
 #[derive(Debug, PartialEq, Eq)]
 enum Action<'a> {
-    Joined { room: i64, user: i64, sid: &'a str },
-    Left { room: i64, user: i64, sid: &'a str },
-    Finished { room: i64 },
+    Joined {
+        room: i64,
+        user: i64,
+        sid: &'a str,
+    },
+    Left {
+        room: i64,
+        user: i64,
+        sid: &'a str,
+    },
+    /// The hidden overlay connected: kept only while its person is in the room.
+    OverlayJoined {
+        room: i64,
+        user: i64,
+    },
+    Finished {
+        room: i64,
+    },
     Ignore,
 }
 
-/// Only people's own voice connections (identity = user id) count; the
-/// hidden overlay (`<id>-overlay`) and anything else LiveKit reports are
-/// ignored, so they never add members or events.
+/// Only people's own voice connections (identity = user id) count for
+/// `voice_members`. The hidden overlay (`<id>-overlay`) only matters when it
+/// connects (it may be checked against membership); it never adds members
+/// or events. Anything else LiveKit reports is ignored.
 fn webhook_action(ev: &WebhookEvent) -> Action<'_> {
     let Some(room) = ev.room.as_ref().and_then(|r| livekit::room_id(&r.name)) else {
         return Action::Ignore;
@@ -299,6 +316,11 @@ fn webhook_action(ev: &WebhookEvent) -> Action<'_> {
             Action::Left { room, user, sid }
         }
         ("room_finished", _) => Action::Finished { room },
+        ("participant_joined", None) => ev
+            .participant
+            .as_ref()
+            .and_then(|p| livekit::overlay_user(&p.identity))
+            .map_or(Action::Ignore, |user| Action::OverlayJoined { room, user }),
         _ => Action::Ignore,
     }
 }
@@ -313,6 +335,22 @@ async fn drop_overlay(conn: &mut PgConnection, room: i64, user: i64) -> AppResul
     )
     .execute(&mut *conn)
     .await?;
+    Ok(())
+}
+
+/// An overlay connected: if its person isn't in this room now (they left
+/// after the token was minted), queue its removal. Never touches members.
+async fn overlay_joined(conn: &mut PgConnection, room: i64, user: i64) -> AppResult<()> {
+    let inside = sqlx::query_scalar!(
+        r#"SELECT EXISTS (SELECT 1 FROM voice_members WHERE user_id = $1 AND room_id = $2) AS "e!""#,
+        user,
+        room
+    )
+    .fetch_one(&mut *conn)
+    .await?;
+    if !inside {
+        drop_overlay(conn, room, user).await?;
+    }
     Ok(())
 }
 
@@ -496,13 +534,27 @@ mod tests {
     }
 
     #[test]
-    fn webhooks_for_overlays_are_ignored() {
+    fn webhooks_for_overlays() {
+        let e = event(
+            r#"{"event":"participant_joined","room":{"name":"room-2"},"participant":{"sid":"PA_9","identity":"3-overlay"}}"#,
+        );
+        assert_eq!(
+            webhook_action(&e),
+            Action::OverlayJoined { room: 2, user: 3 }
+        );
+        // Overlay leaves never touch membership.
+        for ev in ["participant_left", "participant_connection_aborted"] {
+            let e = event(&format!(
+                r#"{{"event":"{ev}","room":{{"name":"room-2"}},"participant":{{"sid":"PA_9","identity":"3-overlay"}}}}"#
+            ));
+            assert_eq!(webhook_action(&e), Action::Ignore, "{ev}");
+        }
         for ev in [
             "participant_joined",
             "participant_left",
             "participant_connection_aborted",
         ] {
-            for identity in ["3-overlay", "treehouse-server", "", "-3"] {
+            for identity in ["treehouse-server", "", "-3", "x-overlay"] {
                 let e = event(&format!(
                     r#"{{"event":"{ev}","room":{{"name":"room-2"}},"participant":{{"sid":"PA_9","identity":"{identity}"}}}}"#
                 ));

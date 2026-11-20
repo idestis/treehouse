@@ -103,6 +103,11 @@ pub fn user_identity(identity: &str) -> Option<i64> {
     identity.parse().ok()
 }
 
+/// The user id behind an overlay identity (`<user id>-overlay`), else `None`.
+pub fn overlay_user(identity: &str) -> Option<i64> {
+    user_identity(identity.strip_suffix("-overlay")?)
+}
+
 fn sign_grant(
     lk: &LiveKit,
     identity: &str,
@@ -302,6 +307,10 @@ mod tests {
         assert_eq!(user_identity("123456"), Some(123_456));
         assert_eq!(user_identity(&overlay_identity(3)), None);
         assert_eq!(user_identity("3-overlay"), None);
+        assert_eq!(overlay_user(&overlay_identity(3)), Some(3));
+        for bad in ["3", "-overlay", "x-overlay", "3-overlay-overlay", ""] {
+            assert_eq!(overlay_user(bad), None, "{bad}");
+        }
         assert_eq!(user_identity("+3"), None);
         assert_eq!(user_identity("-3"), None);
         assert_eq!(user_identity(" 3"), None);
