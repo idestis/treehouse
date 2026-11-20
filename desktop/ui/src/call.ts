@@ -40,7 +40,10 @@ let room: Room | null = null;
 let roomId: number | null = null;
 let status: CallStatus = "idle";
 let refreshTimer = 0;
+/** Who LiveKit says is talking, except you: your own talking comes from the meter below. */
 let speakingIds = new Set<number>();
+/** You're talking, measured from your own mic here: instant, and independent of the server. */
+let selfSpeaking = false;
 let weak = false;
 const local = { muted: false, deafened: false, camera: false, screen: false };
 let mutedBeforeDeafen = false;
@@ -98,7 +101,11 @@ export const call = {
     return nativeScreenSound ? nativeSoundWorks : !navigator.userAgent.includes("Mac");
   },
   /** User ids talking right now, loudest first. */
-  get speaking(): number[] { return [...speakingIds]; },
+  get speaking(): number[] {
+    const ids = [...speakingIds];
+    if (selfSpeaking && room) ids.unshift(idOf(room.localParticipant));
+    return ids;
+  },
 
   /** Everyone LiveKit sees in the room (you first), with live mic state. */
   participants(): { userId: number; muted: boolean; camera: boolean; screen: boolean; local: boolean }[] {
@@ -140,7 +147,7 @@ export const call = {
     if (micGain) micGain.gain.value = percent / 100;
     else if (percent !== 100 && room) {
       const pub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
-      if (pub?.track) void withMicGain(pub.track as LocalAudioTrack);
+      if (pub?.track) void withMicGain(pub.track as LocalAudioTrack).then(() => { if (room) startMeter(room); });
     }
   },
   setOutputVolume(percent: number) {
@@ -288,6 +295,7 @@ export const call = {
     }
     if (!room) return;
     await room.switchActiveDevice(kind, deviceId || "default").catch(() => {});
+    startMeter(room);
   },
 };
 
@@ -458,7 +466,11 @@ function wire(r: Room) {
     })
     .on(RoomEvent.TrackMuted, () => mine() && emit({ type: "tracks" }))
     .on(RoomEvent.TrackUnmuted, () => mine() && emit({ type: "tracks" }))
-    .on(RoomEvent.LocalTrackPublished, () => mine() && emit({ type: "tracks" }))
+    .on(RoomEvent.LocalTrackPublished, (pub: LocalTrackPublication) => {
+      if (!mine()) return;
+      if (pub.source === Track.Source.Microphone) startMeter(r);
+      emit({ type: "tracks" });
+    })
     .on(RoomEvent.LocalTrackUnpublished, (pub: LocalTrackPublication) => {
       if (!mine()) return;
       // "Stop sharing" from the system bar ends the share without going through us.
@@ -474,7 +486,7 @@ function wire(r: Room) {
     .on(RoomEvent.ParticipantDisconnected, (_p: RemoteParticipant) => mine() && emit({ type: "tracks" }))
     .on(RoomEvent.ActiveSpeakersChanged, (speakers: Participant[]) => {
       if (!mine()) return;
-      speakingIds = new Set(speakers.map(idOf));
+      speakingIds = new Set(speakers.filter((p) => !p.isLocal).map(idOf));
       emit({ type: "speaking" });
     })
     .on(RoomEvent.ConnectionQualityChanged, (q: ConnectionQuality, p: Participant) => {
@@ -503,6 +515,52 @@ function wire(r: Room) {
     });
 }
 
+// ─── your own talking ────────────────────────────────────────────────
+// LiveKit's speaker list comes back from the server, a beat late, and only
+// when it hears your audio; your own glow is measured here instead.
+
+const SPEECH_DBFS = -50; // louder than this (after noise suppression) counts as talking
+const HOLD_MS = 450;     // stay lit through the gaps between words
+
+let meter: { track: MediaStreamTrack; ctx: AudioContext; timer: number } | null = null;
+
+/** Measure the mic you're sending now. Safe to call again: a new track restarts it. */
+function startMeter(r: Room) {
+  const t = r.localParticipant.getTrackPublication(Track.Source.Microphone)?.track as LocalAudioTrack | undefined;
+  const track = t?.sender?.track ?? t?.mediaStreamTrack; // what goes out, after the volume slider
+  if (!track || meter?.track === track) return;
+  stopMeter();
+  let ctx: AudioContext;
+  try { ctx = new AudioContext(); } catch { return; }
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 1024;
+  ctx.createMediaStreamSource(new MediaStream([track])).connect(analyser);
+  // A context made outside a click may start paused; the next click wakes it.
+  if (ctx.state === "suspended") addEventListener("pointerdown", () => void ctx.resume().catch(() => {}), { once: true });
+  const buf = new Float32Array(analyser.fftSize);
+  let lastLoud = 0;
+  const timer = window.setInterval(() => {
+    if (room !== r) { stopMeter(); return; }
+    let loud = false;
+    if (!call.muted) {
+      analyser.getFloatTimeDomainData(buf);
+      let sum = 0;
+      for (const v of buf) sum += v * v;
+      loud = 20 * Math.log10(Math.sqrt(sum / buf.length) || 1e-9) > SPEECH_DBFS;
+    }
+    const now = performance.now();
+    if (loud) lastLoud = now;
+    const talking = !call.muted && now - lastLoud < HOLD_MS;
+    if (talking !== selfSpeaking) { selfSpeaking = talking; emit({ type: "speaking" }); }
+  }, 80);
+  meter = { track, ctx, timer };
+}
+
+function stopMeter() {
+  if (meter) { clearInterval(meter.timer); void meter.ctx.close().catch(() => {}); meter = null; }
+  selfSpeaking = false;
+}
+
 function endedText(reason?: DisconnectReason): string {
   switch (reason) {
     case DisconnectReason.PARTICIPANT_REMOVED: return "You were moved out of the voice room.";
@@ -521,6 +579,7 @@ async function teardown() {
   roomId = null;
   status = "idle";
   speakingIds = new Set();
+  stopMeter();
   weak = false;
   local.camera = false;
   local.screen = false;
