@@ -24,7 +24,7 @@ pub async fn people(State(st): State<AppState>, Authed(_): Authed) -> AppResult<
         r#"SELECT COALESCE(jsonb_agg(jsonb_build_object(
                'id', u.id, 'username', u.username::text, 'display_name', u.display_name, 'color', u.color, 'role', u.role,
                'avatar', (SELECT a.version FROM avatars a WHERE a.user_id = u.id),
-               'status', u.status, 'status_emoji', u.status_emoji, 'status_text', u.status_text, 'join_sound', u.join_sound,
+               'status', u.status, 'status_emoji', u.status_emoji, 'status_text', u.status_text, 'join_sound', u.join_sound, 'leave_sound', u.leave_sound,
                'online', EXISTS (SELECT 1 FROM connections c WHERE c.user_id = u.id AND c.last_ping > now() - interval '90 seconds')
            ) ORDER BY lower(u.display_name)), '[]'::jsonb) AS "list!"
            FROM users u WHERE u.blocked_at IS NULL"#

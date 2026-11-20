@@ -20,8 +20,9 @@ export interface Me {
   status: Presence;
   status_emoji: string | null;
   status_text: string | null;
-  /** Sound others hear when this person joins a voice room. */
-  join_sound: "ding" | "fart" | "quack" | "hewya" | "none";
+  /** Sounds others hear when this person joins / leaves a voice room. */
+  join_sound: SoundName;
+  leave_sound: SoundName;
 }
 
 /** What people choose to show; being connected (online) is separate. */
@@ -42,8 +43,9 @@ export interface Person {
   status: Presence;
   status_emoji: string | null;
   status_text: string | null;
-  /** Sound others hear when this person joins a voice room. */
-  join_sound: "ding" | "fart" | "quack" | "hewya" | "none";
+  /** Sounds others hear when this person joins / leaves a voice room. */
+  join_sound: SoundName;
+  leave_sound: SoundName;
 }
 
 export interface VoiceMember {
@@ -146,3 +148,5 @@ export function errorText(e: unknown): string {
   if (isApiError(e)) return e.message;
   return "Something went wrong. Try again.";
 }
+
+export type SoundName = "ding" | "fart" | "quack" | "hewya" | "yeah-boy" | "female-bye" | "kiddo-bye" | "mmbye" | "none";

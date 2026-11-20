@@ -8,7 +8,7 @@ import { errorText } from "../api/types";
 import { go, register, session } from "../app";
 import { personAvatar } from "../avatars";
 import { chime, notificationsOn, setNotifications } from "../notify";
-import { playJoinSound } from "../sounds";
+import { playJoinSound, playSound } from "../sounds";
 import { prefs } from "../voice";
 import { call, type CallEvent, type Capture, type Video } from "../call";
 import { format as formatKey, load as loadHotkeys, matches } from "../hotkeys";
@@ -64,7 +64,7 @@ register("home", (root) => {
   const voiceRooms = () => rooms.filter((r) => r.kind === "voice");
   /** The room your call is in (connecting, connected or reconnecting). */
   const myVoiceRoom = () => voiceRooms().find((r) => r.id === call.roomId);
-  const person = (id: number): Person => people.get(id) ?? { id, username: "gone", display_name: "Someone", color: "#7C8BA8", role: "member", online: false, avatar: null, status: "online", status_emoji: null, status_text: null, join_sound: "none" };
+  const person = (id: number): Person => people.get(id) ?? { id, username: "gone", display_name: "Someone", color: "#7C8BA8", role: "member", online: false, avatar: null, status: "online", status_emoji: null, status_text: null, join_sound: "none", leave_sound: "none" };
 
   // ── layout ──
   const sidebar = h("aside", { class: "sidebar" });
@@ -1051,6 +1051,7 @@ register("home", (root) => {
   async function leave() {
     problem = null;
     // Disconnecting from LiveKit is leaving; the server hears it from LiveKit.
+    playSound(me.leave_sound);
     await call.leave();
     if (view.kind === "voice") show({ kind: "deck" });
   }
@@ -1086,6 +1087,9 @@ register("home", (root) => {
         if (r.id === call.roomId) {
           const before = new Set(r.members.map((m) => m.user_id));
           for (const m of e.members) if (!before.has(m.user_id)) playJoinSound(person(m.user_id).join_sound);
+          // …and whoever left it (not you: you hear your own when you hang up).
+          const after = new Set(e.members.map((m) => m.user_id));
+          for (const id of before) if (!after.has(id) && id !== me.id) playSound(person(id).leave_sound);
         }
         r.members = e.members;
         // Room chat is only readable by people in the room, and it's cleared when the room empties.

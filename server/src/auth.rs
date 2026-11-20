@@ -167,6 +167,7 @@ pub struct User {
     pub status_emoji: Option<String>,
     pub status_text: Option<String>,
     pub join_sound: String,
+    pub leave_sound: String,
 }
 
 impl User {
@@ -195,6 +196,7 @@ impl User {
             status_emoji: self.status_emoji.clone(),
             status_text: self.status_text.clone(),
             join_sound: self.join_sound.clone(),
+            leave_sound: self.leave_sound.clone(),
         }
     }
 }
@@ -217,6 +219,8 @@ pub struct MeOut {
     pub status_text: Option<String>,
     /// Sound others hear when you join a voice room.
     pub join_sound: String,
+    /// Sound others hear when you leave a voice room.
+    pub leave_sound: String,
 }
 
 pub async fn load_user_by_token(conn: &mut PgConnection, token: &str) -> AppResult<Option<User>> {
@@ -245,7 +249,7 @@ pub async fn load_user_by_token_id(conn: &mut PgConnection, session_id: i64) -> 
         r#"SELECT u.id, u.username::text AS "username!", u.display_name, u.color, u.role, u.is_owner,
                   s.id AS session_id, (m.confirmed_at IS NOT NULL) AS "mfa_enabled!", t.mods_require_mfa,
                   (SELECT a.version FROM avatars a WHERE a.user_id = u.id) AS avatar,
-                  u.status, u.status_emoji, u.status_text, u.join_sound
+                  u.status, u.status_emoji, u.status_text, u.join_sound, u.leave_sound
            FROM sessions s
            JOIN users u ON u.id = s.user_id
            LEFT JOIN mfa m ON m.user_id = u.id
@@ -270,6 +274,7 @@ pub async fn load_user_by_token_id(conn: &mut PgConnection, session_id: i64) -> 
         status_emoji: r.status_emoji,
         status_text: r.status_text,
         join_sound: r.join_sound,
+        leave_sound: r.leave_sound,
     })
 }
 

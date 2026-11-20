@@ -33,12 +33,23 @@ pub struct MePatch {
     /// Custom status; send both as "" (or null) to clear.
     status_emoji: Option<String>,
     status_text: Option<String>,
-    /// ding | fart | quack | hewya | none
+    /// One of SOUNDS (or none), heard by others when you join / leave a voice room.
     join_sound: Option<String>,
+    leave_sound: Option<String>,
 }
 
 const STATUSES: [&str; 4] = ["online", "away", "busy", "brb"];
-const JOIN_SOUNDS: [&str; 5] = ["ding", "fart", "quack", "hewya", "none"];
+const SOUNDS: [&str; 9] = [
+    "ding",
+    "fart",
+    "quack",
+    "hewya",
+    "yeah-boy",
+    "female-bye",
+    "kiddo-bye",
+    "mmbye",
+    "none",
+];
 
 pub async fn update_me(
     State(st): State<AppState>,
@@ -63,10 +74,12 @@ pub async fn update_me(
             "Pick online, away, busy or be right back.",
         ));
     }
-    if let Some(s) = p.join_sound.as_deref()
-        && !JOIN_SOUNDS.contains(&s)
+    if [&p.join_sound, &p.leave_sound]
+        .into_iter()
+        .flatten()
+        .any(|s| !SOUNDS.contains(&s.as_str()))
     {
-        return Err(AppError::bad("bad_sound", "Pick one of the join sounds."));
+        return Err(AppError::bad("bad_sound", "Pick one of the sounds."));
     }
     // Custom status is set or cleared as a pair.
     let custom = p.status_emoji.is_some() || p.status_text.is_some();
@@ -91,7 +104,7 @@ pub async fn update_me(
     let mut tx = st.db.begin().await?;
     sqlx::query!(
         "UPDATE users SET display_name = COALESCE($2, display_name), color = COALESCE($3, color),
-                          status = COALESCE($4, status), join_sound = COALESCE($8, join_sound),
+                          status = COALESCE($4, status), join_sound = COALESCE($8, join_sound), leave_sound = COALESCE($9, leave_sound),
                           status_emoji = CASE WHEN $5 THEN $6 ELSE status_emoji END,
                           status_text = CASE WHEN $5 THEN $7 ELSE status_text END
          WHERE id = $1",
@@ -102,7 +115,8 @@ pub async fn update_me(
         custom,
         emoji,
         text,
-        p.join_sound
+        p.join_sound,
+        p.leave_sound
     )
     .execute(&mut *tx)
     .await?;

@@ -10,7 +10,8 @@ import { ACTIONS, type Action, conflicts, DEFAULTS as DEFAULT_KEYS, format as fo
 import { dropdown, dropdownOpen } from "../dropdown";
 import { strengthMeter } from "../password";
 import { chime } from "../notify";
-import { JOIN_SOUNDS, type JoinSound, playJoinSound } from "../sounds";
+import type { SoundName } from "../api/types";
+import { playSound, SOUNDS } from "../sounds";
 import { AUDIO_CAPTURE, prefs } from "../voice";
 import { call } from "../call";
 import { colorPicker, tilePreview } from "./auth";
@@ -249,20 +250,27 @@ register("settings", (root, screen) => {
     return h("label", { class: "toggle-row" }, h("span", { class: "grow col" }, h("span", null, label), h("span", { class: "muted small" }, hint)), box, h("span", { class: "switch", "aria-hidden": "true" }));
   }
 
-  /** Your join sound: what everyone in a voice room hears when you come in. */
-  function joinSoundField() {
-    const pick = dropdown("s-join", JOIN_SOUNDS, me.join_sound);
+  /** Your join and leave sounds: what everyone in a voice room hears when you come and go. */
+  function soundPicker(kind: "join_sound" | "leave_sound", label: string, hint: string) {
+    const pick = dropdown(`s-${kind}`, SOUNDS, me[kind]);
     pick.onChange = async (v) => {
-      playJoinSound(v as JoinSound);
+      playSound(v as SoundName);
       try {
-        Object.assign(me, await api.updateMe({ join_sound: v as JoinSound }));
+        Object.assign(me, await api.updateMe({ [kind]: v as SoundName }));
         session.me = me;
-      } catch (x) { toast(errorText(x), "error"); pick.value = me.join_sound; }
+      } catch (x) { toast(errorText(x), "error"); pick.value = me[kind]; }
     };
-    const play = h("button", { class: "btn ghost sm", type: "button", onclick: () => playJoinSound(pick.value as JoinSound) }, "Play");
-    return h("div", { class: "field" }, h("label", { for: "s-join" }, "Your join sound"),
+    const play = h("button", { class: "btn ghost sm", type: "button", onclick: () => playSound(pick.value as SoundName) }, "Play");
+    return h("div", { class: "field" }, h("label", { for: `s-${kind}` }, label),
       h("div", { class: "row gap-14" }, h("div", { class: "grow" }, pick.el), play),
-      h("p", { class: "muted small" }, "Everyone in the voice room hears it when you join."));
+      h("p", { class: "muted small" }, hint));
+  }
+
+  function joinSoundField() {
+    return [
+      soundPicker("join_sound", "Your join sound", "Everyone in the voice room hears it when you join."),
+      soundPicker("leave_sound", "Your leave sound", "Everyone still in the room hears it when you leave."),
+    ];
   }
 
   function hotkeyRows() {
