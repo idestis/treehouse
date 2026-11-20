@@ -221,6 +221,12 @@ fieldset.plain legend { padding: 0; margin-bottom: 10px; }
 .status-line time { margin-left: 4px; }
 .roomchat .msg.status { padding-left: 58px; }
 .msg-actions { display: flex; gap: 2px; align-self: flex-start; opacity: 0; }
+.msg-actions.confirming { opacity: 1; align-items: center; gap: 8px; color: var(--ember); }
+.btn.danger { background: var(--ember); color: #2a0e0b; }
+.btn.danger:hover:not(:disabled) { background: #ffa59b; }
+.msg.dissolving { overflow: hidden; pointer-events: none; opacity: 0; filter: blur(6px); transform: scale(0.98);
+  max-height: 0 !important; padding-top: 0; padding-bottom: 0; margin: 0;
+  transition: opacity 0.22s ease, filter 0.22s ease, transform 0.22s ease, max-height 0.24s ease 0.16s, padding 0.24s ease 0.16s; }
 .msg:hover .msg-actions, .msg:focus-within .msg-actions { opacity: 1; }
 .mention { background: rgba(255, 179, 71, 0.18); color: var(--lantern); font-weight: 700; padding: 1px 8px; border-radius: 6px; }
 .mention.me { background: rgba(255, 179, 71, 0.28); }

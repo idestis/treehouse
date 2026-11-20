@@ -190,7 +190,7 @@ register("home", (root) => {
     const reactBtn = h("button", { class: "reaction add", type: "button", "aria-label": "Add reaction", title: "Add reaction" }, icon("smilePlus", 18));
     reactBtn.onclick = () => emojiPicker(reactBtn, (e) => void react(m, e, true));
     const deleteBtn = canDelete && h("div", { class: "msg-actions" },
-      h("button", { class: "icon-btn sm msg-act", "aria-label": "Delete message", title: "Delete", onclick: () => void del(m) }, icon("trash", 18)));
+      h("button", { class: "icon-btn sm msg-act", "aria-label": "Delete message", title: "Delete", onclick: (e: Event) => confirmDelete(m, e.currentTarget as HTMLElement) }, icon("trash", 18)));
     // `/me` is a status line, like "joined" or "muted": one row, no repeated header.
     if (m.kind === "action") {
       return h("article", { class: "msg status", "data-id": String(m.id) },
@@ -230,11 +230,28 @@ register("home", (root) => {
     } catch (e) { toast(errorText(e), "error"); }
   }
 
-  async function del(m: Message) {
-    try {
-      await api.deleteMessage(m.id);
-      removeMessage(m.channel_id, m.id);
-    } catch (e) { toast(errorText(e), "error"); }
+  /** Ask in place before deleting: the bin turns into "Delete for everyone? Delete / Cancel". */
+  function confirmDelete(m: Message, btn: HTMLElement) {
+    const actions = btn.closest(".msg-actions") as HTMLElement | null;
+    if (!actions) return;
+    const restore = () => { actions.classList.remove("confirming"); mount(actions, btn); document.removeEventListener("keydown", onEsc, true); };
+    const onEsc = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); restore(); } };
+    const yes = h("button", { class: "btn danger sm", type: "button" }, "Delete");
+    yes.onclick = async () => {
+      yes.disabled = true;
+      try {
+        await api.deleteMessage(m.id);
+        document.removeEventListener("keydown", onEsc, true);
+        removeMessage(m.channel_id, m.id);
+      } catch (e) { toast(errorText(e), "error"); restore(); }
+    };
+    actions.classList.add("confirming");
+    mount(actions,
+      h("span", { class: "small" }, m.author_id === me.id ? "Delete for everyone?" : "Delete their message?"),
+      yes,
+      h("button", { class: "btn ghost sm", type: "button", onclick: restore }, "Cancel"));
+    document.addEventListener("keydown", onEsc, true);
+    yes.focus();
   }
 
   /** Message lists currently on screen, by channel. */
@@ -275,11 +292,19 @@ register("home", (root) => {
     }
   }
 
+  /** Dissolve the message out (blur, fade, collapse), then drop it. Also used when someone else deletes. */
   function removeMessage(channel: number, id: number) {
     const list = cache.get(channel);
     if (!list) return;
     const i = list.findIndex((x) => x.id === id);
-    if (i >= 0) { list.splice(i, 1); refreshLists(channel); }
+    if (i < 0) return;
+    list.splice(i, 1);
+    const el = lists.get(channel)?.el.querySelector<HTMLElement>(`.msg[data-id="${id}"]`);
+    if (!el || matchMedia("(prefers-reduced-motion: reduce)").matches) { refreshLists(channel); return; }
+    el.style.maxHeight = `${el.offsetHeight}px`;
+    void el.offsetHeight; // start the transition from the real height
+    el.classList.add("dissolving");
+    setTimeout(() => refreshLists(channel), 420);
   }
 
   // ─── Composer and pickers ────────────────────────────────────────
