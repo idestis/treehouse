@@ -1,0 +1,89 @@
+# Treehouse on one small server: the Rust server (1-2 replicas), Postgres,
+# LiveKit and Caddy. Everything is configured in deploy/.env (copy .env.example).
+#
+#   docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d
+#   TREEHOUSE_REPLICAS=2 docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d
+#
+# Running two replicas is safe: rules live in Postgres transactions, migrations
+# and background jobs take advisory locks, and Caddy spreads requests across both.
+
+name: treehouse
+
+services:
+  treehouse:
+    image: ${TREEHOUSE_IMAGE:-treehouse:latest}
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    deploy:
+      replicas: ${TREEHOUSE_REPLICAS:-1}
+    environment:
+      DATABASE_URL: postgres://treehouse:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/treehouse
+      BIND_ADDR: 0.0.0.0:8080
+      PUBLIC_URL: https://${APP_DOMAIN:?set APP_DOMAIN}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS:-10}
+      RUN_MIGRATIONS: ${RUN_MIGRATIONS:-true}
+      SETUP_INVITE_TTL: ${SETUP_INVITE_TTL:-120}
+      MAX_VOICE_ROOMS: ${MAX_VOICE_ROOMS:-3}
+      SHUTDOWN_GRACE_SECS: ${SHUTDOWN_GRACE_SECS:-10}
+      LIVEKIT_URL: wss://${VOICE_DOMAIN:?set VOICE_DOMAIN}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:?set LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?set LIVEKIT_API_SECRET}
+      GIPHY_API_KEY: ${GIPHY_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [internal]
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: treehouse
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: treehouse
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U treehouse -d treehouse"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [internal]
+
+  # Host networking: LiveKit needs a UDP port range and TURN.
+  livekit:
+    image: livekit/livekit-server:v1.9
+    restart: unless-stopped
+    network_mode: host
+    command: --config /etc/livekit.yaml
+    environment:
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+      VOICE_DOMAIN: ${VOICE_DOMAIN}
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [treehouse]
+    networks: [internal]
+
+networks:
+  internal:
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,18 @@
+# Throwaway Postgres for local dev and integration tests (`task db`).
+# Data lives in tmpfs: `docker compose -f deploy/docker-compose.test.yml down` wipes it.
+name: treehouse-test
+
+services:
+  postgres-test:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: treehouse
+      POSTGRES_PASSWORD: treehouse
+      POSTGRES_DB: treehouse_test
+    ports: ["127.0.0.1:55432:5432"]
+    tmpfs: [/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U treehouse -d treehouse_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 15

@@ -1,0 +1,25 @@
+# HTTPS with automatic certificates.
+{$APP_DOMAIN} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+	}
+	# Every treehouse replica, found through Docker DNS and refreshed often,
+	# so scaling between 1 and 2 replicas needs no Caddy change.
+	reverse_proxy {
+		dynamic a treehouse 8080 {
+			refresh 5s
+		}
+		lb_policy round_robin
+		lb_retries 2
+		health_uri /readyz
+		health_interval 5s
+	}
+}
+
+# LiveKit signalling (host network, see docker-compose.yml).
+{$VOICE_DOMAIN} {
+	reverse_proxy host.docker.internal:7880
+}

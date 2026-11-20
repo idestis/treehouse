@@ -1,0 +1,17 @@
+# LiveKit voice server. API keys come from LIVEKIT_KEYS (see docker-compose.yml).
+port: 7880
+bind_addresses: ["0.0.0.0"]     # Caddy reaches it via host.docker.internal; firewall 7880 off the internet
+rtc:
+  tcp_port: 7881                # fallback when UDP is blocked
+  port_range_start: 50000
+  port_range_end: 50200         # plenty for a handful of people
+  use_external_ip: true
+room:
+  empty_timeout: 300
+  max_participants: 12
+turn:
+  # Built-in TURN relay for friends behind strict networks (school or mobile hotspots).
+  enabled: true
+  udp_port: 3478
+logging:
+  level: info
