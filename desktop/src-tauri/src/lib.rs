@@ -1,8 +1,11 @@
 mod client;
 mod live;
+mod overlay;
 mod system;
 mod tray;
 mod update;
+
+use tauri::Emitter;
 
 pub fn run() {
     tauri::Builder::default()
@@ -27,17 +30,27 @@ pub fn run() {
             live::events_stop,
             tray::set_unread,
             system::open_privacy_settings,
+            overlay::overlay_open,
+            overlay::overlay_close,
         ])
         .setup(|app| {
             tray::build(app.handle())?;
             Ok(())
         })
-        // Closing the window keeps Treehouse in the tray (Quit is in its menu).
-        .on_window_event(|window, ev| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = ev {
+        .on_window_event(|window, ev| match ev {
+            // Closing the overlay remembers where it was and tells the main window.
+            tauri::WindowEvent::CloseRequested { .. } if window.label() == overlay::LABEL => {
+                overlay::remember(window);
+            }
+            tauri::WindowEvent::Destroyed if window.label() == overlay::LABEL => {
+                let _ = window.emit_to("main", "overlay-closed", ());
+            }
+            // Closing the main window keeps Treehouse in the tray (Quit is in its menu).
+            tauri::WindowEvent::CloseRequested { api, .. } => {
                 api.prevent_close();
                 let _ = window.hide();
             }
+            _ => {}
         })
         .build(tauri::generate_context!())
         .unwrap_or_else(|e| {

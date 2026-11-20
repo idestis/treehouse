@@ -31,7 +31,7 @@ export function routes(call: Call): Omit<Api, "servers" | "probe" | "forgetLogin
     react: (id, emoji, on) => call(on ? "PUT" : "DELETE", `/api/messages/${id}/reactions/${encodeURIComponent(emoji)}`),
     gifs: (q) => call("GET", `/api/gifs?q=${encodeURIComponent(q)}`),
 
-    voiceToken: (id) => call("POST", `/api/rooms/${id}/voice-token`),
+    voiceToken: (id, opts) => call("POST", `/api/rooms/${id}/voice-token${opts?.overlay ? "?overlay=true" : ""}`),
     createRoom: (input) => call("POST", "/api/rooms", input),
     updateRoom: (id, patch) => call("PATCH", `/api/rooms/${id}`, patch),
     deleteRoom: (id, everyone) => call("DELETE", `/api/rooms/${id}${everyone ? "?everyone=true" : ""}`),

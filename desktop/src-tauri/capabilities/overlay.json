@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "overlay",
+  "description": "People overlay shown while sharing the screen: drag, close, events and the app's own commands",
+  "windows": ["overlay"],
+  "permissions": ["core:default", "core:window:allow-start-dragging", "core:window:allow-close"]
+}
