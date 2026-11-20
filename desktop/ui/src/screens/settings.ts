@@ -9,6 +9,7 @@ import { personAvatar, shrinkForUpload } from "../avatars";
 import { ACTIONS, type Action, conflicts, DEFAULTS as DEFAULT_KEYS, format as formatKey, fromEvent, load as loadHotkeys, problem as hotkeyProblem, save as saveHotkeys } from "../hotkeys";
 import { strengthMeter } from "../password";
 import { AUDIO_CAPTURE, prefs } from "../voice";
+import { call } from "../call";
 import { colorPicker, tilePreview } from "./auth";
 
 const TABS: [SettingsTab, string][] = [
@@ -177,8 +178,9 @@ register("settings", (root, screen) => {
       mic.value = prefs.mic;
       out.value = prefs.speaker;
     };
-    mic.onchange = () => { prefs.mic = mic.value; void listen(); };
-    out.onchange = () => { prefs.speaker = out.value; };
+    // A call in progress switches right away.
+    mic.onchange = () => { prefs.mic = mic.value; void listen(); void call.useDevice("audioinput", mic.value); };
+    out.onchange = () => { prefs.speaker = out.value; void call.useDevice("audiooutput", out.value); };
 
     mount(el,
       h("h2", { class: "display xs" }, "Sound"),
@@ -378,6 +380,7 @@ register("settings", (root, screen) => {
     const server = session.server;
     const list = h("ul", { class: "rows" });
     const signOut = async () => {
+      await call.leave();
       try { await api.logout(); } catch { await api.forgetLogin().catch(() => {}); }
       session.me = null;
       go({ name: "signin" });

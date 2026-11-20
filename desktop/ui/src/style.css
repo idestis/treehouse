@@ -269,9 +269,42 @@ fieldset.plain legend { padding: 0; margin-bottom: 10px; }
 .emoji-btn:hover { background: var(--active); }
 .popover { position: fixed; z-index: 30; width: 300px; display: flex; flex-direction: column; gap: 12px; padding: 16px; background: #172038; border: 1.5px solid var(--line-2); border-radius: 16px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45); }
 
-.stage { flex: 1; min-height: 0; display: grid; gap: 22px; padding: 28px 36px 36px; }
+.stage { position: relative; flex: 1; min-height: 0; display: grid; gap: 22px; padding: 28px 36px 18px; }
 .tile { position: relative; min-height: 0; border-radius: 22px; display: grid; place-items: center; overflow: hidden; border: 2px solid transparent; }
-.tile.camera { background: radial-gradient(circle at 60% 30%, #8a6a45, #3a2c22 70%) !important; }
+.tile { transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+.tile.camera { background: #000 !important; }
+/* Lantern ring on whoever is talking. */
+.tile.speaking { border-color: var(--lantern); box-shadow: 0 0 0 5px rgba(255, 179, 71, 0.16), 0 0 56px rgba(255, 179, 71, 0.3); }
+.tile.speaking .avatar.huge { box-shadow: 0 0 0 5px var(--lantern); }
+.avatar.huge { transition: box-shadow 0.15s ease; }
+.avatar.huge.dim { opacity: 0.7; }
+.tile-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #000; }
+.tile-video.mirror { transform: scaleX(-1); }
+.tile-video.screen { object-fit: contain; }
+.ellipsis { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stage-note { position: absolute; z-index: 2; top: 10px; left: 50%; transform: translateX(-50%); padding: 6px 14px; border-radius: 999px; background: rgba(14, 19, 34, 0.85); color: var(--lantern); font-weight: 700; font-size: 15px; white-space: nowrap; }
+/* Someone shares a screen: it takes the stage, people sit in a strip below. */
+.stage.spotlight { display: flex; flex-direction: column; gap: 14px; }
+.stage.spotlight .spot { flex: 1; min-height: 0; background: #000; border-color: var(--line); }
+.strip { flex: none; display: flex; gap: 12px; height: 140px; overflow-x: auto; padding-bottom: 2px; }
+.tile.small { flex: 0 0 210px; height: 100%; border-radius: 16px; }
+.tile.small .avatar.huge { width: 34%; max-width: 72px; font-size: 28px; }
+.tile.small .tile-bar { left: 8px; right: 8px; bottom: 8px; padding: 4px 6px; font-size: 14px; gap: 6px; }
+.tile.small .tile-ic { width: 26px; height: 26px; }
+.screen-tile.small { cursor: pointer; background: #000; border-color: var(--line); }
+.screen-tile.small:hover { border-color: var(--lantern); }
+.call-bar { display: flex; justify-content: center; align-items: center; gap: 14px; padding: 4px 36px 22px; }
+.call-btn { display: inline-grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--surface); border: 1.5px solid var(--line-2); color: var(--moon); }
+.call-btn:hover:not(:disabled) { background: var(--active); }
+.call-btn:disabled { opacity: 0.45; cursor: default; }
+.call-btn.off { color: var(--ember); background: #2a1620; border-color: #5a2a32; }
+.call-btn.on { color: var(--leaf); background: #13302a; border-color: #1f5a44; }
+.call-btn.leave { width: 72px; border-radius: 999px; background: var(--ember); border-color: var(--ember); color: #2a0e0b; }
+.call-btn.leave:hover { background: #ffa59b; }
+.call-problem { display: flex; align-items: center; gap: 14px; margin: 0 36px 12px; padding: 14px 16px; border-radius: 16px; background: rgba(255, 138, 126, 0.08); border: 1.5px solid rgba(255, 138, 126, 0.35); }
+.call-problem[hidden] { display: none; }
+.sb-members li.speaking .sb-av { box-shadow: 0 0 0 2px var(--canopy), 0 0 0 4px var(--lantern); }
+.sb-voice-info { text-align: left; align-items: flex-start; }
 .tile-bar { position: absolute; left: 14px; right: 14px; bottom: 14px; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 999px; background: rgba(14, 19, 34, 0.75); font-size: 17px; }
 .tile-ic { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; color: var(--moon); }
 .tile-ic.off { color: var(--ember); background: rgba(255, 138, 126, 0.15); }

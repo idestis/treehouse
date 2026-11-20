@@ -3,12 +3,13 @@
 // refused by the server.
 import { invoke } from "@tauri-apps/api/core";
 import { api } from "../api";
-import type { Gif, LiveEvent, Me, Message, Person, Room, Treehouse } from "../api/types";
+import type { Gif, LiveEvent, Me, Message, Person, Room, Treehouse, VoiceMember } from "../api/types";
 import { errorText } from "../api/types";
 import { go, register, session } from "../app";
 import { personAvatar } from "../avatars";
+import { call, type CallEvent, type Capture, type Video } from "../call";
 import { format as formatKey, load as loadHotkeys, matches } from "../hotkeys";
-import { h, icon, mount, time, toast } from "../dom";
+import { h, icon, icons, mount, time, toast } from "../dom";
 
 const EMOJI = ["😂", "😭", "💀", "🔥", "💯", "❤️", "👍", "👎", "😎", "🥲", "😴", "🤔", "😤", "🙃", "😅", "🤯", "🥳", "😈", "👀", "🙏", "🫡", "🤝", "👋", "🎮", "🕹️", "🏆", "⚡", "✨", "🎉", "🍕", "🍿", "🥤", "🌙", "⭐", "🦉", "🌲", "🎧", "🎤", "📣", "✅", "❌", "⏰"];
 
@@ -30,15 +31,19 @@ register("home", (root) => {
   let rooms: Room[] = [];
   let treehouse: Treehouse = { name: session.server?.name ?? "Treehouse", version: "", message_ttl_hours: 72, max_voice_rooms: 3, gifs: false };
   let offline = false;
-  let view: View = { kind: "deck" };
+  // Coming back from Settings mid-call opens the call again.
+  let view: View = call.roomId !== null ? { kind: "voice", roomId: call.roomId } : { kind: "deck" };
   let roomChatOpen = false;
   let deckMentions = 0;
-  const local = { muted: false, deafened: false, camera: false };
+  /** Whose screen is large when several people share. */
+  let spotlight: number | null = null;
+  let problem: { kind: Capture; problem: "denied" | "missing" | "unsupported" | "failed" } | null = null;
   const cache = new Map<number, Message[]>();
 
   const deck = () => rooms.find((r) => r.kind === "deck");
   const voiceRooms = () => rooms.filter((r) => r.kind === "voice");
-  const myVoiceRoom = () => voiceRooms().find((r) => r.members.some((m) => m.user_id === me.id));
+  /** The room your call is in (connecting, connected or reconnecting). */
+  const myVoiceRoom = () => voiceRooms().find((r) => r.id === call.roomId);
   const person = (id: number): Person => people.get(id) ?? { id, username: "gone", display_name: "Someone", color: "#7C8BA8", role: "member", online: false, avatar: null };
 
   // ── layout ──
@@ -100,24 +105,30 @@ register("home", (root) => {
           h("button", { class: `sb-row ${view.kind === "voice" && view.roomId === r.id ? "active" : ""}`, onclick: () => openRoom(r) },
             icon("speaker", 20, "muted"), h("span", { class: "grow" }, r.name),
             r.members.length > 0 && h("span", { class: "badge leaf" }, String(r.members.length))),
-          r.members.length > 0 && h("ul", { class: "sb-members" }, r.members.map((m) => {
+          r.members.length > 0 && h("ul", { class: "sb-members", "data-room": String(r.id) }, r.members.map((m) => {
             const p = person(m.user_id);
-            return h("li", null,
-              personAvatar(p, 24),
+            const talking = r.id === call.roomId && call.speaking.includes(m.user_id);
+            return h("li", { "data-user": String(m.user_id), class: talking ? "speaking" : "" },
+              personAvatar(p, 24, "sb-av"),
               h("span", { class: "grow" }, p.display_name, p.id === me.id ? " (you)" : ""),
-              m.muted && icon("micOff", 18, "ember"),
-              m.camera && icon("video", 18, "leaf"));
+              m.screen && h("span", { title: "Sharing their screen", class: "row" }, icon("monitor", 18, "lantern")),
+              m.muted && h("span", { title: "Muted", class: "row" }, icon("micOff", 18, "ember")),
+              m.camera && h("span", { title: "Camera on", class: "row" }, icon("video", 18, "leaf")));
           })),
         ]),
       ),
       current && h("div", { class: "sb-voice" },
-        h("div", { class: "grow col" }, h("span", { class: "leaf strong" }, h("span", { class: "dot" }), "Voice connected"), h("span", { class: "small" }, current.name)),
+        h("button", { class: "grow col sb-voice-info", title: "Open the room", onclick: () => show({ kind: "voice", roomId: current.id }) },
+          call.status === "connected"
+            ? h("span", { class: "leaf strong" }, h("span", { class: "dot" }), "Voice connected")
+            : h("span", { class: "lantern strong" }, h("span", { class: "dot" }), call.status === "connecting" ? "Connecting…" : "Reconnecting…"),
+          h("span", { class: "small" }, current.name)),
         h("button", { class: "icon-btn danger", "aria-label": "Leave voice", title: "Leave voice", onclick: () => leave() }, icon("hangup", 22))),
       h("footer", { class: "sb-me" },
         h("span", { class: "me-avatar" }, personAvatar(me, 40), h("span", { class: "online-dot" })),
         h("div", { class: "grow col min0" }, h("strong", null, me.display_name), h("span", { class: "muted small" }, `@${me.username}`)),
-        h("button", { class: `icon-btn ${local.muted ? "ember" : ""}`, "aria-pressed": String(local.muted), "aria-label": `${local.muted ? "Unmute" : "Mute"} (${formatKey(keys.mute)})`, title: `${local.muted ? "Unmute" : "Mute"} (${formatKey(keys.mute)})`, onclick: toggleMute }, icon(local.muted ? "micOff" : "mic", 22)),
-        h("button", { class: `icon-btn ${local.deafened ? "ember" : ""}`, "aria-pressed": String(local.deafened), "aria-label": `${local.deafened ? "Undeafen" : "Deafen"} (${formatKey(keys.deafen)})`, title: `${local.deafened ? "Undeafen" : "Deafen"} (${formatKey(keys.deafen)})`, onclick: toggleDeafen }, icon(local.deafened ? "headphonesOff" : "headphones", 22)),
+        h("button", { class: `icon-btn ${call.muted ? "ember" : ""}`, "aria-pressed": String(call.muted), "aria-label": `${call.muted ? "Unmute" : "Mute"} (${formatKey(keys.mute)})`, title: `${call.muted ? "Unmute" : "Mute"} (${formatKey(keys.mute)})`, onclick: toggleMute }, icon(call.muted ? "micOff" : "mic", 22)),
+        h("button", { class: `icon-btn ${call.deafened ? "ember" : ""}`, "aria-pressed": String(call.deafened), "aria-label": `${call.deafened ? "Undeafen" : "Deafen"} (${formatKey(keys.deafen)})`, title: `${call.deafened ? "Undeafen" : "Deafen"} (${formatKey(keys.deafen)})`, onclick: toggleDeafen }, icon(call.deafened ? "headphonesOff" : "headphones", 22)),
       ),
     );
   }
@@ -157,7 +168,7 @@ register("home", (root) => {
     document.querySelector(".popover")?.remove();
     const rect = anchor.getBoundingClientRect();
     const full = r.capacity !== null && r.members.length >= r.capacity;
-    const inIt = r.members.some((m) => m.user_id === me.id);
+    const inIt = r.id === call.roomId;
     const pop = h("div", { class: "popover", role: "dialog", "aria-label": r.name, style: { left: `${Math.min(rect.left, innerWidth - 320)}px`, top: `${rect.bottom + 8}px` } },
       h("div", { class: "row gap-10" }, icon("speaker", 20, "lantern"), h("strong", { class: "grow" }, r.name),
         h("button", { class: "icon-btn sm", "aria-label": "Close", onclick: () => pop.remove() }, icon("close", 18))),
@@ -444,14 +455,21 @@ register("home", (root) => {
       return;
     }
     const room = rooms.find((r) => r.id === (view as { roomId: number }).roomId);
+    if (!room && !rooms.length) { mount(main, h("p", { class: "muted center pad" }, "Loading…")); return; }
     if (!room) { show({ kind: "deck" }); return; }
-    const n = room.members.length;
+    stageSub = h("p", { class: "muted" });
+    stageEl = h("section", { class: "stage", "aria-label": `People in ${room.name}` });
+    barEl = h("div", { class: "call-bar", role: "toolbar", "aria-label": "Call controls" });
+    problemEl = h("div", { class: "call-problem", role: "alert", hidden: true });
     mount(main,
       h("header", { class: "main-head" },
-        h("div", { class: "col grow" }, h("h1", { class: "title" }, room.name), h("p", { class: "muted" }, n ? `${n} in voice` : "Nobody here yet")),
+        h("div", { class: "col grow" }, h("h1", { class: "title" }, room.name), stageSub),
         h("button", { class: `btn outline-lantern ${roomChatOpen ? "on" : ""}`, "aria-pressed": String(roomChatOpen), onclick: () => { roomChatOpen = !roomChatOpen; renderMain(); } }, icon("chat", 20), "Room chat"),
-        h("button", { class: "btn outline-ember", onclick: () => leave() }, "Leave")),
-      stage(room));
+        h("button", { class: "btn outline-ember", onclick: () => void leave() }, "Leave")),
+      stageEl, problemEl, barEl);
+    renderStage();
+    renderBar();
+    renderProblem();
     side.hidden = !roomChatOpen;
     if (roomChatOpen) {
       mount(side,
@@ -463,26 +481,217 @@ register("home", (root) => {
     }
   }
 
-  function stage(room: Room) {
-    const n = room.members.length;
-    // 1 fills the stage, 2 side by side, 3–4 a 2×2 grid, 5–6 a 3×2 grid.
-    const cols = n <= 1 ? 1 : n <= 4 ? 2 : n <= 6 ? 3 : 4;
-    const rowsN = Math.max(1, Math.ceil(n / cols));
-    return h("section", { class: "stage", style: { gridTemplateColumns: `repeat(${cols}, 1fr)`, gridTemplateRows: `repeat(${rowsN}, 1fr)` } },
-      room.members.map((m) => {
-        const p = person(m.user_id);
-        const you = p.id === me.id;
-        return h("div", { class: `tile ${m.camera ? "camera" : ""}`, style: { background: `color-mix(in srgb, ${p.color} 22%, #182238)` } },
-          m.camera && h("span", { class: "live" }, h("span", { class: "dot" }), "Live"),
-          !m.camera && personAvatar(p, 0, "huge"),
-          h("div", { class: "tile-bar" },
-            personAvatar(p, 28),
-            h("strong", { class: "grow" }, p.display_name, you ? " (you)" : ""),
-            h("span", { class: `tile-ic ${m.muted ? "off" : ""}` }, icon(m.muted ? "micOff" : "mic", 20)),
-            h("span", { class: `tile-ic ${m.camera ? "on" : ""}` }, icon(m.camera ? "video" : "videoOff", 20)),
-          ));
-      }),
-      n === 0 && h("p", { class: "muted center" }, "Nobody here yet."));
+  // ─── Voice stage ─────────────────────────────────────────────────
+
+  let stageEl: HTMLElement | null = null;
+  let stageSub: HTMLElement | null = null;
+  let barEl: HTMLElement | null = null;
+  let problemEl: HTMLElement | null = null;
+  /** Video elements by track, kept across re-renders so playing video doesn't flicker. */
+  const videoEls = new Map<Video["track"], HTMLVideoElement>();
+
+  const viewedRoom = () => (view.kind === "voice" ? rooms.find((r) => r.id === (view as { roomId: number }).roomId) : undefined);
+
+  /** Server membership, plus anyone LiveKit already shows in your call before the server catches up. */
+  function stageMembers(room: Room): VoiceMember[] {
+    const list = room.members.map((m) => ({ ...m }));
+    if (call.roomId !== room.id) return list;
+    for (const p of call.participants()) {
+      const m = list.find((x) => x.user_id === p.userId);
+      if (!m) list.push({ user_id: p.userId, muted: p.muted, camera: p.camera, screen: p.screen });
+      else if (p.local) Object.assign(m, { muted: call.muted, camera: call.camera, screen: call.screen });
+    }
+    return list;
+  }
+
+  function videoEl(v: Video): HTMLVideoElement {
+    let el = videoEls.get(v.track);
+    if (!el) {
+      el = v.track.attach() as HTMLVideoElement;
+      el.muted = true;
+      el.playsInline = true;
+      el.autoplay = true;
+      videoEls.set(v.track, el);
+    }
+    el.className = `tile-video ${v.source === "screen" ? "screen" : ""} ${v.local && v.source === "camera" ? "mirror" : ""}`;
+    return el;
+  }
+
+  /** "4 in voice, Ana is talking" */
+  function talkingText(members: VoiceMember[]): string {
+    const n = members.length;
+    if (!n) return "Nobody here yet";
+    const names = call.speaking
+      .filter((id) => members.some((m) => m.user_id === id))
+      .map((id) => (id === me.id ? "You" : person(id).display_name));
+    if (!names.length) return `${n} in voice`;
+    if (names.length === 1) return `${n} in voice, ${names[0]} ${names[0] === "You" ? "are" : "is"} talking`;
+    return `${n} in voice, ${names.slice(0, -1).join(", ")} and ${names[names.length - 1]} are talking`;
+  }
+
+  function personTile(m: VoiceMember, cam: Video | undefined, strip = false) {
+    const p = person(m.user_id);
+    const you = p.id === me.id;
+    const speaking = call.roomId !== null && call.speaking.includes(m.user_id);
+    return h("div", { class: `tile ${cam ? "camera" : ""} ${speaking ? "speaking" : ""} ${strip ? "small" : ""}`, "data-user": String(m.user_id),
+      style: { background: `color-mix(in srgb, ${p.color} 22%, #182238)` } },
+      cam ? videoEl(cam) : personAvatar(p, 0, `huge ${m.muted ? "dim" : ""}`),
+      cam && !strip && h("span", { class: "live" }, h("span", { class: "dot" }), "Live"),
+      h("div", { class: "tile-bar" },
+        personAvatar(p, strip ? 22 : 28),
+        h("strong", { class: "grow ellipsis" }, p.display_name, you ? " (you)" : ""),
+        m.screen && h("span", { class: "tile-ic on", title: "Sharing their screen" }, icon("monitor", 18)),
+        h("span", { class: `tile-ic ${m.muted ? "off" : ""}`, title: m.muted ? "Muted" : "Mic on" }, icon(m.muted ? "micOff" : "mic", 18)),
+        !strip && h("span", { class: `tile-ic ${m.camera ? "on" : ""}`, title: m.camera ? "Camera on" : "Camera off" }, icon(m.camera ? "video" : "videoOff", 18)),
+      ));
+  }
+
+  function screenTile(v: Video, large: boolean) {
+    const label = v.userId === me.id ? "Your screen" : `${person(v.userId).display_name}’s screen`;
+    const bar = h("div", { class: "tile-bar" }, icon("monitor", 18, "lantern"), h("strong", { class: "grow ellipsis" }, label));
+    if (large) return h("div", { class: "tile screen-tile spot", "aria-label": label }, videoEl(v), bar);
+    return h("button", { class: "tile screen-tile small", type: "button", title: "Show large", "aria-label": `Show ${label.toLowerCase()} large`,
+      onclick: () => { spotlight = v.userId; renderStage(); } }, videoEl(v), bar);
+  }
+
+  function renderStage() {
+    const room = viewedRoom();
+    if (!room || !stageEl?.isConnected) return;
+    const members = stageMembers(room);
+    const here = call.roomId === room.id;
+    const vids = here ? call.videos() : [];
+    // Let go of video elements whose track is gone.
+    for (const [track, el] of videoEls) {
+      if (!vids.some((v) => v.track === track)) { track.detach(el); el.remove(); videoEls.delete(track); }
+    }
+    const cams = new Map(vids.filter((v) => v.source === "camera").map((v) => [v.userId, v]));
+    const screens = vids.filter((v) => v.source === "screen");
+    if (stageSub) stageSub.textContent = talkingText(members);
+
+    const note = !here ? null
+      : call.status === "connecting" ? h("p", { class: "stage-note" }, "Connecting…")
+      : call.status === "reconnecting" ? h("p", { class: "stage-note" }, "Connection lost. Reconnecting…")
+      : call.weak ? h("p", { class: "stage-note" }, "Your connection is weak. Video may look blurry.")
+      : null;
+
+    if (screens.length) {
+      // Spotlight: one screen large, people (and other screens) in a strip below. Click one to swap.
+      const big = screens.find((v) => v.userId === spotlight) ?? screens[0];
+      spotlight = big.userId;
+      stageEl.className = "stage spotlight";
+      stageEl.removeAttribute("style");
+      mount(stageEl, note,
+        screenTile(big, true),
+        h("div", { class: "strip" },
+          screens.filter((v) => v !== big).map((v) => screenTile(v, false)),
+          members.map((m) => personTile(m, cams.get(m.user_id), true))));
+    } else {
+      const n = members.length;
+      // 1 fills the stage, 2 side by side, 3–4 a 2×2 grid, 5–6 a 3×2 grid, more in rows of 4.
+      const cols = n <= 1 ? 1 : n <= 4 ? 2 : n <= 6 ? 3 : 4;
+      const rowsN = Math.max(1, Math.ceil(n / cols));
+      stageEl.className = "stage";
+      Object.assign(stageEl.style, { gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${rowsN}, minmax(0, 1fr))` });
+      mount(stageEl, note,
+        members.map((m) => personTile(m, cams.get(m.user_id))),
+        n === 0 && h("p", { class: "muted center" }, "Nobody here yet."));
+    }
+    // Moving a video element in the page can pause it; start it again.
+    for (const el of videoEls.values()) if (el.paused) void el.play().catch(() => {});
+  }
+
+  /** Talking changes many times a second: flip classes instead of rebuilding tiles. */
+  function renderSpeaking() {
+    const talking = new Set(call.speaking);
+    const viewingCall = viewedRoom()?.id === call.roomId;
+    for (const el of document.querySelectorAll<HTMLElement>(".stage [data-user]")) {
+      el.classList.toggle("speaking", viewingCall && talking.has(Number(el.dataset.user)));
+    }
+    for (const el of document.querySelectorAll<HTMLElement>(`.sb-members[data-room="${call.roomId}"] [data-user]`)) {
+      el.classList.toggle("speaking", talking.has(Number(el.dataset.user)));
+    }
+    const room = viewedRoom();
+    if (room && stageSub) stageSub.textContent = talkingText(stageMembers(room));
+  }
+
+  function renderBar() {
+    const room = viewedRoom();
+    if (!room || !barEl) return;
+    if (call.roomId !== room.id) {
+      const full = room.capacity !== null && room.members.length >= room.capacity;
+      mount(barEl, h("button", { class: "btn primary", disabled: full, onclick: () => void openRoom(room) }, full ? "Room is full" : "Join voice"));
+      return;
+    }
+    const live = call.status === "connected";
+    const btn = (label: string, ic: keyof typeof icons, cls: string, pressed: boolean | null, onclick: () => void, disabled = false) =>
+      h("button", { class: `call-btn ${cls}`, type: "button", title: label, "aria-label": label, "aria-pressed": pressed === null ? undefined : String(pressed), disabled, onclick }, icon(ic, 24));
+    mount(barEl,
+      btn(`${call.muted ? "Unmute" : "Mute"} (${formatKey(keys.mute)})`, call.muted ? "micOff" : "mic", call.muted ? "off" : "", call.muted, toggleMute),
+      btn(call.camera ? "Turn camera off" : "Turn camera on", call.camera ? "video" : "videoOff", call.camera ? "on" : "", call.camera, () => void call.setCamera(!call.camera), !live),
+      btn(call.screen ? "Stop sharing" : "Share your screen", call.screen ? "monitorOff" : "monitor", call.screen ? "on" : "", call.screen, () => void call.setScreenShare(!call.screen), !live),
+      btn("Leave", "hangup", "leave", null, () => void leave()));
+  }
+
+  // ─── Capture problems (denied, missing, unsupported) ─────────────
+
+  const isMac = navigator.userAgent.includes("Mac");
+  const inApp = "__TAURI_INTERNALS__" in window;
+
+  function problemText(p: NonNullable<typeof problem>): { title: string; body: string } {
+    const thing = p.kind === "screen" ? "screen share" : p.kind;
+    if (p.problem === "unsupported") return { title: "Screen sharing doesn’t work here yet", body: "This system doesn’t let apps share the screen. Update it, then try again." };
+    if (p.problem === "missing") {
+      return p.kind === "microphone"
+        ? { title: "No microphone found", body: "Plug one in or pick another in Settings → Sound, then unmute." }
+        : { title: "No camera found", body: "Plug one in, then turn the camera on again." };
+    }
+    if (p.problem === "failed") return { title: `Couldn’t start your ${thing}`, body: "Close other apps that may be using it, then try again." };
+    if (p.kind === "screen") {
+      return isMac
+        ? { title: "Treehouse can’t share your screen", body: "Allow it in System Settings → Privacy & Security → Screen & System Audio Recording, restart Treehouse, then share again." }
+        : { title: "Screen sharing didn’t start", body: "Try again and pick a screen or window to share." };
+    }
+    const pane = p.kind === "camera" ? "Camera" : "Microphone";
+    return {
+      title: `Treehouse can’t use your ${p.kind}`,
+      body: isMac ? `Allow it in System Settings → Privacy & Security → ${pane}, then try again.` : `Allow it in Settings → Privacy → ${pane}, then try again.`,
+    };
+  }
+
+  function renderProblem() {
+    if (!problemEl) return;
+    problemEl.hidden = !problem;
+    if (!problem) { problemEl.replaceChildren(); return; }
+    const p = problem;
+    const { title, body } = problemText(p);
+    const canOpen = p.problem === "denied" && inApp && (p.kind !== "screen" || isMac);
+    mount(problemEl,
+      icon(p.kind === "camera" ? "videoOff" : p.kind === "screen" ? "monitorOff" : "micOff", 22, "ember"),
+      h("div", { class: "grow col" }, h("strong", null, title), h("span", { class: "muted small" }, body)),
+      canOpen && h("button", { class: "btn primary sm", type: "button", onclick: () =>
+        void invoke("open_privacy_settings", { kind: p.kind }).catch(() => toast("Couldn’t open settings. Open them yourself.", "error")) },
+        isMac ? "Open System Settings" : "Open Windows settings"),
+      h("button", { class: "icon-btn sm", type: "button", "aria-label": "Dismiss", title: "Dismiss", onclick: () => { problem = null; renderProblem(); } }, icon("close", 18)));
+  }
+
+  function onCall(e: CallEvent) {
+    switch (e.type) {
+      case "status": renderSidebar(); renderStage(); renderBar(); break;
+      case "local": renderSidebar(); renderStage(); renderBar(); break;
+      case "tracks": case "quality": renderStage(); break;
+      case "speaking": renderSpeaking(); break;
+      case "capture":
+        problem = { kind: e.kind, problem: e.problem };
+        if (view.kind === "voice") renderProblem();
+        else toast(problemText(problem).title, "error");
+        break;
+      case "ended":
+        toast(e.message, "error");
+        problem = null;
+        if (view.kind === "voice") show({ kind: "deck" });
+        else renderSidebar();
+        break;
+    }
   }
 
   const seeingDeck = () => view.kind === "deck" && !document.hidden && document.hasFocus();
@@ -503,31 +712,30 @@ register("home", (root) => {
   }
 
   async function openRoom(r: Room) {
-    if (r.members.some((m) => m.user_id === me.id)) return show({ kind: "voice", roomId: r.id });
+    if (r.id === call.roomId) return show({ kind: "voice", roomId: r.id });
+    problem = null;
+    spotlight = null;
     try {
-      await api.voiceToken(r.id);
-      // LiveKit connects here once voice lands (milestone 7); occupancy comes back as a "voice" event.
+      // Connects to LiveKit; the server learns from LiveKit and sends a "voice" event with the new occupancy.
+      const joining = call.join(r.id);
       roomChatOpen = false;
       show({ kind: "voice", roomId: r.id });
-    } catch (e) { toast(errorText(e), "error"); }
+      await joining;
+    } catch (e) {
+      toast(errorText(e), "error");
+      if (view.kind === "voice" && view.roomId === r.id) show({ kind: "deck" });
+    }
   }
 
   async function leave() {
-    const r = myVoiceRoom();
-    if (!r) return;
-    // Leaving disconnects from LiveKit, which tells the server (milestone 7).
+    problem = null;
+    // Disconnecting from LiveKit is leaving; the server hears it from LiveKit.
+    await call.leave();
     if (view.kind === "voice") show({ kind: "deck" });
   }
 
-  function setOwn(patch: Partial<{ muted: boolean; deafened: boolean }>) {
-    Object.assign(local, patch);
-    const m = myVoiceRoom()?.members.find((x) => x.user_id === me.id);
-    if (m) m.muted = local.muted;
-    renderSidebar();
-    if (view.kind === "voice") renderMain();
-  }
-  function toggleMute() { setOwn({ muted: !local.muted }); }
-  function toggleDeafen() { setOwn(local.deafened ? { deafened: false } : { deafened: true, muted: true }); }
+  function toggleMute() { void call.setMuted(!call.muted); }
+  function toggleDeafen() { void call.setDeafened(!call.deafened); }
 
   // ─── Events, hotkeys, load ───────────────────────────────────────
 
@@ -549,10 +757,20 @@ register("home", (root) => {
         break;
       }
       case "presence": { const p = people.get(e.user_id); if (p) { p.online = e.online; renderSidebar(); } break; }
+      case "voice": {
+        const r = rooms.find((x) => x.id === e.room_id);
+        if (!r) { void load(); break; }
+        r.members = e.members;
+        // Room chat is only readable by people in the room, and it's cleared when the room empties.
+        if (!e.members.some((m) => m.user_id === me.id) && call.roomId !== r.id) cache.delete(r.id);
+        renderSidebar();
+        if (viewedRoom()?.id === r.id) { renderStage(); renderBar(); }
+        break;
+      }
       case "people": case "rooms": void load(); break;
       case "offline": if (!offline) { offline = true; renderSidebar(); } break;
       case "ready": if (offline) { offline = false; void load(); } break;
-      case "signed_out": session.me = null; go({ name: "signin" }); break;
+      case "signed_out": void call.leave(); session.me = null; go({ name: "signin" }); break;
     }
   }
 
@@ -570,7 +788,7 @@ register("home", (root) => {
       const self = people.get(me.id);
       if (self) Object.assign(me, { display_name: self.display_name, color: self.color, avatar: self.avatar });
       // Rooms that emptied lose their chat; drop what we held.
-      for (const r of rooms) if (r.kind === "voice" && !r.members.some((m) => m.user_id === me.id)) cache.delete(r.id);
+      for (const r of rooms) if (r.kind === "voice" && !r.members.some((m) => m.user_id === me.id) && r.id !== call.roomId) cache.delete(r.id);
       renderSidebar();
       if (view.kind === "voice" || !lists.size) renderMain();
       else for (const ch of lists.keys()) refreshLists(ch);
@@ -580,6 +798,7 @@ register("home", (root) => {
   }
 
   const unsubscribe = api.subscribe(onEvent);
+  const unsubscribeCall = call.on(onCall);
   addEventListener("keydown", onKey);
   addEventListener("focus", onFocus);
   document.addEventListener("visibilitychange", onFocus);
@@ -589,6 +808,9 @@ register("home", (root) => {
 
   return () => {
     unsubscribe();
+    unsubscribeCall();
+    for (const [track, el] of videoEls) track.detach(el);
+    videoEls.clear();
     removeEventListener("keydown", onKey);
     removeEventListener("focus", onFocus);
     document.removeEventListener("visibilitychange", onFocus);
