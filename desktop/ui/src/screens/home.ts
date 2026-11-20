@@ -43,11 +43,39 @@ register("home", (root) => {
   const sidebar = h("aside", { class: "sidebar" });
   const main = h("main", { class: "main" });
   const side = h("aside", { class: "roomchat", hidden: true });
-  mount(root, h("div", { class: "home" }, sidebar, main, side));
+  const crew = h("aside", { class: "crew", "aria-label": "People" });
+  mount(root, h("div", { class: "home" }, sidebar, main, crew, side));
+
+  const ROLE_TAG: Record<string, string> = { admin: "Admin", moderator: "Mod" };
+
+  /** Right column in The Deck: who's here, online first. */
+  function renderCrew() {
+    crew.hidden = view.kind !== "deck";
+    if (crew.hidden) return;
+    const all = [...people.values()].sort((a, b) => a.display_name.localeCompare(b.display_name));
+    const row = (p: Person) => {
+      const inVoice = voiceRooms().find((r) => r.members.some((m) => m.user_id === p.id));
+      return h("li", { class: `crew-row ${p.online ? "" : "away"}` },
+        h("span", { class: "me-avatar" }, avatar(p.display_name, p.color, 32), p.online && h("span", { class: "online-dot sm" })),
+        h("span", { class: "grow col min0" },
+          h("span", { class: "crew-name" }, p.display_name, p.id === me.id ? " (you)" : ""),
+          inVoice ? h("span", { class: "leaf small" }, `In ${inVoice.name}`) : h("span", { class: "muted small" }, `@${p.username}`)),
+        ROLE_TAG[p.role] && h("span", { class: `role-tag ${p.role}` }, ROLE_TAG[p.role]));
+    };
+    const online = all.filter((p) => p.online);
+    const away = all.filter((p) => !p.online);
+    mount(crew,
+      h("h2", { class: "crew-title" }, "People"),
+      h("p", { class: "sb-label" }, `Online — ${online.length}`),
+      h("ul", { class: "crew-list" }, online.map(row)),
+      away.length > 0 && h("p", { class: "sb-label" }, `Offline — ${away.length}`),
+      away.length > 0 && h("ul", { class: "crew-list" }, away.map(row)));
+  }
 
   // ─── Sidebar ─────────────────────────────────────────────────────
 
   function renderSidebar() {
+    renderCrew();
     const online = [...people.values()].filter((p) => p.online).length;
     const inVoice = voiceRooms().reduce((n, r) => n + r.members.length, 0);
     const d = deck();
