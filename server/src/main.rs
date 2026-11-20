@@ -142,6 +142,7 @@ async fn serve() -> Result<()> {
         cfg: std::sync::Arc::new(cfg.clone()),
         events: events_tx,
         gifs: std::sync::Arc::new(gifs::Gifs::new(cfg.giphy_api_key.clone())),
+        hashing: auth::hashing_limit(),
     };
     let app = http::router(state);
     let listener = TcpListener::bind(cfg.bind_addr)

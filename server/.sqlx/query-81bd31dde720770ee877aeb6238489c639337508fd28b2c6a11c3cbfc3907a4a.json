@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT c.device_name, c.remember, c.attempts, c.expires_at > now() AS \"fresh!\",\n                  m.totp_secret, m.last_totp_step\n           FROM mfa_challenges c\n           JOIN mfa m ON m.user_id = c.user_id\n           WHERE c.token_hash = $1 FOR UPDATE OF c, m",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "device_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "remember",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 2,
+        "name": "attempts",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "fresh!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 4,
+        "name": "totp_secret",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "last_totp_step",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null,
+      false,
+      true
+    ]
+  },
+  "hash": "81bd31dde720770ee877aeb6238489c639337508fd28b2c6a11c3cbfc3907a4a"
+}

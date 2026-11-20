@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT username::text AS \"username!\",\n                  (locked_until IS NOT NULL AND locked_until > now()) AS \"locked!\"\n           FROM users WHERE id = $1 FOR UPDATE",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "username!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "locked!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "5a2a31580759a6f5992669b00f9123a1cef2ca9782a7881f1ca6654f69915187"
+}

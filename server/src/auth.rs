@@ -8,6 +8,8 @@ use argon2::{
 use axum::{extract::FromRequestParts, http::request::Parts};
 use serde::Serialize;
 use sqlx::PgConnection;
+use std::sync::Arc;
+use tokio::sync::Semaphore;
 
 use crate::{
     error::{AppError, AppResult},
@@ -40,6 +42,78 @@ pub fn dummy_verify(pw: &str) {
     static DUMMY: std::sync::OnceLock<String> = std::sync::OnceLock::new();
     let h = DUMMY.get_or_init(|| hash_password("not-a-real-password").unwrap_or_default());
     let _ = verify_password(h, pw);
+}
+
+/// How many argon2/zxcvbn jobs run at once: one per CPU, at least 2. The
+/// work runs on the blocking pool, so async workers stay free, and the
+/// semaphore keeps a flood of sign-in attempts from queueing unbounded CPU
+/// work. In-memory and throwaway, like the other caches.
+pub fn hashing_limit() -> Arc<Semaphore> {
+    let n = std::thread::available_parallelism()
+        .map(std::num::NonZeroUsize::get)
+        .unwrap_or(2)
+        .max(2);
+    Arc::new(Semaphore::new(n))
+}
+
+/// Run CPU-heavy password work off the async workers, one permit at a time.
+async fn blocking<T, F>(limit: &Arc<Semaphore>, f: F) -> AppResult<T>
+where
+    F: FnOnce() -> T + Send + 'static,
+    T: Send + 'static,
+{
+    let permit = Arc::clone(limit)
+        .acquire_owned()
+        .await
+        .map_err(|e| anyhow::anyhow!("hashing semaphore closed: {e}"))?;
+    tokio::task::spawn_blocking(move || {
+        let out = f();
+        drop(permit);
+        out
+    })
+    .await
+    .map_err(|e| AppError::Internal(anyhow::anyhow!("hashing task failed: {e}")))
+}
+
+/// `verify_password` on the blocking pool.
+pub async fn verify_password_async(
+    limit: &Arc<Semaphore>,
+    hash: String,
+    pw: String,
+) -> AppResult<bool> {
+    blocking(limit, move || verify_password(&hash, &pw)).await
+}
+
+/// `dummy_verify` on the blocking pool (same cost as a real verify).
+pub async fn dummy_verify_async(limit: &Arc<Semaphore>, pw: String) -> AppResult<()> {
+    blocking(limit, move || dummy_verify(&pw)).await
+}
+
+/// Strength check and hash of a new password, together on the blocking pool.
+pub async fn check_and_hash_async(
+    limit: &Arc<Semaphore>,
+    pw: String,
+    avoid: Vec<String>,
+) -> AppResult<String> {
+    blocking(limit, move || {
+        let avoid: Vec<&str> = avoid.iter().map(String::as_str).collect();
+        check_new_password(&pw, &avoid)?;
+        hash_password(&pw)
+    })
+    .await?
+}
+
+/// `password_strength` on the blocking pool.
+pub async fn password_strength_async(
+    limit: &Arc<Semaphore>,
+    pw: String,
+    avoid: Vec<String>,
+) -> AppResult<Strength> {
+    blocking(limit, move || {
+        let avoid: Vec<&str> = avoid.iter().map(String::as_str).collect();
+        password_strength(&pw, &avoid)
+    })
+    .await
 }
 
 /// How guessable a new password is (zxcvbn), judged against common
@@ -346,6 +420,37 @@ mod tests {
         }
         // Their own name or the treehouse name doesn't make a password strong.
         assert!(!password_strength("nightowls2026", &["max", "Night Owls", "nightowls"]).ok);
+    }
+
+    #[tokio::test]
+    async fn hashing_runs_off_the_async_workers() {
+        let limit = hashing_limit();
+        assert!(limit.available_permits() >= 2);
+        let pw = "lantern pickle orbit sofa".to_string();
+        let hash = check_and_hash_async(&limit, pw.clone(), vec!["max".into()])
+            .await
+            .unwrap();
+        assert!(
+            verify_password_async(&limit, hash.clone(), pw)
+                .await
+                .unwrap()
+        );
+        assert!(
+            !verify_password_async(&limit, hash, "wrong".into())
+                .await
+                .unwrap()
+        );
+        dummy_verify_async(&limit, "x".into()).await.unwrap();
+        assert!(
+            check_and_hash_async(&limit, "password123".into(), vec![])
+                .await
+                .is_err()
+        );
+        // Every permit comes back.
+        assert_eq!(
+            limit.available_permits(),
+            hashing_limit().available_permits()
+        );
     }
 
     #[test]
