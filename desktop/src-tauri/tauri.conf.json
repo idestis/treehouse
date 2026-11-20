@@ -1,0 +1,69 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Treehouse",
+  "mainBinaryName": "Treehouse",
+  "version": "0.1.0",
+  "identifier": "app.treehouse.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Treehouse",
+        "width": 1200,
+        "height": 800,
+        "center": true,
+        "minWidth": 760,
+        "minHeight": 520,
+        "theme": "Dark",
+        "backgroundColor": "#0E1322"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost wss: https:; img-src 'self' data: https:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; media-src 'self' blob: mediastream:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg", "nsis"],
+    "category": "SocialNetworking",
+    "shortDescription": "Private voice and chat for your crew",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "13.0",
+      "hardenedRuntime": true,
+      "entitlements": "./Entitlements.plist",
+      "signingIdentity": null,
+      "dmg": {
+        "windowSize": { "width": 540, "height": 360 },
+        "appPosition": { "x": 130, "y": 180 },
+        "applicationFolderPosition": { "x": 410, "y": 180 }
+      }
+    },
+    "windows": {
+      "webviewInstallMode": { "type": "downloadBootstrapper", "silent": true },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["English"],
+        "displayLanguageSelector": false
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJGN0U2NEQwMTZFNUQwMzkKUldRNTBPVVcwR1IrdjBzRTBCTHI0ckFzNnYvTkNaWVBYUStTSHFiRzcvZEE2NFQ3UnJhVFE4dG0K",
+      "windows": { "installMode": "passive" }
+    }
+  }
+}
