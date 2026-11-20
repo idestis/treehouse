@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM events\n         WHERE (kind = 'message_new' AND (payload -> 'message' ->> 'id')::bigint = $1)\n            OR (kind = 'reactions' AND (payload ->> 'id')::bigint = $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ba80c1d55bf3f4b965177849192d8f014af7caa8c7b18a46b5b0158bc3294435"
+}

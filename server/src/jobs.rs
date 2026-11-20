@@ -37,18 +37,29 @@ pub async fn once(db: &PgPool) -> AppResult<()> {
 }
 
 async fn cleanup(db: &PgPool) -> AppResult<()> {
-    // Messages past the lifetime (reactions go with them).
+    // Messages past the lifetime (reactions go with them), and the event-log
+    // copies of their bodies, in the same transaction.
     loop {
-        let n = sqlx::query!(
+        let mut tx = db.begin().await?;
+        let gone = sqlx::query_scalar!(
             "DELETE FROM messages WHERE id IN (
                  SELECT m.id FROM messages m, treehouse t
-                 WHERE m.created_at < now() - make_interval(hours => t.message_ttl_hours) LIMIT $1)",
+                 WHERE m.created_at < now() - make_interval(hours => t.message_ttl_hours) LIMIT $1)
+             RETURNING id",
             BATCH
         )
-        .execute(db)
-        .await?
-        .rows_affected();
-        if n < BATCH as u64 {
+        .fetch_all(&mut *tx)
+        .await?;
+        sqlx::query!(
+            "DELETE FROM events
+             WHERE (kind = 'message_new' AND (payload -> 'message' ->> 'id')::bigint = ANY($1))
+                OR (kind = 'reactions' AND (payload ->> 'id')::bigint = ANY($1))",
+            &gone
+        )
+        .execute(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        if (gone.len() as i64) < BATCH {
             break;
         }
     }

@@ -225,14 +225,24 @@ async fn after_leave(conn: &mut PgConnection, room_id: i64) -> AppResult<()> {
 }
 
 async fn clear_chat_if_empty(conn: &mut PgConnection, room_id: i64) -> AppResult<()> {
-    sqlx::query!(
+    let cleared = sqlx::query!(
         "DELETE FROM messages WHERE channel_id = $1
            AND EXISTS (SELECT 1 FROM rooms WHERE id = $1 AND kind = 'voice')
            AND NOT EXISTS (SELECT 1 FROM voice_members WHERE room_id = $1)",
         room_id
     )
-    .execute(conn)
-    .await?;
+    .execute(&mut *conn)
+    .await?
+    .rows_affected();
+    if cleared > 0 {
+        // The event log keeps copies of bodies; drop them with the messages.
+        sqlx::query!(
+            "DELETE FROM events WHERE channel = $1 AND kind IN ('message_new', 'reactions')",
+            events::room_channel(room_id)
+        )
+        .execute(&mut *conn)
+        .await?;
+    }
     Ok(())
 }
 
