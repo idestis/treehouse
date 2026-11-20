@@ -226,6 +226,9 @@ fieldset.plain legend { padding: 0; margin-bottom: 10px; }
 .sb-note { padding: 8px 12px; }
 .share-menu { width: 300px; }
 .share-opt.on { background: var(--active); }
+.share-menu { padding: 8px 6px; }
+.share-title { font-family: var(--head); font-weight: 800; font-size: 17px; color: var(--moon); padding: 6px 8px 8px; }
+.share-menu .share-opt { padding: 9px 8px; }
 .room-menu { width: 260px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45); }
 .sm-sub { padding: 4px 12px 0; }
 .sm-head.start { align-items: flex-start; gap: 2px; }

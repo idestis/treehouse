@@ -808,7 +808,7 @@ register("home", (root) => {
         h("span", { class: "grow col" }, h("strong", null, title), h("span", { class: "muted small" }, hint)),
         prefs.screenMode === mode && h("span", { class: "lantern" }, "✓"));
     mount(menu,
-      h("p", { class: "muted small sm-sub" }, "Share your screen for"),
+      h("p", { class: "share-title" }, "Share your screen for"),
       option("text", "Reading together", "Sharp text: docs, code, websites (1080p, 15 fps)"),
       option("motion", "Watching or playing", "Smooth motion: videos and games (1080p, 30 fps)"));
     document.body.appendChild(menu);
