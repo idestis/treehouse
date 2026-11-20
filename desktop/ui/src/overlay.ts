@@ -20,7 +20,7 @@ import { h, icon, mount } from "./dom";
 import { t } from "./i18n";
 
 /** The call as the main window sees it (it owns the microphone and the share). */
-export interface CallState { muted: boolean; deafened: boolean; screen: boolean; camera: boolean }
+export interface CallState { muted: boolean; deafened: boolean; screen: boolean; camera: boolean; speaking: number[] }
 
 const REFRESH_MS = 10 * 60 * 1000;
 const RETRY_MS = 5000;
@@ -48,6 +48,7 @@ export function startOverlay(root: HTMLElement, firstRoom: number) {
   let me = 0;
   let people = new Map<number, Person>();
   let roomName = "";
+  /** Who's talking, from the main window (it hears everyone, you included). */
   let speaking = new Set<string>();
   let refreshTimer = 0;
   let retryTimer = 0;
@@ -67,7 +68,7 @@ export function startOverlay(root: HTMLElement, firstRoom: number) {
   new ResizeObserver(layout).observe(grid);
 
   // Controls act on the main window's call; it sends its state back.
-  let state: CallState = { muted: false, deafened: false, screen: false, camera: false };
+  let state: CallState = { muted: false, deafened: false, screen: false, camera: false, speaking: [] };
   const command = (action: "mute" | "deafen" | "stop-share" | "leave") => void emitTo("main", "overlay-command", action).catch(() => {});
   function renderControls() {
     const btn = (label: string, ic: Parameters<typeof icon>[0], cls: string, action: Parameters<typeof command>[0]) =>
@@ -79,7 +80,12 @@ export function startOverlay(root: HTMLElement, firstRoom: number) {
       btn(t("call.leave"), "hangup", "leave", "leave"));
   }
   void listen<CallState>("overlay-state", (e) => {
-    state = e.payload;
+    const before = state;
+    state = { ...e.payload, speaking: e.payload.speaking ?? [] };
+    speaking = new Set(state.speaking.map(String));
+    for (const el of grid.querySelectorAll<HTMLElement>(".ov-tile")) el.classList.toggle("speaking", speaking.has(el.dataset.identity ?? ""));
+    const controlsChanged = before.muted !== state.muted || before.deafened !== state.deafened || before.screen !== state.screen || before.camera !== state.camera;
+    if (!controlsChanged) return;
     renderControls();
     const mine = grid.querySelector<HTMLElement>(`.ov-tile[data-identity="${me}"]`);
     if (mine) render();
@@ -121,7 +127,6 @@ export function startOverlay(root: HTMLElement, firstRoom: number) {
     const old = lk;
     lk = null;
     roomId = id;
-    speaking = new Set();
     if (old) await old.disconnect().catch(() => {});
     render();
     void loadInfo(id);
@@ -199,11 +204,6 @@ export function startOverlay(root: HTMLElement, firstRoom: number) {
       .on(RoomEvent.TrackUnsubscribed, redraw)
       .on(RoomEvent.TrackMuted, redraw)
       .on(RoomEvent.TrackUnmuted, redraw)
-      .on(RoomEvent.ActiveSpeakersChanged, (speakers: Participant[]) => {
-        if (!mine()) return;
-        speaking = new Set(speakers.map((s) => s.identity));
-        for (const el of grid.querySelectorAll<HTMLElement>(".ov-tile")) el.classList.toggle("speaking", speaking.has(el.dataset.identity ?? ""));
-      })
       .on(RoomEvent.Disconnected, (reason?: DisconnectReason) => {
         if (!mine() || closing) return;
         lk = null;

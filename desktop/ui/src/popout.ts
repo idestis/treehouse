@@ -43,7 +43,7 @@ let leaveHandler: () => void = () => void call.leave();
 /** Tell the overlay what the call looks like (for its buttons and your own tile). */
 function sendState() {
   if (!open) return;
-  void emitTo("overlay", "overlay-state", { muted: call.muted, deafened: call.deafened, screen: call.screen, camera: call.camera }).catch(() => {});
+  void emitTo("overlay", "overlay-state", { muted: call.muted, deafened: call.deafened, screen: call.screen, camera: call.camera, speaking: call.speaking }).catch(() => {});
 }
 
 export const popout = {
@@ -79,6 +79,9 @@ if (inApp) {
   });
   void listen("overlay-ready", () => sendState());
   call.on((e) => {
+    // Who's talking comes from here: the overlay only subscribes to cameras, and
+    // LiveKit only reports speakers you're subscribed to (and never you).
+    if (e.type === "speaking") { sendState(); return; }
     if (e.type !== "status" && e.type !== "local") return;
     sendState();
     if (call.status === "idle") { sharing = false; hide(); return; }
