@@ -351,6 +351,8 @@ fieldset.plain legend { padding: 0; margin-bottom: 10px; }
 .cmd { display: flex; flex-direction: column; gap: 4px; width: 100%; text-align: left; padding: 10px; border-radius: 10px; }
 .cmd strong { font-size: 18px; }
 .cmd.active, .cmd:hover { background: var(--active); }
+.cmd.suggest { flex-direction: row; align-items: center; gap: 10px; padding: 8px 10px; }
+.cmd.suggest strong { font-size: 16px; }
 .cmd-help { font-size: 16px; }
 .gif-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .gif-pick { border-radius: 14px; overflow: hidden; aspect-ratio: 16 / 10; }

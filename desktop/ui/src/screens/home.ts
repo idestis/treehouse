@@ -426,6 +426,52 @@ register("home", (root) => {
       input.focus();
     };
 
+    // ── @person and #room suggestions for the word at the cursor.
+    type Suggestion = { insert: string; title: string; hint: string; face?: HTMLElement };
+    let suggestIndex = 0;
+    const tokenAtCursor = () => {
+      const upto = input.value.slice(0, input.selectionStart ?? input.value.length);
+      const m = upto.match(/(?:^|\s)([@#])([\w.-]*)$/);
+      return m ? { sigil: m[1], query: m[2].toLowerCase(), start: upto.length - m[1].length - m[2].length } : null;
+    };
+    const suggestions = (): Suggestion[] => {
+      const t = tokenAtCursor();
+      if (!t) return [];
+      if (t.sigil === "@") {
+        return [...people.values()]
+          .filter((p) => p.id !== me.id && (p.username.toLowerCase().startsWith(t.query) || p.display_name.toLowerCase().includes(t.query)))
+          .sort((a, b) => Number(b.online) - Number(a.online) || a.display_name.localeCompare(b.display_name))
+          .slice(0, 6)
+          .map((p) => ({ insert: `@${p.username}`, title: p.display_name, hint: `@${p.username}${p.online ? "" : " · offline"}`, face: personAvatar(p, 24) }));
+      }
+      return rooms
+        .filter((r) => r.slug.toLowerCase().startsWith(t.query) || r.name.toLowerCase().includes(t.query))
+        .slice(0, 6)
+        .map((r) => ({ insert: `#${r.slug}`, title: r.name, hint: r.kind === "voice" ? (r.members.length ? `#${r.slug} · ${r.members.length} in voice` : `#${r.slug}`) : `#${r.slug}` }));
+    };
+    const renderSuggest = () => {
+      const list = suggestions();
+      if (!list.length) { if (pop.dataset.kind === "suggest") closePop(); return; }
+      suggestIndex = Math.min(suggestIndex, list.length - 1);
+      pop.dataset.kind = "suggest";
+      pop.hidden = false;
+      const sigil = tokenAtCursor()?.sigil;
+      mount(pop, h("p", { class: "pop-title" }, sigil === "@" ? "People" : "Rooms"), list.map((s, i) =>
+        h("button", { type: "button", class: `cmd suggest ${i === suggestIndex ? "active" : ""}`, onmousedown: (e: Event) => { e.preventDefault(); takeSuggestion(s); } },
+          s.face ?? icon(s.insert.startsWith("#") ? "speaker" : "hash", 20, "muted"),
+          h("span", { class: "grow col" }, h("strong", null, s.title), h("span", { class: "muted small" }, s.hint)))));
+    };
+    const takeSuggestion = (s: Suggestion) => {
+      const t = tokenAtCursor();
+      if (!t) return;
+      const end = input.selectionStart ?? input.value.length;
+      input.value = `${input.value.slice(0, t.start)}${s.insert} ${input.value.slice(end)}`;
+      const caret = t.start + s.insert.length + 1;
+      input.setSelectionRange(caret, caret);
+      closePop();
+      input.focus();
+    };
+
     const gifPicker = async (q: string) => {
       pop.dataset.kind = "gif";
       pop.hidden = false;
@@ -469,8 +515,27 @@ register("home", (root) => {
       await post({ client_id: crypto.randomUUID(), text });
     };
 
-    input.addEventListener("input", () => { slashIndex = 0; renderSlash(); });
+    input.addEventListener("input", () => {
+      slashIndex = 0;
+      suggestIndex = 0;
+      renderSlash();
+      if (pop.dataset.kind !== "slash" || pop.hidden) renderSuggest();
+    });
     input.addEventListener("keydown", (e) => {
+      if (pop.dataset.kind === "suggest" && !pop.hidden) {
+        const list = suggestions();
+        if (!list.length) return;
+        if (e.key === "Escape") { e.preventDefault(); closePop(); return; }
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          suggestIndex = (suggestIndex + (e.key === "ArrowDown" ? 1 : list.length - 1)) % list.length;
+          renderSuggest();
+        } else if (e.key === "Tab" || e.key === "Enter") {
+          e.preventDefault();
+          takeSuggestion(list[suggestIndex]);
+        }
+        return;
+      }
       const list = pop.dataset.kind === "slash" && !pop.hidden ? slashMatches() : [];
       if (e.key === "Escape") { closePop(); return; }
       if (!list.length) return;

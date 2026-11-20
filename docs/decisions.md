@@ -60,3 +60,8 @@ Choices made where the spec is silent. Newest last.
 - Releases, downloads and the update feed all live on GitHub Releases for `idestis/treehouse`. Assets have stable names (`Treehouse.dmg`, `Treehouse-setup.exe`, `Treehouse.app.tar.gz` + `.sig`, `latest.json`), so `releases/latest/download/<name>` always serves the newest. Release builds bake `TREEHOUSE_UPDATE_URL=https://github.com/idestis/treehouse/releases/latest/download/latest.json`.
 - `task publish` creates the release as a draft with every file attached, then publishes it, so the feed never points at missing files. The Cloudflare Worker (infra/releases) and R2 variables are gone.
 - The feed needs the repo to be public: private release assets require authentication, so installed apps can't update while it's private.
+
+## 2026-11-20: Push to talk, suggestions
+
+- **Push to talk** is a system-wide shortcut (tauri-plugin-global-shortcut, accelerators built from KeyboardEvent.code): hold to talk, release to mute; with it bound you join muted. Mute and deafen stay window-only so their defaults (Ctrl+M, Ctrl+D) aren't taken from other apps.
+- **Known gap:** if LiveKit dies without sending leave webhooks, `voice_members` keeps stale rows until `room_finished`. A periodic reconcile against LiveKit's ListParticipants (one replica, advisory lock) would fix it; not built yet.
