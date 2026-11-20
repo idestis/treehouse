@@ -20,6 +20,9 @@ export interface Api {
   me(): Promise<Me>;
   updateMe(patch: Partial<Pick<Me, "display_name" | "color">>): Promise<Me>;
   changePassword(current: string, next: string): Promise<void>;
+  avatar(user_id: number): Promise<{ version: number; data_url: string }>;
+  uploadAvatar(dataUrl: string): Promise<Me>;
+  removeAvatar(): Promise<Me>;
   mfaSetup(): Promise<MfaSetup>;
   mfaConfirm(code: string): Promise<{ backup_codes: string[] }>;
   treehouse(): Promise<Treehouse>;

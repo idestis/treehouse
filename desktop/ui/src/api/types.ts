@@ -15,6 +15,8 @@ export interface Me {
   mfa_enabled: boolean;
   /** Admins (and moderators, if required) must turn on two-step sign-in first. */
   mfa_setup_needed: boolean;
+  /** Avatar version, null when they use initials. */
+  avatar: number | null;
 }
 
 export type LoginResult =
@@ -28,6 +30,7 @@ export interface Person {
   color: string;
   role: Role;
   online: boolean;
+  avatar: number | null;
 }
 
 export interface VoiceMember {

@@ -6,7 +6,8 @@ import { api } from "../api";
 import type { Gif, LiveEvent, Me, Message, Person, Room, Treehouse } from "../api/types";
 import { errorText } from "../api/types";
 import { go, register, session } from "../app";
-import { avatar, h, icon, mount, time, toast } from "../dom";
+import { personAvatar } from "../avatars";
+import { h, icon, mount, time, toast } from "../dom";
 
 const EMOJI = ["😂", "😭", "💀", "🔥", "💯", "❤️", "👍", "👎", "😎", "🥲", "😴", "🤔", "😤", "🙃", "😅", "🤯", "🥳", "😈", "👀", "🙏", "🫡", "🤝", "👋", "🎮", "🕹️", "🏆", "⚡", "✨", "🎉", "🍕", "🍿", "🥤", "🌙", "⭐", "🦉", "🌲", "🎧", "🎤", "📣", "✅", "❌", "⏰"];
 
@@ -37,7 +38,7 @@ register("home", (root) => {
   const deck = () => rooms.find((r) => r.kind === "deck");
   const voiceRooms = () => rooms.filter((r) => r.kind === "voice");
   const myVoiceRoom = () => voiceRooms().find((r) => r.members.some((m) => m.user_id === me.id));
-  const person = (id: number): Person => people.get(id) ?? { id, username: "gone", display_name: "Someone", color: "#7C8BA8", role: "member", online: false };
+  const person = (id: number): Person => people.get(id) ?? { id, username: "gone", display_name: "Someone", color: "#7C8BA8", role: "member", online: false, avatar: null };
 
   // ── layout ──
   const sidebar = h("aside", { class: "sidebar" });
@@ -56,7 +57,7 @@ register("home", (root) => {
     const row = (p: Person) => {
       const inVoice = voiceRooms().find((r) => r.members.some((m) => m.user_id === p.id));
       return h("li", { class: `crew-row ${p.online ? "" : "away"}` },
-        h("span", { class: "me-avatar" }, avatar(p.display_name, p.color, 32), p.online && h("span", { class: "online-dot sm" })),
+        h("span", { class: "me-avatar" }, personAvatar(p, 32), p.online && h("span", { class: "online-dot sm" })),
         h("span", { class: "grow col min0" },
           h("span", { class: "crew-name" }, p.display_name, p.id === me.id ? " (you)" : ""),
           inVoice ? h("span", { class: "leaf small" }, `In ${inVoice.name}`) : h("span", { class: "muted small" }, `@${p.username}`)),
@@ -99,7 +100,7 @@ register("home", (root) => {
           r.members.length > 0 && h("ul", { class: "sb-members" }, r.members.map((m) => {
             const p = person(m.user_id);
             return h("li", null,
-              avatar(p.display_name, p.color, 24),
+              personAvatar(p, 24),
               h("span", { class: "grow" }, p.display_name, p.id === me.id ? " (you)" : ""),
               m.muted && icon("micOff", 18, "ember"),
               m.camera && icon("video", 18, "leaf"));
@@ -110,7 +111,7 @@ register("home", (root) => {
         h("div", { class: "grow col" }, h("span", { class: "leaf strong" }, h("span", { class: "dot" }), "Voice connected"), h("span", { class: "small" }, current.name)),
         h("button", { class: "icon-btn danger", "aria-label": "Leave voice", title: "Leave voice", onclick: () => leave() }, icon("hangup", 22))),
       h("footer", { class: "sb-me" },
-        h("span", { class: "me-avatar" }, avatar(me.display_name, me.color, 40), h("span", { class: "online-dot" })),
+        h("span", { class: "me-avatar" }, personAvatar(me, 40), h("span", { class: "online-dot" })),
         h("div", { class: "grow col min0" }, h("strong", null, me.display_name), h("span", { class: "muted small" }, `@${me.username}`)),
         h("button", { class: `icon-btn ${local.muted ? "ember" : ""}`, "aria-pressed": String(local.muted), "aria-label": local.muted ? "Unmute (Ctrl+M)" : "Mute (Ctrl+M)", title: local.muted ? "Unmute (Ctrl+M)" : "Mute (Ctrl+M)", onclick: toggleMute }, icon(local.muted ? "micOff" : "mic", 22)),
         h("button", { class: `icon-btn ${local.deafened ? "ember" : ""}`, "aria-pressed": String(local.deafened), "aria-label": local.deafened ? "Undeafen (Ctrl+D)" : "Deafen (Ctrl+D)", title: local.deafened ? "Undeafen (Ctrl+D)" : "Deafen (Ctrl+D)", onclick: toggleDeafen }, icon(local.deafened ? "headphonesOff" : "headphones", 22)),
@@ -158,7 +159,7 @@ register("home", (root) => {
       h("div", { class: "row gap-10" }, icon("speaker", 20, "lantern"), h("strong", { class: "grow" }, r.name),
         h("button", { class: "icon-btn sm", "aria-label": "Close", onclick: () => pop.remove() }, icon("close", 18))),
       h("p", { class: "muted small" }, r.members.length ? `${r.members.length} in voice${r.capacity ? ` of ${r.capacity}` : ""}` : "Nobody here yet"),
-      r.members.length > 0 && h("div", { class: "row gap-6 wrap" }, r.members.map((m) => { const p = person(m.user_id); return h("span", { class: "chip" }, avatar(p.display_name, p.color, 20), p.display_name); })),
+      r.members.length > 0 && h("div", { class: "row gap-6 wrap" }, r.members.map((m) => { const p = person(m.user_id); return h("span", { class: "chip" }, personAvatar(p, 20), p.display_name); })),
       h("button", { class: "btn primary sm", disabled: full && !inIt, onclick: () => { pop.remove(); void openRoom(r); } }, inIt ? "Open room" : full ? "Room is full" : "Join"),
     );
     document.body.appendChild(pop);
@@ -186,7 +187,7 @@ register("home", (root) => {
     const reactBtn = h("button", { class: "reaction add", type: "button", "aria-label": "Add reaction", title: "Add reaction" }, icon("smilePlus", 18));
     reactBtn.onclick = () => emojiPicker(reactBtn, (e) => void react(m, e, true));
     return h("article", { class: `msg ${mentionsMe ? "mentioned" : ""} ${compact ? "compact" : ""}`, "data-id": String(m.id) },
-      avatar(p.display_name, p.color, compact ? 36 : 44),
+      personAvatar(p, compact ? 36 : 44),
       h("div", { class: "msg-main" },
         h("div", { class: "msg-head" }, h("strong", { style: { color: p.color } }, p.display_name), h("time", { class: "muted small", datetime: m.created_at }, time(m.created_at))),
         content,
@@ -431,9 +432,9 @@ register("home", (root) => {
         const you = p.id === me.id;
         return h("div", { class: `tile ${m.camera ? "camera" : ""}`, style: { background: `color-mix(in srgb, ${p.color} 22%, #182238)` } },
           m.camera && h("span", { class: "live" }, h("span", { class: "dot" }), "Live"),
-          !m.camera && h("span", { class: "avatar huge", style: { background: p.color } }, p.display_name[0]?.toUpperCase() ?? "?"),
+          !m.camera && personAvatar(p, 0, "huge"),
           h("div", { class: "tile-bar" },
-            avatar(p.display_name, p.color, 28),
+            personAvatar(p, 28),
             h("strong", { class: "grow" }, p.display_name, you ? " (you)" : ""),
             h("span", { class: `tile-ic ${m.muted ? "off" : ""}` }, icon(m.muted ? "micOff" : "mic", 20)),
             h("span", { class: `tile-ic ${m.camera ? "on" : ""}` }, icon(m.camera ? "video" : "videoOff", 20)),
@@ -527,7 +528,7 @@ register("home", (root) => {
       rooms = rs;
       treehouse = th;
       const self = people.get(me.id);
-      if (self) Object.assign(me, { display_name: self.display_name, color: self.color });
+      if (self) Object.assign(me, { display_name: self.display_name, color: self.color, avatar: self.avatar });
       // Rooms that emptied lose their chat; drop what we held.
       for (const r of rooms) if (r.kind === "voice" && !r.members.some((m) => m.user_id === me.id)) cache.delete(r.id);
       renderSidebar();

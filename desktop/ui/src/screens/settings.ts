@@ -5,6 +5,7 @@ import type { Device, Invite, Me, Role } from "../api/types";
 import { errorText } from "../api/types";
 import { go, register, session, type SettingsTab } from "../app";
 import { ago, h, icon, initial, mount, toast } from "../dom";
+import { personAvatar, shrinkForUpload } from "../avatars";
 import { strengthMeter } from "../password";
 import { AUDIO_CAPTURE, prefs } from "../voice";
 import { colorPicker, tilePreview } from "./auth";
@@ -45,8 +46,40 @@ register("settings", (root, screen) => {
     const preview = h("div");
     const err = h("p", { class: "form-error", role: "alert", hidden: true });
     const save = h("button", { class: "btn primary fit", type: "submit" }, "Save");
-    const draw = () => mount(preview, tilePreview(name.value || me.display_name, color));
+    const draw = () => {
+      const shown = name.value || me.display_name;
+      mount(preview, tilePreview(shown, color, personAvatar({ ...me, display_name: shown, color }, 0, "big")));
+      remove.hidden = !me.avatar;
+    };
     name.addEventListener("input", draw);
+
+    // Photo: shrunk here, re-encoded to 256px on the server, stored in Postgres.
+    const file = h("input", { type: "file", accept: "image/png,image/jpeg,image/webp,image/gif", hidden: true });
+    const upload = h("button", { class: "btn ghost sm", type: "button", onclick: () => file.click() }, "Upload photo");
+    const remove = h("button", { class: "btn ghost sm", type: "button" }, "Remove photo");
+    file.onchange = async () => {
+      const f = file.files?.[0];
+      file.value = "";
+      if (!f) return;
+      if (f.size > 15 * 1024 * 1024) { toast("That picture is too big. Use one under 15 MB.", "error"); return; }
+      upload.disabled = true;
+      try {
+        const me2 = await api.uploadAvatar(await shrinkForUpload(f));
+        session.me = Object.assign(me, { avatar: me2.avatar });
+        draw();
+        toast("Photo updated.");
+      } catch (x) { toast(errorText(x), "error"); }
+      upload.disabled = false;
+    };
+    remove.onclick = async () => {
+      remove.disabled = true;
+      try {
+        await api.removeAvatar();
+        session.me = Object.assign(me, { avatar: null });
+        draw();
+      } catch (x) { toast(errorText(x), "error"); }
+      remove.disabled = false;
+    };
     mount(el,
       h("h2", { class: "display xs" }, "Profile"),
       h("form", { class: "set-grid", onsubmit: async (e: Event) => {
@@ -60,6 +93,8 @@ register("settings", (root, screen) => {
         save.disabled = false;
       } },
         h("div", { class: "stack-16" },
+          h("div", { class: "field" }, h("span", { class: "label" }, "Photo"), h("div", { class: "row gap-10" }, upload, remove, file),
+            h("p", { class: "muted small" }, "A square crop of it shows wherever your name does.")),
           h("div", { class: "field" }, h("label", { for: "p-name" }, "Name your crew sees"), name),
           h("div", { class: "field" }, h("span", { class: "label" }, "Username"), h("p", { class: "muted" }, `@${me.username}`)),
           h("fieldset", { class: "plain" }, h("legend", { class: "label" }, "Your color"), colorPicker(color, (c) => { color = c; draw(); })),

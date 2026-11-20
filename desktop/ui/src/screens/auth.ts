@@ -258,9 +258,9 @@ export function colorPicker(initialColor: string, onPick: (c: string) => void) {
   return wrap;
 }
 
-export function tilePreview(name: string, color: string) {
+export function tilePreview(name: string, color: string, face?: HTMLElement) {
   return h("div", { class: "tile-preview", style: { background: `color-mix(in srgb, ${color} 22%, #182238)` } },
-    h("span", { class: "avatar big", style: { background: color } }, initial(name)),
+    face ?? h("span", { class: "avatar big", style: { background: color } }, initial(name)),
     h("span", { class: "tile-name" }, name || " "),
   );
 }

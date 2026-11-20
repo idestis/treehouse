@@ -109,8 +109,8 @@ fieldset.plain legend { padding: 0; margin-bottom: 10px; }
 .icon-btn.ember { color: var(--ember); }
 
 .avatar { display: inline-grid; place-items: center; flex: none; border-radius: 50%; color: #fff; font-family: var(--head); font-weight: 800; line-height: 1; }
-.avatar.big { width: 92px; height: 92px; font-size: 40px; }
-.avatar.huge { width: 38%; max-width: 190px; aspect-ratio: 1; font-size: clamp(32px, 6vw, 84px); }
+.avatar.big { width: 92px; height: 92px; font-size: 40px; border-radius: 50%; }
+.avatar.huge { width: 38%; max-width: 190px; height: auto; aspect-ratio: 1; font-size: clamp(32px, 6vw, 84px); }
 .server-badge { display: grid; place-items: center; flex: none; border-radius: 12px; background: #2b2350; color: #c9b8ff; font-family: var(--head); font-weight: 800; font-size: 18px; }
 .badge { display: inline-grid; place-items: center; min-width: 26px; height: 26px; padding: 0 8px; border-radius: 999px; font-weight: 700; font-size: 14px; }
 .badge.leaf { background: var(--leaf); color: #0b2a1b; }
