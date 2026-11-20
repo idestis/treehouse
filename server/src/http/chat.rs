@@ -287,6 +287,15 @@ pub async fn delete(
     sqlx::query!("DELETE FROM messages WHERE id = $1", id)
         .execute(&mut *tx)
         .await?;
+    // Replaying the event log must not bring the body back.
+    sqlx::query!(
+        "DELETE FROM events
+         WHERE (kind = 'message_new' AND (payload -> 'message' ->> 'id')::bigint = $1)
+            OR (kind = 'reactions' AND (payload ->> 'id')::bigint = $1)",
+        id
+    )
+    .execute(&mut *tx)
+    .await?;
     if m.author_id != user.id {
         sqlx::query!(
             "INSERT INTO mod_log (action, actor_id, actor_name, target_id, target_name, details)

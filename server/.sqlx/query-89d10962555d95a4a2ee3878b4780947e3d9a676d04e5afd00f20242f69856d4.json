@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM events WHERE channel = $1 AND kind IN ('message_new', 'reactions')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "89d10962555d95a4a2ee3878b4780947e3d9a676d04e5afd00f20242f69856d4"
+}
