@@ -6,7 +6,7 @@ import { errorText } from "../api/types";
 import { go, register, session, type SettingsTab } from "../app";
 import { ago, h, icon, initial, mount, toast } from "../dom";
 import { personAvatar, shrinkForUpload } from "../avatars";
-import { ACTIONS, type Action, conflicts, DEFAULTS as DEFAULT_KEYS, format as formatKey, fromEvent, load as loadHotkeys, problem as hotkeyProblem, save as saveHotkeys } from "../hotkeys";
+import { ACTIONS, type Action, conflicts, DEFAULTS as DEFAULT_KEYS, format as formatKey, fromEvent, load as loadHotkeys, problem as hotkeyProblem, save as saveHotkeys, globalAvailable } from "../hotkeys";
 import { dropdown, dropdownOpen } from "../dropdown";
 import { strengthMeter } from "../password";
 import { chime } from "../notify";
@@ -318,6 +318,12 @@ register("settings", (root, screen) => {
       const found = conflicts(c, action, bindings);
       note = found.length ? { action, text: found, bad: false } : null;
       stopRecording();
+      // Push to talk is system-wide: make sure no other app already holds it.
+      if (action === "ptt") void globalAvailable(c).then((ok) => {
+        if (ok || JSON.stringify(bindings.ptt) !== JSON.stringify(c)) return;
+        note = { action, text: [...found, "Another app already uses this shortcut. Pick another."], bad: true };
+        draw();
+      });
     };
 
     function draw() {

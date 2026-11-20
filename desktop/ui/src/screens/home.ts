@@ -11,7 +11,7 @@ import { chime, notificationsOn, setNotifications } from "../notify";
 import { playJoinSound, playSound } from "../sounds";
 import { prefs } from "../voice";
 import { call, type CallEvent, type Capture, type Video } from "../call";
-import { format as formatKey, load as loadHotkeys, matches } from "../hotkeys";
+import { format as formatKey, load as loadHotkeys, matches, toAccelerator } from "../hotkeys";
 import { ago, h, icon, icons, mount, time, toast } from "../dom";
 
 const EMOJI = ["😂", "😭", "💀", "🔥", "💯", "❤️", "👍", "👎", "😎", "🥲", "😴", "🤔", "😤", "🙃", "😅", "🤯", "🥳", "😈", "👀", "🙏", "🫡", "🤝", "👋", "🎮", "🕹️", "🏆", "⚡", "✨", "🎉", "🍕", "🍿", "🥤", "🌙", "⭐", "🦉", "🌲", "🎧", "🎤", "📣", "✅", "❌", "⏰"];
@@ -1027,7 +1027,8 @@ register("home", (root) => {
   /** Double-click, the Join button, or auto-join. Applies your "when I join" settings. */
   async function joinRoom(r: Room) {
     if (r.id === call.roomId) return show({ kind: "voice", roomId: r.id });
-    if (call.status === "idle") await call.setMuted(prefs.joinMuted);
+    // With push to talk set, you join muted and talk while holding the keys.
+    if (call.status === "idle") await call.setMuted(prefs.joinMuted || !!keys.ptt);
     await openRoom(r);
     if (call.roomId === r.id && prefs.joinCamera && !call.camera) void call.setCamera(true);
   }
@@ -1105,6 +1106,32 @@ register("home", (root) => {
     }
   }
 
+  // ── Push to talk: system-wide in the app (works while a game has focus), window keys in a dev browser.
+  let pttActive = false;
+  let pttCleanup: (() => void) | null = null;
+  const pttPress = () => { if (call.roomId === null || pttActive) return; pttActive = true; void call.setMuted(false); };
+  const pttRelease = () => { if (!pttActive) return; pttActive = false; void call.setMuted(true); };
+  async function setupPushToTalk() {
+    const combo = keys.ptt;
+    if (!combo) return;
+    if ("__TAURI_INTERNALS__" in window) {
+      const gs = await import("@tauri-apps/plugin-global-shortcut");
+      const acc = toAccelerator(combo);
+      try {
+        await gs.register(acc, (ev) => (ev.state === "Pressed" ? pttPress() : pttRelease()));
+        pttCleanup = () => { pttRelease(); void gs.unregister(acc).catch(() => {}); };
+      } catch {
+        toast(`Push to talk (${formatKey(combo)}) is taken by another app. Pick another in Settings.`, "error");
+      }
+      return;
+    }
+    const down = (e: KeyboardEvent) => { if (!e.repeat && matches(e, combo)) { e.preventDefault(); pttPress(); } };
+    const up = (e: KeyboardEvent) => { if (e.code === combo.code) pttRelease(); };
+    addEventListener("keydown", down);
+    addEventListener("keyup", up);
+    pttCleanup = () => { pttRelease(); removeEventListener("keydown", down); removeEventListener("keyup", up); };
+  }
+
   const onKey = (e: KeyboardEvent) => {
     if (matches(e, keys.mute)) { e.preventDefault(); toggleMute(); }
     else if (matches(e, keys.deafen)) { e.preventDefault(); toggleDeafen(); }
@@ -1132,6 +1159,7 @@ register("home", (root) => {
   const unsubscribe = api.subscribe(onEvent);
   const unsubscribeCall = call.on(onCall);
   addEventListener("keydown", onKey);
+  void setupPushToTalk();
   addEventListener("focus", onFocus);
   document.addEventListener("visibilitychange", onFocus);
   renderSidebar();
@@ -1144,6 +1172,7 @@ register("home", (root) => {
     for (const [track, el] of videoEls) track.detach(el);
     videoEls.clear();
     removeEventListener("keydown", onKey);
+    pttCleanup?.();
     removeEventListener("focus", onFocus);
     document.removeEventListener("visibilitychange", onFocus);
     deckMentions = 0;

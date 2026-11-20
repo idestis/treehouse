@@ -5,7 +5,7 @@ export type Action = "mute" | "deafen" | "ptt";
 export interface Combo { code: string; ctrl: boolean; alt: boolean; shift: boolean; meta: boolean }
 export type Bindings = Record<Action, Combo | null>;
 
-export const ACTIONS: [Action, string][] = [["mute", "Mute"], ["deafen", "Deafen"], ["ptt", "Push to talk"]];
+export const ACTIONS: [Action, string][] = [["mute", "Mute"], ["deafen", "Deafen"], ["ptt", "Push to talk (also works in other apps)"]];
 
 const KEY = "treehouse.hotkeys";
 const isMac = navigator.userAgent.includes("Mac");
@@ -35,6 +35,24 @@ const MODIFIER_CODES = /^(Control|Alt|Shift|Meta|OS)(Left|Right)?$/;
 export function fromEvent(e: KeyboardEvent): Combo | null {
   if (MODIFIER_CODES.test(e.code) || !e.code) return null;
   return { code: e.code, ctrl: e.ctrlKey, alt: e.altKey, shift: e.shiftKey, meta: e.metaKey };
+}
+
+/** Tauri global-shortcut accelerator, e.g. "Alt+Shift+KeyT" (codes are layout-independent). */
+export function toAccelerator(c: Combo): string {
+  return [c.ctrl && "Control", c.alt && "Alt", c.shift && "Shift", c.meta && "Super", c.code].filter(Boolean).join("+");
+}
+
+/** Can this computer give us the combo system-wide? (Tauri only; false when another app holds it.) */
+export async function globalAvailable(c: Combo): Promise<boolean> {
+  if (!("__TAURI_INTERNALS__" in window)) return true;
+  const gs = await import("@tauri-apps/plugin-global-shortcut");
+  const acc = toAccelerator(c);
+  try {
+    if (await gs.isRegistered(acc)) return true; // ours already
+    await gs.register(acc, () => {});
+    await gs.unregister(acc);
+    return true;
+  } catch { return false; }
 }
 
 export function matches(e: KeyboardEvent, c: Combo | null): boolean {
