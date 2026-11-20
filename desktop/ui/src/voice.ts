@@ -49,6 +49,12 @@ export const prefs = {
   /** Screen sharing: sharp text (1080p, 15 fps) or smooth motion for games (1080p, 30 fps). */
   get screenMode(): "text" | "motion" { return read("treehouse.screenMode") === "motion" ? "motion" : "text"; },
   set screenMode(v: "text" | "motion") { write("treehouse.screenMode", v); },
+  /** Share the computer's sound with the screen: on by default for "Watching or playing", off for "Reading together". */
+  screenSound(mode: "text" | "motion"): boolean {
+    const v = read(`treehouse.screenSound.${mode}`);
+    return v === "" ? mode === "motion" : v === "1";
+  },
+  setScreenSound(mode: "text" | "motion", on: boolean) { write(`treehouse.screenSound.${mode}`, on ? "1" : "0"); },
   /** Output volume in percent (0–100) for everyone you hear. */
   get outputVolume() { return percent(OUT_GAIN_KEY); },
   set outputVolume(v: number) { write(OUT_GAIN_KEY, String(Math.round(v))); },
