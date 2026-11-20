@@ -62,6 +62,12 @@ pub fn overlay_identity(user_id: i64) -> String {
     format!("{user_id}-overlay")
 }
 
+/// Outbox payload for the `remove_participant` job: kick `identity` out of
+/// the LiveKit room for `room_id`.
+pub fn remove_participant_payload(room_id: i64, identity: &str) -> Value {
+    json!({ "room": room_name(room_id), "identity": identity })
+}
+
 /// A watch-only token for the desktop "people on top" window: it can
 /// subscribe but never publish, and LiveKit hides it from everyone else.
 /// Its identity isn't a plain user id, so webhooks ignore it.
@@ -95,6 +101,11 @@ pub fn user_identity(identity: &str) -> Option<i64> {
         return None;
     }
     identity.parse().ok()
+}
+
+/// The user id behind an overlay identity (`<user id>-overlay`), else `None`.
+pub fn overlay_user(identity: &str) -> Option<i64> {
+    user_identity(identity.strip_suffix("-overlay")?)
 }
 
 fn sign_grant(
@@ -284,11 +295,22 @@ mod tests {
     }
 
     #[test]
+    fn remove_participant_payload_names_room_and_identity() {
+        let p = remove_participant_payload(7, &overlay_identity(3));
+        assert_eq!(p["room"], room_name(7));
+        assert_eq!(p["identity"], "3-overlay");
+    }
+
+    #[test]
     fn user_identities() {
         assert_eq!(user_identity("5"), Some(5));
         assert_eq!(user_identity("123456"), Some(123_456));
         assert_eq!(user_identity(&overlay_identity(3)), None);
         assert_eq!(user_identity("3-overlay"), None);
+        assert_eq!(overlay_user(&overlay_identity(3)), Some(3));
+        for bad in ["3", "-overlay", "x-overlay", "3-overlay-overlay", ""] {
+            assert_eq!(overlay_user(bad), None, "{bad}");
+        }
         assert_eq!(user_identity("+3"), None);
         assert_eq!(user_identity("-3"), None);
         assert_eq!(user_identity(" 3"), None);

@@ -88,6 +88,21 @@ async fn perform(
             let room = payload["room"].as_str().unwrap_or_default();
             room_service(lk, http, "DeleteRoom", json!({ "room": room })).await
         }
+        "remove_participant" => {
+            let room = payload["room"].as_str().unwrap_or_default();
+            let identity = payload["identity"].as_str().unwrap_or_default();
+            if room.is_empty() || identity.is_empty() {
+                anyhow::bail!("remove_participant payload is missing room or identity");
+            }
+            // Not-found (already gone) counts as success inside room_service.
+            room_service(
+                lk,
+                http,
+                "RemoveParticipant",
+                json!({ "room": room, "identity": identity }),
+            )
+            .await
+        }
         other => anyhow::bail!("unknown outbox kind {other:?}"),
     }
 }
