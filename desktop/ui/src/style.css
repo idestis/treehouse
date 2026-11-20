@@ -557,3 +557,17 @@ html.overlay, html.overlay body { overflow: hidden; background: transparent !imp
   .tw { animation: none !important; opacity: 0 !important; }
   * { transition: none !important; }
 }
+
+/* Camera effects (call bar menu). */
+.fx-menu { width: 300px; padding: 8px 6px; }
+.fx-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 2px 6px 8px; }
+.fx-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 76px; padding: 8px 4px; border-radius: 12px; background: var(--surface); border: 2px solid transparent; color: var(--mist); }
+.fx-tile:hover { background: var(--active); color: var(--moon); }
+.fx-tile.on { border-color: var(--lantern); color: var(--moon); }
+.fx-tile:focus-visible { outline: 3px solid var(--lantern); outline-offset: 2px; }
+.fx-emoji { font-size: 26px; line-height: 1; }
+.fx-label { font-size: 13px; font-weight: 700; text-align: center; line-height: 1.2; }
+.fx-section { padding: 6px 8px 6px; font-size: 13px; font-weight: 700; color: var(--mist); text-transform: uppercase; letter-spacing: 0.04em; }
+.fx-search { margin: 0 6px 8px; width: calc(100% - 12px); padding: 8px 12px; border-radius: 10px; background: var(--night); border: 1.5px solid var(--line-2); color: var(--moon); font: inherit; font-size: 14px; }
+.fx-search:focus-visible { outline: 3px solid var(--lantern); outline-offset: 1px; }
+.fx-empty { grid-column: 1 / -1; padding: 8px 2px; }

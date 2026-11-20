@@ -2,7 +2,7 @@
 // screen flags. The server decides who may join (voice token) and who is in
 // a room (LiveKit webhooks); this module only connects, publishes and plays.
 import {
-  AudioPresets, ConnectionQuality, ConnectionState, DisconnectReason, LocalAudioTrack, Participant, RemoteParticipant,
+  AudioPresets, ConnectionQuality, ConnectionState, DisconnectReason, LocalAudioTrack, LocalVideoTrack, Participant, RemoteParticipant,
   RemoteTrack, Room, RoomEvent, ScreenSharePresets, Track, VideoPresets, createLocalAudioTrack,
   type LocalTrackPublication, type RoomOptions, type TrackPublication,
 } from "livekit-client";
@@ -10,6 +10,7 @@ import { api } from "./api";
 import { errorText, isApiError, type ApiError } from "./api/types";
 import { t } from "./i18n";
 import { nativeScreenSound, startScreenSound, type ScreenSound, type SoundProblem } from "./screenSound";
+import { effectsSupported, lookIsOn, NO_LOOK, type EffectProblem, type Look, type Mask } from "./effects/support";
 import { AUDIO_CAPTURE, PUBLISH, prefs } from "./voice";
 
 export type CallStatus = "idle" | "connecting" | "connected" | "reconnecting";
@@ -30,7 +31,9 @@ export type CallEvent =
    *  `sound`: the screen is shared, only its sound couldn't be. */
   | { type: "capture"; kind: Capture; problem: "denied" | "missing" | "unsupported" | "failed"; sound?: boolean }
   /** The call ended without you pressing Leave, with a sentence for the user. */
-  | { type: "ended"; message: string };
+  | { type: "ended"; message: string }
+  /** The camera effect was switched off because it couldn't run (or ran too slowly) here. */
+  | { type: "effect"; problem: EffectProblem };
 
 /** One person's video in the call: their camera or their screen. */
 export interface Video { userId: number; source: "camera" | "screen"; track: Track; local: boolean }
@@ -97,6 +100,10 @@ export const call = {
   get camera(): boolean { return local.camera; },
   get screen(): boolean { return local.screen; },
   get weak(): boolean { return weak; },
+  /** Camera effects work in this web view (WebGL2, canvas capture, workers). */
+  get effectsAvailable(): boolean { return effectsAvailable ??= effectsSupported(); },
+  /** This call's camera effects. Not remembered: every call starts with none. */
+  get look(): Look { return look; },
   /** Whether a screen share here can carry the computer's sound. */
   get screenSoundAvailable(): boolean {
     return nativeScreenSound ? nativeSoundWorks : !navigator.userAgent.includes("Mac");
@@ -232,6 +239,7 @@ export const call = {
         { resolution: VideoPresets.h720.resolution },
         { simulcast: true, videoEncoding: VideoPresets.h720.encoding });
       local.camera = on;
+      if (on) await applyEffect();
     } catch (e) {
       local.camera = false;
       await room?.localParticipant.setCameraEnabled(false).catch(() => {});
@@ -240,6 +248,14 @@ export const call = {
     emit({ type: "local" });
     emit({ type: "tracks" });
     report();
+  },
+
+  /** Blur and mask for this call: applied now, or when the camera turns on. */
+  async setLook(change: { blur?: boolean; mask?: Mask | null }): Promise<void> {
+    if (status === "idle" || !call.effectsAvailable) return;
+    look = { ...look, ...change };
+    emit({ type: "local" });
+    await applyEffect();
   },
 
   async setScreenShare(on: boolean): Promise<void> {
@@ -313,6 +329,43 @@ function roomOptions(): Partial<RoomOptions> {
     publishDefaults: { ...PUBLISH, simulcast: true, videoEncoding: VideoPresets.h720.encoding },
     disconnectOnPageLeave: true,
   };
+}
+
+// ─── camera effects ──────────────────────────────────────────────────
+
+let effectsAvailable: boolean | undefined;
+let look: Look = NO_LOOK;
+let effectQueue: Promise<void> = Promise.resolve();
+
+/** Put the chosen effect on the camera, switch it, or take it off. One change at a time. */
+function applyEffect(): Promise<void> {
+  effectQueue = effectQueue.then(async () => {
+    const track = room?.localParticipant.getTrackPublication(Track.Source.Camera)?.track;
+    if (!(track instanceof LocalVideoTrack)) return;
+    const want = local.camera ? look : NO_LOOK;
+    const current = track.getProcessor();
+    try {
+      if (!lookIsOn(want)) { if (current) await track.stopProcessor(); return; }
+      const { EffectsProcessor } = await import("./effects/processor");
+      if (current instanceof EffectsProcessor) { current.setLook(want); return; }
+      if (current) await track.stopProcessor();
+      // Problems found later wait their turn behind this change.
+      const later = (problem: EffectProblem) => { effectQueue = effectQueue.then(() => dropEffect(track, problem)); };
+      await track.setProcessor(new EffectsProcessor(want, later));
+    } catch (e) {
+      console.warn("camera effect failed", e);
+      await dropEffect(track, "failed");
+    }
+  });
+  return effectQueue;
+}
+
+/** The effect can't run here: the camera carries on without it. */
+async function dropEffect(track: LocalVideoTrack, problem: EffectProblem) {
+  look = NO_LOOK;
+  await track.stopProcessor().catch(() => {});
+  emit({ type: "local" });
+  emit({ type: "effect", problem });
 }
 
 /** Microphone volume (Settings → Sound) as a gain stage after the fixed processing. */
@@ -584,6 +637,7 @@ async function teardown() {
   weak = false;
   local.camera = false;
   local.screen = false;
+  look = NO_LOOK; // effects last one call
   audioSink.replaceChildren();
   emit({ type: "status" });
   emit({ type: "tracks" });

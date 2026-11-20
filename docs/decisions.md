@@ -142,3 +142,36 @@ Spec §7.6 plans a **Crew** settings tab for people, roles, blocking and two-ste
 - **`GET /api/people`** now has `is_owner` and `blocked` fields. Admins also get blocked people, marked `blocked: true`; everyone else sees only active accounts, as before.
 - **Becoming an admin** means two-step sign-in is required, so the next `people` refresh gets `mfa_setup_needed` and the app opens two-step setup.
 - **Moderators** get no controls here yet. Their tools (mute, kick, timeouts) arrive with sanctions in milestone 8.
+
+## 2026-11-20: Camera effects (blur and face masks), drawn on your own computer
+
+The spec doesn't mention camera effects. We added them in two independent groups, picked from an **Effects** button in the call bar:
+
+- **Background:** no blur or blur.
+- **Masks:** none, sugar skull, cat or sunglasses, with a search box (names in every language plus keywords). Blur and a mask can be on together.
+
+The choice lasts one call: leaving a call turns effects off, and there are no effect settings in Settings.
+
+- **Client-side only:** effects are a LiveKit track processor (`desktop/ui/src/effects/`). Your camera goes in, and a canvas with the effect drawn on it goes out to LiveKit. The server and other people's apps see an ordinary video track. No business rules are involved, so nothing changes on the server.
+- **Private:** MediaPipe's runtime (served at `/mediapipe`, copied from `@mediapipe/tasks-vision` by `vite.config.ts`) and both models (`desktop/ui/public/effects/`, Apache 2.0) ship inside the app. Nothing is fetched from Google, and no frame or face data leaves the computer. The CSP gains `script-src 'self' 'wasm-unsafe-eval'` so the WebAssembly can run.
+- **CPU and battery come first:**
+  - "No effect" removes the processor entirely, so it costs nothing.
+  - The effects code and MediaPipe are loaded only when an effect is first picked.
+  - Only the models in use run. With blur and a mask both on, the two take turns on alternate frames instead of both running on the same frame. The blur model runs on the CPU only: it's as fast there, and the macOS web view refused to copy its mask back from the GPU.
+  - Switching keeps the current look until the new one's model is ready. The other model loads quietly 4 seconds after the first one, so adding the second kind of effect later is instant.
+  - The models see a small copy of the frame (480 px wide for the face, 256 for blur). They run on every other frame at most (12 a second), and on as few as every 4th frame on a slow computer. With no face in view, the face model runs every 8th frame. Face points between runs are predicted from how the face was moving.
+  - A frame is drawn only when the camera has a new picture, capped at 24 fps, with all drawing in WebGL2 on the low-power GPU.
+  - With an effect on, the camera is sent at 540p instead of 720p, which is less to draw and to encode.
+  - If the model still averages over 40 ms per run, or anything fails, the effect turns itself off with a message and the camera carries on.
+- **Hidden window:** the loop is driven by a timer in a worker, because page timers and frame callbacks pause while the window is hidden, and your camera would freeze for everyone else.
+- **Measured** on an M2 Max with a moving test face (headless engines, not the real app):
+
+  | Engine | Face mask, one core | Blur, one core | Face model per run | Drawing per frame |
+  |---|---|---|---|---|
+  | Chromium (= WebView2) | 14–17% | 10–12% | 17–20 ms | under 1 ms |
+  | Playwright's WebKit (close to WKWebView) | ~25% | ~20% | ~31 ms | ~5 ms |
+
+  MediaPipe's GPU mode works in both engines, with a CPU fallback.
+- **Next, if battery is still too high:**
+  - Place the sunglasses and ears from MediaPipe's much cheaper face *detector* (6 key points, about 1–2 ms) instead of the 478-point face mesh.
+  - Move the models into a worker so they never hold up the interface.

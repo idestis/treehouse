@@ -11,8 +11,10 @@ import { inkText, tint } from "../colors";
 import { chime, notificationsOn, setNotifications } from "../notify";
 import { playJoinSound, playSound, preloadSounds } from "../sounds";
 import { prefs } from "../voice";
+import { lookIsOn, MASKS } from "../effects/support";
 import { call, type CallEvent, type Capture, type Video } from "../call";
 import { popout } from "../popout";
+import { effectTile, maskMatches } from "../effects/picker";
 import { format as formatKey, load as loadHotkeys, matches, toAccelerator } from "../hotkeys";
 import { ago, h, icon, icons, mount, time, toast } from "../dom";
 import { t, tn } from "../i18n";
@@ -933,6 +935,47 @@ register("home", (root) => {
     setTimeout(() => { addEventListener("mousedown", outside, true); addEventListener("keydown", esc, true); });
   }
 
+  /**
+   * Camera effects: blur and a mask, chosen separately, seen on your own tile
+   * right away. Stays open so you can try them; only the tiles redraw, so the
+   * search box keeps its text and focus.
+   */
+  function effectsMenu(anchor: HTMLElement) {
+    if (document.querySelector(".fx-menu")) { document.querySelector(".fx-menu")?.remove(); return; }
+    const r = anchor.getBoundingClientRect();
+    const menu = h("div", { class: "status-menu fx-menu", role: "menu", "aria-label": t("effects.title"), style: { left: `${Math.max(12, r.left + r.width / 2 - 150)}px`, bottom: `${innerHeight - r.top + 10}px` } });
+    const close = () => { menu.remove(); unsub(); removeEventListener("mousedown", outside, true); removeEventListener("keydown", esc, true); };
+    const outside = (e: MouseEvent) => { if (!menu.contains(e.target as Node) && !anchor.contains(e.target as Node)) close(); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); close(); } };
+    const bg = h("div", { class: "fx-grid", role: "radiogroup", "aria-label": t("effects.background") });
+    const masks = h("div", { class: "fx-grid", role: "radiogroup", "aria-label": t("effects.masks") });
+    const search = h("input", { class: "fx-search", type: "search", placeholder: t("effects.search"), "aria-label": t("effects.search"), spellcheck: "false" });
+    const camOff = h("p", { class: "share-sound muted small" }, icon("videoOff", 16), t("effects.cameraOff"));
+    const draw = () => {
+      const look = call.look;
+      mount(bg,
+        effectTile("noBlur", !look.blur, () => void call.setLook({ blur: false })),
+        effectTile("blur", look.blur, () => void call.setLook({ blur: true })));
+      const found = MASKS.filter((m) => maskMatches(m, search.value));
+      mount(masks,
+        !search.value.trim() && effectTile("noMask", look.mask === null, () => void call.setLook({ mask: null })),
+        found.map((m) => effectTile(m, look.mask === m, () => void call.setLook({ mask: m }))),
+        !found.length && h("p", { class: "fx-empty muted small" }, t("effects.noMatch", { q: search.value.trim() })));
+      camOff.hidden = call.camera;
+    };
+    search.addEventListener("input", draw);
+    mount(menu,
+      h("p", { class: "share-title" }, t("effects.title")),
+      h("p", { class: "fx-section" }, t("effects.background")), bg,
+      h("p", { class: "fx-section" }, t("effects.masks")), search, masks,
+      camOff,
+      h("p", { class: "share-sound muted small" }, icon("lock", 16), t("effects.private")));
+    const unsub = call.on((e) => { if (e.type === "local") draw(); if (e.type === "status" && call.status === "idle") close(); });
+    draw();
+    document.body.appendChild(menu);
+    setTimeout(() => { addEventListener("mousedown", outside, true); addEventListener("keydown", esc, true); });
+  }
+
   function renderBar() {
     const room = viewedRoom();
     if (!room || !barEl) return;
@@ -943,6 +986,7 @@ register("home", (root) => {
     mount(barEl,
       btn(t(call.muted ? "home.unmute" : "home.mute", { key: formatKey(keys.mute) }), call.muted ? "micOff" : "mic", call.muted ? "off" : "", call.muted, toggleMute),
       btn(call.camera ? t("home.cameraTurnOff") : t("home.cameraTurnOn"), call.camera ? "video" : "videoOff", call.camera ? "on" : "off", call.camera, () => void call.setCamera(!call.camera), !live),
+      call.effectsAvailable && btn(t("effects.title"), "sparkles", lookIsOn(call.look) ? "on" : "", lookIsOn(call.look), (e?: Event) => effectsMenu((e?.currentTarget as HTMLElement) ?? barEl!)),
       btn(call.screen ? t("home.stopSharing") : t("home.shareScreen"), call.screen ? "monitorOff" : "monitor", call.screen ? "on" : "", call.screen, (e?: Event) => { if (call.screen) void call.setScreenShare(false); else shareMenu((e?.currentTarget as HTMLElement) ?? barEl!); }, !live),
       popout.available && btn(popout.open ? t("home.closePeopleWindow") : t("home.popOut"), "popout", popout.open ? "on" : "", popout.open, () => popout.toggle(), !live && !popout.open),
       btn(t("home.leave"), "hangup", "leave", null, () => void leave()));
@@ -1116,6 +1160,9 @@ register("home", (root) => {
         problem = { kind: e.kind, problem: e.problem, sound: e.sound };
         if (view.kind === "voice") renderProblem();
         else toast(problemText(problem).title, "error");
+        break;
+      case "effect":
+        toast(t(e.problem === "slow" ? "effects.tooSlow" : "effects.failed"), "error");
         break;
       case "ended":
         toast(e.message, "error");

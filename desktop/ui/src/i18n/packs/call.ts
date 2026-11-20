@@ -28,6 +28,22 @@ export const en = {
   "overlay.disconnected": "Voice disconnected. Trying again…",
   "overlay.connecting": "Connecting…",
   "overlay.empty": "Nobody here yet.",
+  // Camera effects
+  "effects.title": "Effects",
+  "effects.background": "Background",
+  "effects.noBlur": "No blur",
+  "effects.masks": "Masks",
+  "effects.noMask": "No mask",
+  "effects.search": "Search masks",
+  "effects.noMatch": "No masks match “{q}”.",
+  "effects.blur": "Blur",
+  "effects.skull": "Sugar skull",
+  "effects.cat": "Cat",
+  "effects.shades": "Sunglasses",
+  "effects.cameraOff": "Your effects turn on with your camera.",
+  "effects.private": "Effects are made on this computer. Your camera picture isn't sent anywhere else.",
+  "effects.failed": "Camera effects couldn't start, so they're off. Your camera still works.",
+  "effects.tooSlow": "Camera effects were slowing this computer down, so they're off.",
 } as const;
 
 export const es: Pack<typeof en> = {
@@ -57,6 +73,22 @@ export const es: Pack<typeof en> = {
   "overlay.disconnected": "Se cortó la voz. Reintentando…",
   "overlay.connecting": "Conectando…",
   "overlay.empty": "Todavía no hay nadie.",
+  // Efectos de cámara
+  "effects.title": "Efectos",
+  "effects.background": "Fondo",
+  "effects.noBlur": "Sin desenfoque",
+  "effects.masks": "Máscaras",
+  "effects.noMask": "Sin máscara",
+  "effects.search": "Buscar máscaras",
+  "effects.noMatch": "Ninguna máscara coincide con «{q}».",
+  "effects.blur": "Desenfocar",
+  "effects.skull": "Calavera",
+  "effects.cat": "Gato",
+  "effects.shades": "Gafas de sol",
+  "effects.cameraOff": "Tus efectos se activan cuando enciendes la cámara.",
+  "effects.private": "Los efectos se hacen en este ordenador. La imagen de tu cámara no se envía a ningún otro sitio.",
+  "effects.failed": "Los efectos de cámara no pudieron empezar, así que están apagados. La cámara sigue funcionando.",
+  "effects.tooSlow": "Los efectos de cámara hacían ir lento este ordenador, así que están apagados.",
 };
 
 export const uk: Pack<typeof en, UkPlural> = {
@@ -86,4 +118,20 @@ export const uk: Pack<typeof en, UkPlural> = {
   "overlay.disconnected": "Голосовий зв’язок обірвався. Пробую ще…",
   "overlay.connecting": "Підключення…",
   "overlay.empty": "Тут поки нікого.",
+  // Ефекти камери
+  "effects.title": "Ефекти",
+  "effects.background": "Фон",
+  "effects.noBlur": "Без розмиття",
+  "effects.masks": "Маски",
+  "effects.noMask": "Без маски",
+  "effects.search": "Шукати маски",
+  "effects.noMatch": "Немає масок за запитом «{q}».",
+  "effects.blur": "Розмити",
+  "effects.skull": "Цукровий череп",
+  "effects.cat": "Котик",
+  "effects.shades": "Сонцезахисні окуляри",
+  "effects.cameraOff": "Ефекти увімкнуться разом із камерою.",
+  "effects.private": "Ефекти створюються на цьому комп’ютері. Зображення з камери нікуди більше не надсилається.",
+  "effects.failed": "Ефекти камери не вдалося запустити, тож їх вимкнено. Камера працює.",
+  "effects.tooSlow": "Ефекти камери сповільнювали комп’ютер, тож їх вимкнено.",
 };
