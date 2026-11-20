@@ -19,6 +19,9 @@
 }
 
 * { box-sizing: border-box; }
+/* App chrome isn't selectable; message text, codes and fields are. */
+body { -webkit-user-select: none; user-select: none; cursor: default; }
+input, textarea, .body, .status-line em, .secret, .invite-code, .backup-codes, .form-error, .muted.small.selectable { -webkit-user-select: text; user-select: text; }
 html, body { margin: 0; height: 100%; background: var(--night); color: var(--moon); font-family: var(--text); font-size: 16px; -webkit-font-smoothing: antialiased; }
 #app { height: 100%; }
 .screen { height: 100%; overflow: auto; }
