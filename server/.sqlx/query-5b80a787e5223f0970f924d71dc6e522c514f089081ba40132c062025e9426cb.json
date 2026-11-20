@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT u.id, u.username::text AS \"username!\", u.display_name, u.color, u.role, u.is_owner,\n                  s.id AS session_id, (m.confirmed_at IS NOT NULL) AS \"mfa_enabled!\", t.mods_require_mfa,\n                  (SELECT a.version FROM avatars a WHERE a.user_id = u.id) AS avatar\n           FROM sessions s\n           JOIN users u ON u.id = s.user_id\n           LEFT JOIN mfa m ON m.user_id = u.id\n           CROSS JOIN treehouse t\n           WHERE s.token_hash = $1 AND s.expires_at > now() AND u.blocked_at IS NULL",
+  "query": "SELECT u.id, u.username::text AS \"username!\", u.display_name, u.color, u.role, u.is_owner,\n                  s.id AS session_id, (m.confirmed_at IS NOT NULL) AS \"mfa_enabled!\", t.mods_require_mfa,\n                  (SELECT a.version FROM avatars a WHERE a.user_id = u.id) AS avatar,\n                  u.status, u.status_emoji, u.status_text\n           FROM sessions s\n           JOIN users u ON u.id = s.user_id\n           LEFT JOIN mfa m ON m.user_id = u.id\n           CROSS JOIN treehouse t\n           WHERE s.id = $1",
   "describe": {
     "columns": [
       {
@@ -52,11 +52,26 @@
         "ordinal": 9,
         "name": "avatar",
         "type_info": "Int4"
+      },
+      {
+        "ordinal": 10,
+        "name": "status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "status_emoji",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 12,
+        "name": "status_text",
+        "type_info": "Text"
       }
     ],
     "parameters": {
       "Left": [
-        "Bytea"
+        "Int8"
       ]
     },
     "nullable": [
@@ -69,8 +84,11 @@
       false,
       null,
       false,
-      null
+      null,
+      false,
+      true,
+      true
     ]
   },
-  "hash": "0db4190aea4753fab584158c21a69d5a1fe078f1c49aa9111aa08070bfed15bf"
+  "hash": "5b80a787e5223f0970f924d71dc6e522c514f089081ba40132c062025e9426cb"
 }

@@ -163,6 +163,9 @@ pub struct User {
     pub mfa_enabled: bool,
     pub mods_require_mfa: bool,
     pub avatar: Option<i32>,
+    pub status: String,
+    pub status_emoji: Option<String>,
+    pub status_text: Option<String>,
 }
 
 impl User {
@@ -187,6 +190,9 @@ impl User {
             mfa_enabled: self.mfa_enabled,
             mfa_setup_needed: self.mfa_setup_needed(),
             avatar: self.avatar,
+            status: self.status.clone(),
+            status_emoji: self.status_emoji.clone(),
+            status_text: self.status_text.clone(),
         }
     }
 }
@@ -204,30 +210,48 @@ pub struct MeOut {
     pub mfa_setup_needed: bool,
     /// Avatar version, or null for initials. Fetch with GET /api/avatars/{id}.
     pub avatar: Option<i32>,
+    pub status: String,
+    pub status_emoji: Option<String>,
+    pub status_text: Option<String>,
 }
 
 pub async fn load_user_by_token(conn: &mut PgConnection, token: &str) -> AppResult<Option<User>> {
-    let row = sqlx::query!(
-        r#"SELECT u.id, u.username::text AS "username!", u.display_name, u.color, u.role, u.is_owner,
-                  s.id AS session_id, (m.confirmed_at IS NOT NULL) AS "mfa_enabled!", t.mods_require_mfa,
-                  (SELECT a.version FROM avatars a WHERE a.user_id = u.id) AS avatar
-           FROM sessions s
-           JOIN users u ON u.id = s.user_id
-           LEFT JOIN mfa m ON m.user_id = u.id
-           CROSS JOIN treehouse t
-           WHERE s.token_hash = $1 AND s.expires_at > now() AND u.blocked_at IS NULL"#,
+    let session_id = sqlx::query_scalar!(
+        "SELECT s.id FROM sessions s JOIN users u ON u.id = s.user_id
+         WHERE s.token_hash = $1 AND s.expires_at > now() AND u.blocked_at IS NULL",
         util::sha256(token),
     )
     .fetch_optional(&mut *conn)
     .await?;
-    let Some(r) = row else { return Ok(None) };
+    let Some(session_id) = session_id else {
+        return Ok(None);
+    };
     sqlx::query!(
         "UPDATE sessions SET last_seen = now() WHERE id = $1 AND last_seen < now() - interval '5 minutes'",
-        r.session_id
+        session_id
     )
     .execute(&mut *conn)
     .await?;
-    Ok(Some(User {
+    Ok(Some(load_user_by_token_id(conn, session_id).await?))
+}
+
+/// The user behind a session id (already authenticated).
+pub async fn load_user_by_token_id(conn: &mut PgConnection, session_id: i64) -> AppResult<User> {
+    let r = sqlx::query!(
+        r#"SELECT u.id, u.username::text AS "username!", u.display_name, u.color, u.role, u.is_owner,
+                  s.id AS session_id, (m.confirmed_at IS NOT NULL) AS "mfa_enabled!", t.mods_require_mfa,
+                  (SELECT a.version FROM avatars a WHERE a.user_id = u.id) AS avatar,
+                  u.status, u.status_emoji, u.status_text
+           FROM sessions s
+           JOIN users u ON u.id = s.user_id
+           LEFT JOIN mfa m ON m.user_id = u.id
+           CROSS JOIN treehouse t
+           WHERE s.id = $1"#,
+        session_id,
+    )
+    .fetch_one(&mut *conn)
+    .await?;
+    Ok(User {
         id: r.id,
         username: r.username,
         display_name: r.display_name,
@@ -238,7 +262,10 @@ pub async fn load_user_by_token(conn: &mut PgConnection, token: &str) -> AppResu
         mfa_enabled: r.mfa_enabled,
         mods_require_mfa: r.mods_require_mfa,
         avatar: r.avatar,
-    }))
+        status: r.status,
+        status_emoji: r.status_emoji,
+        status_text: r.status_text,
+    })
 }
 
 fn bearer(parts: &Parts) -> Option<&str> {

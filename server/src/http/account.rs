@@ -28,7 +28,14 @@ pub async fn me(AuthedAny(user): AuthedAny) -> Json<MeOut> {
 pub struct MePatch {
     display_name: Option<String>,
     color: Option<String>,
+    /// online | away | busy | brb
+    status: Option<String>,
+    /// Custom status; send both as "" (or null) to clear.
+    status_emoji: Option<String>,
+    status_text: Option<String>,
 }
+
+const STATUSES: [&str; 4] = ["online", "away", "busy", "brb"];
 
 pub async fn update_me(
     State(st): State<AppState>,
@@ -45,25 +52,55 @@ pub async fn update_me(
     {
         return Err(AppError::bad("bad_color", "Pick a color."));
     }
+    if let Some(s) = p.status.as_deref()
+        && !STATUSES.contains(&s)
+    {
+        return Err(AppError::bad(
+            "bad_status",
+            "Pick online, away, busy or be right back.",
+        ));
+    }
+    // Custom status is set or cleared as a pair.
+    let custom = p.status_emoji.is_some() || p.status_text.is_some();
+    let emoji = p
+        .status_emoji
+        .as_deref()
+        .map(str::trim)
+        .filter(|e| !e.is_empty())
+        .map(str::to_string);
+    let text: Option<String> = p
+        .status_text
+        .as_deref()
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .map(|t| t.chars().take(60).collect());
+    if emoji.as_deref().is_some_and(|e| e.chars().count() > 16) {
+        return Err(AppError::bad(
+            "bad_status",
+            "Use one emoji for your status.",
+        ));
+    }
     let mut tx = st.db.begin().await?;
     sqlx::query!(
-        "UPDATE users SET display_name = COALESCE($2, display_name), color = COALESCE($3, color) WHERE id = $1",
+        "UPDATE users SET display_name = COALESCE($2, display_name), color = COALESCE($3, color),
+                          status = COALESCE($4, status),
+                          status_emoji = CASE WHEN $5 THEN $6 ELSE status_emoji END,
+                          status_text = CASE WHEN $5 THEN $7 ELSE status_text END
+         WHERE id = $1",
         user.id,
         name,
-        p.color
+        p.color,
+        p.status,
+        custom,
+        emoji,
+        text
     )
     .execute(&mut *tx)
     .await?;
     events::emit(&mut tx, events::TREEHOUSE, "people", json!({})).await?;
+    let me = auth::load_user_by_token_id(&mut tx, user.session_id).await?;
     tx.commit().await?;
-    let mut me = user.me();
-    if let Some(n) = name {
-        me.display_name = n;
-    }
-    if let Some(c) = p.color {
-        me.color = c;
-    }
-    Ok(Json(me))
+    Ok(Json(me.me()))
 }
 
 #[derive(Deserialize)]

@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT s.id FROM sessions s JOIN users u ON u.id = s.user_id\n         WHERE s.token_hash = $1 AND s.expires_at > now() AND u.blocked_at IS NULL",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "dcb9169b170a7f33b1825f9950d7c31ad306f95faebe0d429948c0594048dc3e"
+}
