@@ -113,7 +113,19 @@ register("settings", (root, screen) => {
   function sound(el: HTMLElement) {
     const mic = dropdown("s-mic", [{ value: "", label: "System default" }], prefs.mic);
     const out = dropdown("s-out", [{ value: "", label: "System default" }], prefs.speaker);
-    const bar = h("span", { class: "meter-fill" });
+    // Segmented level meter: green for normal speech, amber when loud, red near clipping.
+    const SEGMENTS = 32;
+    const segs = Array.from({ length: SEGMENTS }, (_, i) =>
+      h("span", { class: `seg ${i < SEGMENTS * 0.6 ? "low" : i < SEGMENTS * 0.85 ? "mid" : "high"}` }));
+    const bar = h("span", { class: "meter segmented", role: "meter", "aria-label": "Microphone level", "aria-valuemin": 0, "aria-valuemax": 100 }, segs);
+    let shown = -1;
+    const setLevel = (pct: number) => {
+      const lit = Math.round((pct / 100) * SEGMENTS);
+      if (lit === shown) return;
+      shown = lit;
+      segs.forEach((s, i) => s.classList.toggle("on", i < lit));
+      bar.setAttribute("aria-valuenow", String(Math.round(pct)));
+    };
     let micGainNode: GainNode | null = null;
     const slider = (id: string, label: string, value: number, onInput: (v: number) => void, extra?: Node, max = 200) => {
       const out = h("span", { class: "range-value" }, `${value}%`);
@@ -165,7 +177,7 @@ register("settings", (root, screen) => {
           an.getByteTimeDomainData(buf);
           let peak = 0;
           for (const v of buf) peak = Math.max(peak, Math.abs(v - 128));
-          bar.style.width = `${Math.min(100, (peak / 64) * 100)}%`;
+          setLevel(Math.min(100, (peak / 64) * 100));
           raf = requestAnimationFrame(tick);
         };
         tick();
@@ -193,7 +205,7 @@ register("settings", (root, screen) => {
             isMac ? "Open System Settings" : "Open Windows settings"),
           h("button", { class: "btn ghost sm", type: "button", onclick: () => void listen().then(fill) }, "Try again")));
       problem.hidden = false;
-      bar.style.width = "0";
+      setLevel(0);
     };
 
     const fill = async () => {
@@ -213,7 +225,7 @@ register("settings", (root, screen) => {
       h("div", { class: "stack-16 maxw" },
         h("div", { class: "field" }, h("label", { for: "s-mic" }, "Microphone"), mic.el),
         micVolume,
-        h("div", { class: "row gap-14 meter-row" }, h("span", { class: "muted small" }, "Say something"), h("span", { class: "meter" }, bar)),
+        h("div", { class: "row gap-14 meter-row" }, h("span", { class: "muted small" }, "Say something"), bar),
         problem,
         h("div", { class: "field" }, h("label", { for: "s-out" }, "Speakers or headphones"), out.el),
         outVolume,

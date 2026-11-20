@@ -459,6 +459,11 @@ fieldset.plain legend { padding: 0; margin-bottom: 10px; }
 .range:focus-visible { outline: 3px solid var(--lantern); outline-offset: 4px; box-shadow: none !important; }
 .range::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--moon); border: 3px solid var(--lantern); }
 .range-value { font-weight: 700; font-size: 14px; color: var(--mist); min-width: 44px; text-align: right; }
+.meter.segmented { display: flex; gap: 3px; height: 18px; background: none; border-radius: 0; overflow: visible; }
+.meter.segmented .seg { flex: 1; border-radius: 2px; background: var(--surface); transition: background 60ms linear; }
+.meter.segmented .seg.low.on { background: var(--leaf); }
+.meter.segmented .seg.mid.on { background: var(--lantern); }
+.meter.segmented .seg.high.on { background: var(--ember); }
 .meter { flex: 1; height: 8px; border-radius: 999px; background: var(--surface); overflow: hidden; }
 .meter-fill { display: block; height: 100%; width: 0; background: var(--lantern); border-radius: 999px; transition: width 60ms linear; }
 .invite-card { border: 2px dashed #33416a; border-radius: 20px; padding: 24px 28px; display: flex; flex-direction: column; gap: 14px; background: var(--raised); }
