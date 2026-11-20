@@ -307,6 +307,10 @@ fieldset.plain legend { padding: 0; margin-bottom: 10px; }
 .msg-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .msg-head { display: flex; align-items: baseline; gap: 10px; }
 .msg-head strong { font-size: 17px; }
+/* Presence and custom status beside the name; shrinks first when space is short. */
+.msg-status { display: inline-flex; align-items: baseline; gap: 10px; min-width: 0; overflow: hidden; }
+.msg-status:empty { display: none; }
+.msg-head { min-width: 0; }
 .body { font-size: 17px; line-height: 1.5; overflow-wrap: anywhere; }
 .body.action { font-style: italic; color: #d6dbee; }
 .msg.status { padding-top: 4px; padding-bottom: 4px; }
@@ -383,7 +387,7 @@ fieldset.plain legend { padding: 0; margin-bottom: 10px; }
 .gif-pick img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .giphy-credit { margin-top: 10px; text-align: right; color: var(--mist); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; }
 .gif-pick:hover { outline: 2px solid var(--lantern); outline-offset: -2px; }
-.emoji-pop { position: fixed; z-index: 30; width: 320px; display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; padding: 10px; background: #172038; border: 1.5px solid var(--line-2); border-radius: 16px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45); }
+.emoji-pop { position: fixed; z-index: 45; width: 320px; display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; padding: 10px; background: #172038; border: 1.5px solid var(--line-2); border-radius: 16px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45); }
 .emoji-btn { font-size: 22px; height: 36px; border-radius: 8px; }
 .emoji-btn:hover { background: var(--active); }
 .popover { position: fixed; z-index: 30; width: 300px; display: flex; flex-direction: column; gap: 12px; padding: 16px; background: #172038; border: 1.5px solid var(--line-2); border-radius: 16px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45); }

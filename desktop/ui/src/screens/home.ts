@@ -254,7 +254,7 @@ register("home", (root) => {
     return h("article", { class: `msg ${mentionsMe ? "mentioned" : ""} ${compact ? "compact" : ""}`, "data-id": String(m.id) },
       personAvatar(p, compact ? 36 : 44),
       h("div", { class: "msg-main" },
-        h("div", { class: "msg-head" }, inkText(h("strong", null, p.display_name), p.color), h("time", { class: "muted small", datetime: m.created_at }, time(m.created_at))),
+        h("div", { class: "msg-head" }, inkText(h("strong", null, p.display_name), p.color), statusTag(p), h("time", { class: "muted small", datetime: m.created_at }, time(m.created_at))),
         content,
         m.reactions.length > 0 && h("div", { class: "reactions" },
           m.reactions.map((r) => reactionChip(m, r.emoji, r.user_ids)), reactBtn),
@@ -576,6 +576,19 @@ register("home", (root) => {
 
     return h("form", { class: "composer", onsubmit: (e: Event) => { e.preventDefault(); void submit(); } },
       pop, h("div", { class: "composer-field" }, input), emojiBtn, sendBtn);
+  }
+
+  /** Presence (when not plain online) and custom status, next to a name in chat. */
+  function statusBits(p: Person) {
+    return [
+      p.online && p.status !== "online" && h("span", { class: `small presence-${p.status}` }, h("span", { class: `online-dot inline ${p.status}` }), " ", presenceLabel(p.status)),
+      (p.status_emoji || p.status_text) && h("span", { class: "muted small ellipsis" }, `${p.status_emoji ?? ""} ${p.status_text ?? ""}`.trim()),
+    ];
+  }
+  const statusTag = (p: Person) => h("span", { class: "msg-status", "data-status-for": String(p.id) }, statusBits(p));
+  /** Statuses change after messages are drawn: update the tags in place. */
+  function refreshStatuses() {
+    document.querySelectorAll<HTMLElement>("[data-status-for]").forEach((el) => mount(el, statusBits(person(Number(el.dataset.statusFor)))));
   }
 
   function emojiPicker(anchor: HTMLElement, onPick: (e: string) => void) {
@@ -1079,6 +1092,7 @@ register("home", (root) => {
         if (self) Object.assign(self, { status: me.status, status_emoji: me.status_emoji, status_text: me.status_text });
         reportUnread();
         renderSidebar();
+        refreshStatuses();
       } catch (e) { toast(errorText(e), "error"); }
     };
 
@@ -1204,7 +1218,7 @@ register("home", (root) => {
         if (m) { m.reactions = e.reactions; refreshLists(e.channel_id); }
         break;
       }
-      case "presence": { const p = people.get(e.user_id); if (p && p.id !== me.id) { p.online = e.online; renderSidebar(); } break; }
+      case "presence": { const p = people.get(e.user_id); if (p && p.id !== me.id) { p.online = e.online; renderSidebar(); refreshStatuses(); } break; }
       case "voice": {
         const r = rooms.find((x) => x.id === e.room_id);
         if (!r) { void load(); break; }
@@ -1274,6 +1288,7 @@ register("home", (root) => {
       // Rooms that emptied lose their chat; drop what we held.
       for (const r of rooms) if (r.kind === "voice" && !r.members.some((m) => m.user_id === me.id) && r.id !== call.roomId) cache.delete(r.id);
       renderSidebar();
+      refreshStatuses();
       if (view.kind === "voice" || !lists.size) renderMain();
       else for (const ch of lists.keys()) refreshLists(ch);
     } catch (e) {
