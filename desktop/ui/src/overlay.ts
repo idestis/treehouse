@@ -73,7 +73,7 @@ export function startOverlay(root: HTMLElement, firstRoom: number) {
     mount(controls,
       btn(state.muted ? "Unmute" : "Mute", state.muted ? "micOff" : "mic", state.muted ? "off" : "", "mute"),
       btn(state.deafened ? "Undeafen" : "Deafen", state.deafened ? "headphonesOff" : "headphones", state.deafened ? "off" : "", "deafen"),
-      state.screen && h("button", { class: "ov-btn share", type: "button", title: "Stop sharing", "aria-label": "Stop sharing", onclick: () => command("stop-share") }, icon("monitorOff", 18), h("span", null, "Stop sharing")),
+      state.screen && h("button", { class: "ov-btn share", type: "button", title: "Stop sharing", "aria-label": "Stop sharing", onclick: () => command("stop-share") }, icon("monitorOff", 18)),
       btn("Leave", "hangup", "leave", "leave"));
   }
   void listen<CallState>("overlay-state", (e) => {
