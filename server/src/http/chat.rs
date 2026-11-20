@@ -23,6 +23,8 @@ const MAX_BODY: usize = 2000;
 const MAX_EMOJI_KINDS: i64 = 20;
 const RATE_COUNT: i64 = 5;
 const RATE_SECS: f64 = 5.0;
+const GIF_PER_MINUTE: i64 = 10;
+const MAX_GIF_QUERY: usize = 50;
 
 /// The room, if this user may read and post in it: everyone in The Deck,
 /// only the people inside for a voice room's chat.
@@ -149,15 +151,93 @@ fn draft(inp: &SendIn, gif: Option<Value>) -> AppResult<Draft> {
     }
 }
 
+/// The cheap checks every send must pass: returns the stored message for a
+/// retried `client_id`, otherwise checks the channel, timeout and message rate.
+async fn pre_checks(
+    conn: &mut PgConnection,
+    user: &User,
+    room: i64,
+    client_id: Uuid,
+) -> AppResult<Option<Value>> {
+    if let Some(existing) = sqlx::query_scalar!(
+        r#"SELECT message_json(m) AS "j!" FROM messages m WHERE author_id = $1 AND client_id = $2"#,
+        user.id,
+        client_id
+    )
+    .fetch_optional(&mut *conn)
+    .await?
+    {
+        return Ok(Some(existing));
+    }
+    channel_for(conn, user.id, room).await?;
+    check_not_timed_out(conn, user).await?;
+    let recent = sqlx::query_scalar!(
+        r#"SELECT count(*) AS "n!" FROM messages WHERE author_id = $1 AND created_at > now() - make_interval(secs => $2)"#,
+        user.id,
+        RATE_SECS
+    )
+    .fetch_one(&mut *conn)
+    .await?;
+    if recent >= RATE_COUNT {
+        return Err(AppError::too_many(
+            "slow_down",
+            "You're sending fast. Wait a few seconds.",
+        ));
+    }
+    Ok(None)
+}
+
+/// Spend one of the user's GIF requests for the last minute (searches, cache
+/// hits included, and GIF sends share it). The user row lock makes the
+/// prune-count-insert atomic across parallel requests and server copies.
+async fn take_gif_slot(db: &sqlx::PgPool, user_id: i64) -> AppResult<()> {
+    let mut tx = db.begin().await?;
+    sqlx::query!("SELECT id FROM users WHERE id = $1 FOR UPDATE", user_id)
+        .fetch_one(&mut *tx)
+        .await?;
+    sqlx::query!(
+        "DELETE FROM gif_requests WHERE user_id = $1 AND at < now() - interval '1 minute'",
+        user_id
+    )
+    .execute(&mut *tx)
+    .await?;
+    let n = sqlx::query_scalar!(
+        r#"SELECT count(*) AS "n!" FROM gif_requests WHERE user_id = $1"#,
+        user_id
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    if n >= GIF_PER_MINUTE {
+        return Err(AppError::too_many(
+            "too_many_gifs",
+            "Too many GIFs. Wait a minute.",
+        ));
+    }
+    sqlx::query!("INSERT INTO gif_requests (user_id) VALUES ($1)", user_id)
+        .execute(&mut *tx)
+        .await?;
+    tx.commit().await?;
+    Ok(())
+}
+
 pub async fn send(
     State(st): State<AppState>,
     Authed(user): Authed,
     Path(room): Path<i64>,
     Json(inp): Json<SendIn>,
 ) -> AppResult<Json<Value>> {
-    // GIPHY is called before the transaction, never inside it.
+    // GIPHY is called before the write transaction, never inside it, but only
+    // after the cheap checks pass, so a rejected send never spends GIPHY quota.
+    // The write transaction below repeats those checks under the author lock.
     let gif = match inp.gif_id.as_deref() {
         Some(id) => {
+            {
+                let mut conn = st.db.acquire().await?;
+                if let Some(existing) = pre_checks(&mut conn, &user, room, inp.client_id).await? {
+                    return Ok(Json(existing));
+                }
+            }
+            take_gif_slot(&st.db, user.id).await?;
             let rating = sqlx::query_scalar!("SELECT gif_rating FROM treehouse")
                 .fetch_one(&st.db)
                 .await?;
@@ -176,30 +256,8 @@ pub async fn send(
     sqlx::query!("SELECT id FROM users WHERE id = $1 FOR UPDATE", user.id)
         .fetch_one(&mut *tx)
         .await?;
-    if let Some(existing) = sqlx::query_scalar!(
-        r#"SELECT message_json(m) AS "j!" FROM messages m WHERE author_id = $1 AND client_id = $2"#,
-        user.id,
-        inp.client_id
-    )
-    .fetch_optional(&mut *tx)
-    .await?
-    {
+    if let Some(existing) = pre_checks(&mut tx, &user, room, inp.client_id).await? {
         return Ok(Json(existing)); // a retry of something already sent
-    }
-    channel_for(&mut tx, user.id, room).await?;
-    check_not_timed_out(&mut tx, &user).await?;
-    let recent = sqlx::query_scalar!(
-        r#"SELECT count(*) AS "n!" FROM messages WHERE author_id = $1 AND created_at > now() - make_interval(secs => $2)"#,
-        user.id,
-        RATE_SECS
-    )
-    .fetch_one(&mut *tx)
-    .await?;
-    if recent >= RATE_COUNT {
-        return Err(AppError::too_many(
-            "slow_down",
-            "You're sending fast. Wait a few seconds.",
-        ));
     }
     let mentions = match d.body.as_deref() {
         Some(b) if d.kind == "text" => mentioned_ids(&mut tx, b).await?,
@@ -418,11 +476,16 @@ pub struct GifQuery {
 
 pub async fn gifs(
     State(st): State<AppState>,
-    Authed(_): Authed,
+    Authed(user): Authed,
     Query(q): Query<GifQuery>,
 ) -> AppResult<Json<Value>> {
+    let text: String = q.q.trim().chars().take(MAX_GIF_QUERY).collect();
+    if text.is_empty() {
+        return Ok(Json(json!([])));
+    }
+    take_gif_slot(&st.db, user.id).await?;
     let rating = sqlx::query_scalar!("SELECT gif_rating FROM treehouse")
         .fetch_one(&st.db)
         .await?;
-    Ok(Json(st.gifs.search(q.q.trim(), &rating).await?))
+    Ok(Json(st.gifs.search(&text, &rating).await?))
 }
