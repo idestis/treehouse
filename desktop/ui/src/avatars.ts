@@ -1,6 +1,7 @@
 // Profile pictures. People carry an avatar version; the picture itself is
 // fetched once per version (authenticated) and cached for the session.
 import { api } from "./api";
+import { inkOn, paint } from "./colors";
 import { initial } from "./dom";
 
 export interface HasAvatar { id: number; display_name: string; color: string; avatar: number | null }
@@ -22,13 +23,14 @@ export function personAvatar(p: HasAvatar, size = 28, cls = ""): HTMLElement {
   const el = document.createElement("span");
   el.className = `avatar ${cls}`;
   if (size > 0) Object.assign(el.style, { width: `${size}px`, height: `${size}px`, fontSize: `${Math.round(size * 0.42)}px` });
-  el.style.background = p.color;
+  el.style.background = paint(p.color);
+  el.style.color = inkOn(p.color);
   el.textContent = initial(p.display_name);
   if (p.avatar) {
     void load(p.id, p.avatar).then((url) => {
       if (!url) return;
       el.textContent = "";
-      el.style.background = `center / cover no-repeat url("${url}"), ${p.color}`;
+      el.style.background = `center / cover no-repeat url("${url}"), ${paint(p.color)}`;
     });
   }
   return el;

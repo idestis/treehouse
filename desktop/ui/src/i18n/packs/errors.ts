@@ -35,6 +35,7 @@ export const en = {
   "err.bad_username": "Usernames are 2 to 24 letters, numbers, dots, dashes or underscores.",
   "err.username_taken": "That username is taken. Try another.",
   "err.bad_color": "Pick a color.",
+  "err.color_too_dark": "That color is too dark to read. Pick a lighter one.",
 
   // Passwords
   "err.password_short": "Use at least {min} characters.",
@@ -123,6 +124,7 @@ export const es: Pack<typeof en> = {
   "err.bad_username": "El nombre de usuario lleva de 2 a 24 letras, números, puntos, guiones o guiones bajos.",
   "err.username_taken": "Ese nombre de usuario ya está ocupado. Prueba otro.",
   "err.bad_color": "Elige un color.",
+  "err.color_too_dark": "Ese color es demasiado oscuro para leerse. Elige uno más claro.",
 
   "err.password_short": "Usa al menos {min} caracteres.",
   "err.password_long": "Esa contraseña es demasiado larga.",
@@ -206,6 +208,7 @@ export const uk: Pack<typeof en, UkPlural> = {
   "err.bad_username": "Ім’я користувача — від 2 до 24 літер, цифр, крапок, дефісів або підкреслень.",
   "err.username_taken": "Це ім’я користувача вже зайняте. Спробуй інше.",
   "err.bad_color": "Вибери колір.",
+  "err.color_too_dark": "Цей колір затемний, його погано видно. Вибери світліший.",
 
   "err.password_short": "Використай щонайменше {min} символів.",
   "err.password_long": "Пароль задовгий.",

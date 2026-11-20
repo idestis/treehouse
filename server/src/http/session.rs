@@ -337,8 +337,48 @@ fn valid_username(u: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || "_.-".contains(c))
 }
 
-pub fn valid_color(c: &str) -> bool {
-    c.len() == 7 && c.starts_with('#') && c[1..].chars().all(|x| x.is_ascii_hexdigit())
+/// Named gradients the app draws itself (kept in step with migration 0015
+/// and `desktop/ui/src/colors.ts`).
+pub const GRADIENTS: [&str; 4] = ["rainbow", "sunset", "ocean", "aurora"];
+
+/// Names are drawn in this color on the night background (#0E1322), so a
+/// custom color needs at least 3:1 contrast against it to stay readable.
+const MIN_CONTRAST: f64 = 3.0;
+
+fn luminance(rgb: [u8; 3]) -> f64 {
+    let lin = |c: u8| {
+        let c = f64::from(c) / 255.0;
+        if c <= 0.04045 {
+            c / 12.92
+        } else {
+            ((c + 0.055) / 1.055).powf(2.4)
+        }
+    };
+    0.2126 * lin(rgb[0]) + 0.7152 * lin(rgb[1]) + 0.0722 * lin(rgb[2])
+}
+
+fn parse_hex(c: &str) -> Option<[u8; 3]> {
+    if c.len() != 7 || !c.starts_with('#') || !c[1..].chars().all(|x| x.is_ascii_hexdigit()) {
+        return None;
+    }
+    let byte = |i: usize| u8::from_str_radix(&c[i..i + 2], 16).ok();
+    Some([byte(1)?, byte(3)?, byte(5)?])
+}
+
+/// A hex color readable on the night background, or a named gradient.
+pub fn check_color(c: &str) -> AppResult<()> {
+    if GRADIENTS.contains(&c) {
+        return Ok(());
+    }
+    let rgb = parse_hex(c).ok_or_else(|| AppError::bad("bad_color", "Pick a color."))?;
+    let night = luminance([0x0E, 0x13, 0x22]);
+    if (luminance(rgb) + 0.05) / (night + 0.05) < MIN_CONTRAST {
+        return Err(AppError::bad(
+            "color_too_dark",
+            "That color is too dark to read. Pick a lighter one.",
+        ));
+    }
+    Ok(())
 }
 
 pub fn clean_display_name(n: &str) -> AppResult<String> {
@@ -368,9 +408,7 @@ pub async fn join(State(st): State<AppState>, Json(inp): Json<JoinIn>) -> AppRes
         ));
     }
     let display_name = clean_display_name(&inp.display_name)?;
-    if !valid_color(&inp.color) {
-        return Err(AppError::bad("bad_color", "Pick a color."));
-    }
+    check_color(&inp.color)?;
     let treehouse = sqlx::query_scalar!("SELECT name FROM treehouse")
         .fetch_one(&st.db)
         .await?;
@@ -478,6 +516,32 @@ pub async fn password_check(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn colors() {
+        // Every swatch in the app's palette must pass.
+        for ok in [
+            "#3F8EFC", "#12A594", "#2FA84F", "#E8A317", "#F0663A", "#E5487D", "#8B5CF6", "#7C8BA8",
+            "#7c8ba8", "#FFFFFF", "rainbow", "sunset", "ocean", "aurora",
+        ] {
+            assert!(check_color(ok).is_ok(), "{ok}");
+        }
+        for bad in ["", "#123", "red", "#GGGGGG", "Rainbow", "#3F8EFC0"] {
+            assert!(
+                matches!(check_color(bad), Err(AppError::User(_, "bad_color", ..))),
+                "{bad}"
+            );
+        }
+        for dark in ["#000000", "#0E1322", "#202840", "#4A1010"] {
+            assert!(
+                matches!(
+                    check_color(dark),
+                    Err(AppError::User(_, "color_too_dark", ..))
+                ),
+                "{dark}"
+            );
+        }
+    }
 
     fn test_totp() -> TOTP {
         // RFC 6238 test secret ("12345678901234567890").

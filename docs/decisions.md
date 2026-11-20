@@ -123,3 +123,10 @@ The spec doesn't mention languages. The desktop app now ships English, Español 
 - **Native bits:** the tray menu and the tooltip get their labels from the UI (`tray_labels`, and `set_unread`'s `tooltip`). The overlay window title is passed to `overlay_open`. macOS gets `CFBundleLocalizations` and `InfoPlist.strings` for es/uk, so permission prompts and system dialogs match. The NSIS installer lists Spanish and Ukrainian.
 - **Changing language** re-renders the settings screen. Other screens pick up the new language when they're next drawn. A call that's already open keeps its labels until you rejoin.
 - **Register:** informal (tú / ти), short, sentence case, following the English copy rules. Spanish is neutral, not regional.
+
+## 2026-11-20: Custom colors and gradients
+
+- **Values:** `users.color` is a hex (`#RRGGBB`) or one of the named gradients `rainbow`, `sunset`, `ocean` and `aurora` (migration 0015 widens the check constraint; `session.rs` `GRADIENTS`). The app draws each gradient from `desktop/ui/src/colors.ts`: avatar backgrounds, gradient text for names, a stop-by-stop tint for voice tiles.
+- **Readable on night:** names are drawn in the person's color, so a custom hex needs at least 3:1 contrast against `night` (#0E1322); darker ones get `color_too_dark`. Every palette swatch passes (tested). The picker warns early with the same formula, but the server decides. Initials switch to dark text on light colors.
+- **Picking your own:** a "+" swatch is a real `<input type="color">`, so it opens the system picker. The macOS color panel has its own eyedropper. Where the web view has the `EyeDropper` API (WebView2 on Windows), an extra "pick from screen" swatch appears. The swatches update in place instead of re-rendering, so an open system picker keeps sending to the same input.
+- **Older apps** show a gradient person with no color (an invalid CSS color is ignored), which is harmless.

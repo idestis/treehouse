@@ -7,6 +7,7 @@ import type { Gif, LiveEvent, Me, Message, Person, Presence, Room, Treehouse, Vo
 import { errorText } from "../api/types";
 import { go, register, session } from "../app";
 import { personAvatar } from "../avatars";
+import { inkText, tint } from "../colors";
 import { chime, notificationsOn, setNotifications } from "../notify";
 import { playJoinSound, playSound, preloadSounds } from "../sounds";
 import { prefs } from "../voice";
@@ -243,7 +244,7 @@ register("home", (root) => {
         h("span", { class: "status-slot" }, personAvatar(p, 22)),
         h("div", { class: "msg-main" },
           h("p", { class: "status-line" },
-            h("strong", { style: { color: p.color } }, p.display_name), " ",
+            inkText(h("strong", null, p.display_name), p.color), " ",
             h("em", null, m.body ?? ""),
             h("time", { class: "muted small", datetime: m.created_at }, time(m.created_at))),
           m.reactions.length > 0 && h("div", { class: "reactions" },
@@ -253,7 +254,7 @@ register("home", (root) => {
     return h("article", { class: `msg ${mentionsMe ? "mentioned" : ""} ${compact ? "compact" : ""}`, "data-id": String(m.id) },
       personAvatar(p, compact ? 36 : 44),
       h("div", { class: "msg-main" },
-        h("div", { class: "msg-head" }, h("strong", { style: { color: p.color } }, p.display_name), h("time", { class: "muted small", datetime: m.created_at }, time(m.created_at))),
+        h("div", { class: "msg-head" }, inkText(h("strong", null, p.display_name), p.color), h("time", { class: "muted small", datetime: m.created_at }, time(m.created_at))),
         content,
         m.reactions.length > 0 && h("div", { class: "reactions" },
           m.reactions.map((r) => reactionChip(m, r.emoji, r.user_ids)), reactBtn),
@@ -713,7 +714,7 @@ register("home", (root) => {
     const p = person(m.user_id);
     const you = p.id === me.id;
     const key = `p:${m.user_id}:${cam ? cam.track.sid ?? "cam" : "-"}:${strip ? "s" : "b"}:${p.display_name}:${p.avatar ?? ""}:${p.color}`;
-    const el = cached(key, () => h("div", { class: "tile", "data-user": String(m.user_id), style: { background: `color-mix(in srgb, ${p.color} 22%, #182238)` } },
+    const el = cached(key, () => h("div", { class: "tile", "data-user": String(m.user_id), style: { background: tint(p.color, 22, "#182238") } },
       cam ? videoEl(cam) : personAvatar(p, 0, "huge"),
       cam && !strip && h("span", { class: "live" }, h("span", { class: "dot" }), t("home.live")),
       h("div", { class: "tile-bar" })));

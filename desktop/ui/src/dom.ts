@@ -1,4 +1,5 @@
 // Tiny DOM helpers: h("div", { class: "x", onclick }, child, …).
+import { inkOn, paint } from "./colors";
 import { relative, t } from "./i18n";
 
 type Child = Node | string | number | null | undefined | false | Child[];
@@ -66,6 +67,8 @@ export const icons = {
   volume: '<path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/>',
   volumeOff: '<path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M22 9l-6 6M16 9l6 6"/>',
   reply: '<path d="M9 14L4 9l5-5"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  pipette: '<path d="M2 22l1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="M15 6l3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4z"/>',
   copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
 } as const;
 
@@ -74,7 +77,7 @@ export function initial(name: string): string {
 }
 
 export function avatar(name: string, color: string, size = 28, cls = ""): HTMLElement {
-  return h("span", { class: `avatar ${cls}`, style: { width: `${size}px`, height: `${size}px`, background: color, fontSize: `${Math.round(size * 0.42)}px` } }, initial(name));
+  return h("span", { class: `avatar ${cls}`, style: { width: `${size}px`, height: `${size}px`, background: paint(color), color: inkOn(color), fontSize: `${Math.round(size * 0.42)}px` } }, initial(name));
 }
 
 export function time(iso: string): string {

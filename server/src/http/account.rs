@@ -15,7 +15,7 @@ use crate::{
     events,
     http::{
         AppState,
-        session::{clean_display_name, totp, totp_step, valid_color},
+        session::{check_color, clean_display_name, totp, totp_step},
     },
     util,
 };
@@ -54,10 +54,8 @@ pub async fn update_me(
         .as_deref()
         .map(clean_display_name)
         .transpose()?;
-    if let Some(c) = p.color.as_deref()
-        && !valid_color(c)
-    {
-        return Err(AppError::bad("bad_color", "Pick a color."));
+    if let Some(c) = p.color.as_deref() {
+        check_color(c)?;
     }
     if let Some(s) = p.status.as_deref()
         && !STATUSES.contains(&s)

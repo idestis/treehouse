@@ -2,6 +2,7 @@
 import { api } from "../api";
 import { errorText } from "../api/types";
 import { afterSignIn, go, register, session } from "../app";
+import { GRADIENTS, inkOn, looksTooDark, paint, tint } from "../colors";
 import { h, icon, initial, mount, toast } from "../dom";
 import { strengthMeter } from "../password";
 import { type Key, t } from "../i18n";
@@ -254,19 +255,65 @@ export const PALETTE: [string, string][] = [
   swatch("#8B5CF6", "auth.color.grape"), swatch("#7C8BA8", "auth.color.slate"),
 ];
 
+/** Named gradients, after the solid swatches. */
+const SPECIAL: [string, Key][] = [
+  ["rainbow", "auth.color.rainbow"], ["sunset", "auth.color.sunset"], ["ocean", "auth.color.ocean"], ["aurora", "auth.color.aurora"],
+];
+
+interface EyeDropperApi { open(): Promise<{ sRGBHex: string }> }
+declare global { interface Window { EyeDropper?: new () => EyeDropperApi } }
+
+/**
+ * Solid swatches, gradients, and "your own color": the system color picker
+ * (its macOS panel has an eyedropper), plus a screen eyedropper where the
+ * web view has one (Windows). The buttons are built once and updated in
+ * place, so the open system picker keeps talking to the same input.
+ */
 export function colorPicker(initialColor: string, onPick: (c: string) => void) {
   let color = initialColor;
-  const wrap = h("div", { class: "swatches" });
-  const render = () => mount(wrap, PALETTE.map(([hex, label]) =>
-    h("button", { type: "button", class: "swatch", "aria-label": label, "aria-pressed": String(hex === color), style: { background: hex },
-      onclick: () => { color = hex; onPick(hex); render(); } })));
-  render();
-  return wrap;
+  const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+  const preset = (c: string) => c in GRADIENTS || PALETTE.some(([hex]) => same(hex, c));
+  let custom = preset(color) ? "" : color;
+
+  const hint = h("p", { class: "form-error", role: "status", hidden: true }, t("auth.color.tooDark"));
+  const pick = (c: string) => { color = c; onPick(c); sync(); };
+
+  const presets = [...PALETTE, ...SPECIAL.map(([c, key]) => [c, t(key)] as [string, string])].map(([c, label]) => {
+    const b = h("button", { type: "button", class: "swatch", "aria-label": label, title: label, style: { background: paint(c) } });
+    b.addEventListener("click", () => { hint.hidden = true; pick(c); });
+    return { c, b };
+  });
+
+  const input = h("input", { type: "color", class: "swatch-input", "aria-label": t("auth.color.custom"), title: t("auth.color.custom"), value: custom || "#63D69E" });
+  const own = h("label", { class: "swatch swatch-custom" }, icon("plus", 20), input);
+  const tryCustom = (hex: string) => {
+    custom = hex.toUpperCase();
+    hint.hidden = !looksTooDark(custom);
+    if (hint.hidden) pick(custom);
+    else sync();
+  };
+  input.addEventListener("input", () => tryCustom(input.value));
+
+  const Dropper = window.EyeDropper;
+  const dropper = Dropper && h("button", { type: "button", class: "swatch swatch-tool", "aria-label": t("auth.color.eyedropper"), title: t("auth.color.eyedropper"),
+    onclick: () => void new Dropper().open().then((r) => { input.value = r.sRGBHex.slice(0, 7); tryCustom(input.value); }).catch(() => { /* cancelled */ }) },
+    icon("pipette", 20));
+
+  function sync() {
+    for (const { c, b } of presets) b.setAttribute("aria-pressed", String(same(c, color)));
+    const mine = custom !== "" && same(custom, color);
+    own.classList.toggle("has-color", custom !== "");
+    own.style.background = custom || "";
+    own.style.color = custom ? inkOn(custom) : "";
+    own.setAttribute("aria-pressed", String(mine));
+  }
+  sync();
+  return h("div", { class: "color-picker" }, h("div", { class: "swatches" }, presets.map((p) => p.b), own, dropper), hint);
 }
 
 export function tilePreview(name: string, color: string, face?: HTMLElement) {
-  return h("div", { class: "tile-preview", style: { background: `color-mix(in srgb, ${color} 22%, #182238)` } },
-    face ?? h("span", { class: "avatar big", style: { background: color } }, initial(name)),
+  return h("div", { class: "tile-preview", style: { background: tint(color, 22, "#182238") } },
+    face ?? h("span", { class: "avatar big", style: { background: paint(color), color: inkOn(color) } }, initial(name)),
     h("span", { class: "tile-name" }, name || " "),
   );
 }

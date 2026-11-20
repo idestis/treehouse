@@ -15,6 +15,7 @@ import {
 import { api } from "./api";
 import { isApiError, type Person, type VoiceGrant } from "./api/types";
 import { personAvatar, type HasAvatar } from "./avatars";
+import { tint } from "./colors";
 import { h, icon, mount } from "./dom";
 import { t } from "./i18n";
 
@@ -267,7 +268,7 @@ export function startOverlay(root: HTMLElement, firstRoom: number) {
     let el = tiles.get(key);
     if (!el) {
       el = h("div", { class: "ov-tile", "data-identity": p.identity, title: person.display_name,
-        style: { background: `color-mix(in srgb, ${person.color} 26%, #141c31)` } },
+        style: { background: tint(person.color, 26, "#141c31") } },
         track ? video(track, used, you) : personAvatar(person, 0, "ov-av"),
         h("div", { class: "ov-name" }));
       tiles.set(key, el);
