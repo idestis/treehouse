@@ -5,20 +5,24 @@ import { prefs } from "./voice";
 
 export type JoinSound = SoundName;
 
-/** One list for both pickers: anything can be a join or a leave sound. */
-export const SOUNDS: { value: SoundName; label: string }[] = [
+/** Greetings to come in… */
+export const JOIN_SOUNDS: { value: SoundName; label: string }[] = [
   { value: "ding", label: "Ding" },
   { value: "doink", label: "Doink" },
   { value: "quack", label: "Quack" },
   { value: "hewya", label: "Hewya!" },
   { value: "yeah-boy", label: "Yeah boy!" },
   { value: "fart", label: "Fart" },
+  { value: "none", label: "No sound" },
+];
+
+/** …goodbyes to go. */
+export const LEAVE_SOUNDS: { value: SoundName; label: string }[] = [
   { value: "mmbye", label: "Mm-bye" },
   { value: "female-bye", label: "Bye!" },
   { value: "kiddo-bye", label: "Bye bye (kiddo)" },
   { value: "none", label: "No sound" },
 ];
-export const JOIN_SOUNDS = SOUNDS;
 
 const cache = new Map<string, HTMLAudioElement>();
 

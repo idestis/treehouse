@@ -11,7 +11,7 @@ import { dropdown, dropdownOpen } from "../dropdown";
 import { strengthMeter } from "../password";
 import { chime } from "../notify";
 import type { SoundName } from "../api/types";
-import { playSound, SOUNDS } from "../sounds";
+import { JOIN_SOUNDS, LEAVE_SOUNDS, playSound } from "../sounds";
 import { AUDIO_CAPTURE, prefs } from "../voice";
 import { call } from "../call";
 import { colorPicker, tilePreview } from "./auth";
@@ -264,7 +264,7 @@ register("settings", (root, screen) => {
 
   /** Your join and leave sounds: what everyone in a voice room hears when you come and go. */
   function soundPicker(kind: "join_sound" | "leave_sound", label: string, hint: string) {
-    const pick = dropdown(`s-${kind}`, SOUNDS, me[kind]);
+    const pick = dropdown(`s-${kind}`, kind === "join_sound" ? JOIN_SOUNDS : LEAVE_SOUNDS, me[kind]);
     pick.onChange = async (v) => {
       playSound(v as SoundName);
       try {

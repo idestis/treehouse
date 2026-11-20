@@ -33,24 +33,16 @@ pub struct MePatch {
     /// Custom status; send both as "" (or null) to clear.
     status_emoji: Option<String>,
     status_text: Option<String>,
-    /// One of SOUNDS (or none), heard by others when you join / leave a voice room.
+    /// From JOIN_SOUNDS / LEAVE_SOUNDS, heard by others when you join / leave a voice room.
     join_sound: Option<String>,
     leave_sound: Option<String>,
 }
 
 const STATUSES: [&str; 4] = ["online", "away", "busy", "brb"];
-const SOUNDS: [&str; 10] = [
-    "ding",
-    "doink",
-    "fart",
-    "quack",
-    "hewya",
-    "yeah-boy",
-    "female-bye",
-    "kiddo-bye",
-    "mmbye",
-    "none",
+const JOIN_SOUNDS: [&str; 7] = [
+    "ding", "doink", "fart", "quack", "hewya", "yeah-boy", "none",
 ];
+const LEAVE_SOUNDS: [&str; 4] = ["female-bye", "kiddo-bye", "mmbye", "none"];
 
 pub async fn update_me(
     State(st): State<AppState>,
@@ -75,10 +67,12 @@ pub async fn update_me(
             "Pick online, away, busy or be right back.",
         ));
     }
-    if [&p.join_sound, &p.leave_sound]
-        .into_iter()
-        .flatten()
-        .any(|s| !SOUNDS.contains(&s.as_str()))
+    if p.join_sound
+        .as_deref()
+        .is_some_and(|s| !JOIN_SOUNDS.contains(&s))
+        || p.leave_sound
+            .as_deref()
+            .is_some_and(|s| !LEAVE_SOUNDS.contains(&s))
     {
         return Err(AppError::bad("bad_sound", "Pick one of the sounds."));
     }
