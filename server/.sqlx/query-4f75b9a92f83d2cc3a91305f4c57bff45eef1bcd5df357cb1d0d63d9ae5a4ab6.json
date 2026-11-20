@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO outbox (kind, payload) VALUES ('remove_participant', $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4f75b9a92f83d2cc3a91305f4c57bff45eef1bcd5df357cb1d0d63d9ae5a4ab6"
+}

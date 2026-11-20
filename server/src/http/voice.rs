@@ -303,6 +303,19 @@ fn webhook_action(ev: &WebhookEvent) -> Action<'_> {
     }
 }
 
+/// Queue removal of the hidden overlay connection for `user` from `room`
+/// (same transaction as the membership change; the outbox worker calls LiveKit).
+async fn drop_overlay(conn: &mut PgConnection, room: i64, user: i64) -> AppResult<()> {
+    let payload = livekit::remove_participant_payload(room, &livekit::overlay_identity(user));
+    sqlx::query!(
+        "INSERT INTO outbox (kind, payload) VALUES ('remove_participant', $1)",
+        payload
+    )
+    .execute(&mut *conn)
+    .await?;
+    Ok(())
+}
+
 async fn joined(conn: &mut PgConnection, room: i64, user: i64, sid: &str) -> AppResult<()> {
     // That session already left: this join arrived late.
     if !sid.is_empty()
@@ -363,6 +376,7 @@ async fn joined(conn: &mut PgConnection, room: i64, user: i64, sid: &str) -> App
             )
             .execute(&mut *conn)
             .await?;
+            drop_overlay(conn, p.room_id, user).await?;
             after_leave(conn, p.room_id).await?;
             emit_voice(conn, room).await?;
         }
@@ -403,6 +417,7 @@ async fn left(conn: &mut PgConnection, room: i64, user: i64, sid: &str) -> AppRe
     .await?
     .rows_affected();
     if gone > 0 {
+        drop_overlay(conn, room, user).await?;
         after_leave(conn, room).await?;
     }
     Ok(())

@@ -62,6 +62,12 @@ pub fn overlay_identity(user_id: i64) -> String {
     format!("{user_id}-overlay")
 }
 
+/// Outbox payload for the `remove_participant` job: kick `identity` out of
+/// the LiveKit room for `room_id`.
+pub fn remove_participant_payload(room_id: i64, identity: &str) -> Value {
+    json!({ "room": room_name(room_id), "identity": identity })
+}
+
 /// A watch-only token for the desktop "people on top" window: it can
 /// subscribe but never publish, and LiveKit hides it from everyone else.
 /// Its identity isn't a plain user id, so webhooks ignore it.
@@ -281,6 +287,13 @@ mod tests {
         assert!(v.get("canPublishSources").is_none());
         // Webhooks never take it for a person.
         assert_eq!(user_identity(c["sub"].as_str().unwrap()), None);
+    }
+
+    #[test]
+    fn remove_participant_payload_names_room_and_identity() {
+        let p = remove_participant_payload(7, &overlay_identity(3));
+        assert_eq!(p["room"], room_name(7));
+        assert_eq!(p["identity"], "3-overlay");
     }
 
     #[test]
