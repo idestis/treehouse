@@ -6,6 +6,7 @@ import { hub, routes } from "./routes";
 import type { ApiError, LiveEvent } from "./types";
 
 let token: string | null = null;
+const TOKEN_PATHS = ["/api/login", "/api/login/mfa", "/api/join"];
 let address = "";
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -21,7 +22,9 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   }
   const data = res.status === 204 ? null : await res.json().catch(() => null);
   if (!res.ok) throw { error: data?.error ?? "http_error", message: data?.message ?? `Server error ${res.status}.`, status: res.status } satisfies ApiError;
-  if (data && typeof data === "object" && "token" in data) {
+  // Only sign-in answers carry the session token (like TOKEN_PATHS in client.rs);
+  // a voice token must reach the UI untouched.
+  if (TOKEN_PATHS.includes(path) && data && typeof data === "object" && "token" in data) {
     token = data.token;
     delete data.token;
   }
