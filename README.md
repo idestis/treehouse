@@ -47,6 +47,8 @@ So I built Treehouse: a small private voice and chat hangout for a crew of 3 to 
 - Optional camera and screen share. Tiles split the stage evenly: one person fills it, two sit side by side, 3 to 4 make a 2 × 2 grid.
 - Each room has its own chat, visible only to the people in it, and cleared when the last person leaves.
 - Your own join sound, plus microphone and output volume sliders.
+- Click a room to peek in, double-click (or press **Join voice**) to hop in. You can choose to join muted, keep the camera off, or join as soon as you open a room.
+- Admins manage rooms from a ⋯ menu: size (2 to 10 people), rename, delete, or move everyone back to The Deck and delete.
 - Rooms hold 10 people by default, and the server enforces the limit.
 
 ### 🔑 Invites, roles and two-step sign-in
@@ -199,7 +201,7 @@ Still to come:
 
 - **Moderation:** the actions from the spec (mute in voice, kick from a room, voice and treehouse timeouts, block), lifting them early, and the moderation log in the app. The outbox worker currently enforces only room deletion in LiveKit; enforcing mutes and kicks comes next.
 - **People:** promote, demote and block from the app, with the "always one admin" and owner rules.
-- **Admin screens:** treehouse settings (name, message lifetime, GIF rating), and room create, rename and delete in the app. The server API for rooms already exists.
+- **Admin screens:** treehouse settings (name, message lifetime, GIF rating). Rooms can already be created, renamed, resized and deleted from the room ⋯ menu.
 - **Invite links:** the `/join` web page with "Open in Treehouse".
 - **Push to talk.** The hotkey can be set, but it doesn't do anything yet.
 - **Hardening:** database integration and concurrency tests, backups, a metrics endpoint, and a load test with 15 fake clients.

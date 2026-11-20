@@ -35,8 +35,7 @@ Choices made where the spec is silent. Newest last.
 
 - **Presence + custom status** live on `users` (migration 0004): `status` online/away/busy/brb, plus optional `status_emoji` and `status_text` (≤60). Being connected is separate; offline wins when nobody is connected. Numbered 0004 so the voice work can take 0003.
 - **Notifications** (tray/Dock badge and the mention chime) are a per-computer preference; "busy" pauses them. The in-app @ badge always shows.
-- **Volume sliders** (microphone 0–200%, output 0–200%) are per-computer and sit on top of the fixed voice processing (echo, noise, automatic gain stay on per spec §10); they adjust level only.
-||||||| 024f37b
+- **Volume sliders** (microphone 0–200%, output 0–100%) are per-computer and sit on top of the fixed voice processing (echo, noise, automatic gain stay on per spec §10); they adjust level only. Output was later capped at 100% (per-track volume in calls); the microphone gain is a LiveKit audio processor.
 
 ## 2026-11-20: Voice, camera and screen share (milestone 7, server)
 
@@ -49,3 +48,9 @@ Choices made where the spec is silent. Newest last.
 - **One JSON shape for members** (`voice_members_json(room)`, migration 0003) is used by both `rooms_json()` and the `voice` event: `{user_id, muted, camera, screen}`.
 - **Production webhook config:** a LiveKit config file can't read environment variables, so `docker-compose.yml` appends the `webhook:` section (API key, `https://APP_DOMAIN/api/livekit/webhook`) to a copy of `livekit.yaml` at container start.
 - **Dev LiveKit** runs in `deploy/docker-compose.test.yml` (`task db`) with the fixed pair `devkey` / `treehouse-dev-secret-0123456789-not-for-production`, written in `deploy/livekit.dev.yaml` and `Taskfile.yml`. It is dev-only and published on 127.0.0.1 only; never reuse it on a server.
+
+## 2026-11-20: Joining rooms, room admin
+
+- **One click previews** a voice room (Join voice top-right); **double-click or the button joins**. "Join voice when I open a room", "join muted" and "camera on when I join" are per-computer preferences (camera off by default, spec §10).
+- **Join sounds** play on each client when the server's `voice` event shows someone new in the room you're in (including you).
+- **Room admin** (admins only): create within `max_voice_rooms` under the treehouse-row lock, rename (the #slug follows the name), size 2–10, delete. Deleting an occupied room needs `?everyone=true`; it removes `voice_members`, writes a mod_log row, and queues a LiveKit `DeleteRoom` in the **outbox**, which a worker runs after commit with retries and backoff (one replica at a time via an advisory lock). Rooms carry `last_used_at` (migration 0006).
