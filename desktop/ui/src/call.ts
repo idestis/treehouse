@@ -219,11 +219,18 @@ export const call = {
       return;
     }
     try {
+      // Sharp text (default): full 1080p, fewer frames, keep resolution when the network is tight.
+      // Smooth motion (games): 1080p at 30 fps, drop resolution before frames.
+      const motion = prefs.screenMode === "motion";
+      const preset = motion ? ScreenSharePresets.h1080fps30 : ScreenSharePresets.h1080fps15;
       await room.localParticipant.setScreenShareEnabled(on,
         // System audio where the platform offers it (Windows); macOS web views share picture only.
-        { audio: true, systemAudio: "include", selfBrowserSurface: "exclude", surfaceSwitching: "include", contentHint: "motion",
-          resolution: ScreenSharePresets.h720fps30.resolution },
-        { screenShareEncoding: ScreenSharePresets.h720fps30.encoding });
+        { audio: true, systemAudio: "include", selfBrowserSurface: "exclude", surfaceSwitching: "include",
+          contentHint: motion ? "motion" : "detail", resolution: preset.resolution },
+        {
+          screenShareEncoding: { maxBitrate: motion ? 4_500_000 : 3_000_000, maxFramerate: motion ? 30 : 15 },
+          degradationPreference: motion ? "maintain-framerate" : "maintain-resolution",
+        });
       local.screen = on;
     } catch (e) {
       local.screen = false;

@@ -217,6 +217,8 @@ register("settings", (root, screen) => {
         h("div", { class: "field" }, h("label", { for: "s-out" }, "Speakers or headphones"), out.el),
         outVolume,
         joinSoundField(),
+        h("h3", { class: "subhead" }, "Screen sharing"),
+        screenModeField(),
         h("h3", { class: "subhead" }, "Voice rooms"),
         toggle("Join voice when I open a room", "Otherwise double-click a room or press Join voice.", prefs.autoJoin, (v) => { prefs.autoJoin = v; }),
         toggle("Join with my microphone muted", "Unmute when you’re ready to talk.", prefs.joinMuted, (v) => { prefs.joinMuted = v; }),
@@ -229,6 +231,16 @@ register("settings", (root, screen) => {
     void fill();
     void listen().then(fill);
     return stop;
+  }
+
+  function screenModeField() {
+    const pick = dropdown("s-screen", [
+      { value: "text", label: "Sharp text", hint: "1080p, 15 fps: code, docs, websites" },
+      { value: "motion", label: "Smooth motion", hint: "1080p, 30 fps: games and video" },
+    ], prefs.screenMode);
+    pick.onChange = (v) => { prefs.screenMode = v as "text" | "motion"; };
+    return h("div", { class: "field" }, h("label", { for: "s-screen" }, "When I share my screen, favour"), pick.el,
+      h("p", { class: "muted small" }, "Applies the next time you start sharing."));
   }
 
   function toggle(label: string, hint: string, on: boolean, onChange: (v: boolean) => void) {

@@ -46,6 +46,9 @@ export const prefs = {
   /** Turn the camera on when joining (off by default, spec §10). */
   get joinCamera() { return read("treehouse.joinCamera") === "1"; },
   set joinCamera(v: boolean) { write("treehouse.joinCamera", v ? "1" : "0"); },
+  /** Screen sharing: sharp text (1080p, 15 fps) or smooth motion for games (1080p, 30 fps). */
+  get screenMode(): "text" | "motion" { return read("treehouse.screenMode") === "motion" ? "motion" : "text"; },
+  set screenMode(v: "text" | "motion") { write("treehouse.screenMode", v); },
   /** Output volume in percent (0–100) for everyone you hear. */
   get outputVolume() { return percent(OUT_GAIN_KEY); },
   set outputVolume(v: number) { write(OUT_GAIN_KEY, String(Math.round(v))); },
