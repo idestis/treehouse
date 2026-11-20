@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT r.kind, EXISTS (SELECT 1 FROM voice_members v WHERE v.room_id = r.id AND v.user_id = $2) AS \"inside!\"\n           FROM rooms r WHERE r.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "kind",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "inside!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "155eb93b5182fc26d63786f367f46c02c48784ac2f5f7a9e3009f77312ed060e"
+}

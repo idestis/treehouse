@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE invites SET expires_at = least(expires_at, now()) WHERE id = $1 AND NOT is_setup AND uses < max_uses",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "03a245628553d8f88802ed67c0f7482aa0b954bd49002e81fb71273e75aa8eca"
+}

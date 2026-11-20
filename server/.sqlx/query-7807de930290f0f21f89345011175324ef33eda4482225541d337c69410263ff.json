@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT reactions_json($1) AS \"r!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "r!",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "7807de930290f0f21f89345011175324ef33eda4482225541d337c69410263ff"
+}

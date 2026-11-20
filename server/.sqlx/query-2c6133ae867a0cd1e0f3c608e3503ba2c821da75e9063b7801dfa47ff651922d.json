@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM connections WHERE last_ping < now() - interval '2 minutes' RETURNING user_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "2c6133ae867a0cd1e0f3c608e3503ba2c821da75e9063b7801dfa47ff651922d"
+}

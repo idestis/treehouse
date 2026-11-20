@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COALESCE(jsonb_agg(jsonb_build_object(\n               'id', i.id, 'label', i.label, 'role', i.role, 'max_uses', i.max_uses, 'uses', i.uses,\n               'expires_at', to_char(i.expires_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'),\n               'joined', COALESCE((SELECT jsonb_agg(u.display_name ORDER BY u.created_at) FROM users u WHERE u.invite_id = i.id), '[]'::jsonb)\n           ) ORDER BY i.created_at DESC), '[]'::jsonb) AS \"list!\"\n           FROM invites i WHERE NOT i.is_setup AND i.created_at > now() - interval '30 days'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "list!",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "8bb88e91ff97860f8967ba18577d640dab45254aa3699fcd1cff53aef36b5bb8"
+}

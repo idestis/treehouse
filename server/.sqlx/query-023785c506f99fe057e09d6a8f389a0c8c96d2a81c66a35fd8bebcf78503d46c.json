@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE invites SET expires_at = now() WHERE is_setup AND expires_at > now()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "023785c506f99fe057e09d6a8f389a0c8c96d2a81c66a35fd8bebcf78503d46c"
+}

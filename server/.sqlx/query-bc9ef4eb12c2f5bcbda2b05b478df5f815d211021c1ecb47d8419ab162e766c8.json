@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM mod_log WHERE at < now() - interval '90 days'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "bc9ef4eb12c2f5bcbda2b05b478df5f815d211021c1ecb47d8419ab162e766c8"
+}

@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COALESCE(jsonb_agg(j ORDER BY id), '[]'::jsonb) AS \"list!\" FROM (\n               SELECT m.id, message_json(m) AS j FROM messages m, treehouse t\n               WHERE m.channel_id = $1 AND m.created_at > now() - make_interval(hours => t.message_ttl_hours)\n               ORDER BY m.id DESC LIMIT $2) page",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "list!",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "8e0b3be04833a8815c1a043eced6bef62adc0327bc62da497fb5c58108bed293"
+}

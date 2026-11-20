@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT count(DISTINCT emoji) AS \"kinds!\", COALESCE(bool_or(emoji = $2), false) AS \"has!\" FROM reactions WHERE message_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "kinds!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "has!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "4d0ada9c574a3c4bb19e9af1fe329dcd9da7f1b209625f18120c497aa0d25b73"
+}

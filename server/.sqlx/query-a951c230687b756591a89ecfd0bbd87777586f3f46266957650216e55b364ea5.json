@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH m AS (\n               INSERT INTO messages (channel_id, author_id, client_id, kind, body, gif, roll, mentions)\n               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)\n               ON CONFLICT (author_id, client_id) DO NOTHING\n               RETURNING *)\n           SELECT message_json(m) AS \"j!\" FROM m",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "j!",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Uuid",
+        "Text",
+        "Text",
+        "Jsonb",
+        "Jsonb",
+        "Int8Array"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "a951c230687b756591a89ecfd0bbd87777586f3f46266957650216e55b364ea5"
+}

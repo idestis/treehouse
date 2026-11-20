@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT gif_rating FROM treehouse",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "gif_rating",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "8f142be82c0f58569e02b196500e1b0cbe68a6fd2bce506f9dd0afb16e69a576"
+}

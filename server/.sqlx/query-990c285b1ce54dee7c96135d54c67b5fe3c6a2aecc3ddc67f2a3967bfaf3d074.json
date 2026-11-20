@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT u.id, u.password_hash, u.blocked_at IS NOT NULL AS \"blocked!\",\n                  (u.locked_until IS NOT NULL AND u.locked_until > now()) AS \"locked!\",\n                  (m.confirmed_at IS NOT NULL) AS \"mfa!\"\n           FROM users u LEFT JOIN mfa m ON m.user_id = u.id\n           WHERE u.username = $1::text::citext FOR UPDATE OF u",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "password_hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "blocked!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 3,
+        "name": "locked!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 4,
+        "name": "mfa!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "990c285b1ce54dee7c96135d54c67b5fe3c6a2aecc3ddc67f2a3967bfaf3d074"
+}

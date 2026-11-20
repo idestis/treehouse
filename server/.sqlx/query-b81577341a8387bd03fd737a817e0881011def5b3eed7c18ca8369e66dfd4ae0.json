@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO invites (code_hash, label, role, is_setup, max_uses, expires_at)\n         VALUES ($1, 'Owner', 'admin', true, 1, now() + make_interval(secs => $2))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b81577341a8387bd03fd737a817e0881011def5b3eed7c18ca8369e66dfd4ae0"
+}

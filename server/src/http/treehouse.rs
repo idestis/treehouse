@@ -1,0 +1,66 @@
+//! Server info, people, rooms.
+
+use axum::{
+    Json,
+    extract::{Path, State},
+};
+use serde_json::{Value, json};
+
+use crate::{
+    auth::Authed,
+    error::{AppError, AppResult},
+    http::AppState,
+};
+
+/// Public: what a client shows before signing in, and the header copy after.
+pub async fn server_info(State(st): State<AppState>) -> AppResult<Json<Value>> {
+    let t = sqlx::query!("SELECT name, message_ttl_hours, max_voice_rooms FROM treehouse")
+        .fetch_one(&st.db)
+        .await?;
+    Ok(Json(json!({
+        "name": t.name,
+        "version": env!("CARGO_PKG_VERSION"),
+        "message_ttl_hours": t.message_ttl_hours,
+        "max_voice_rooms": t.max_voice_rooms,
+        "gifs": st.gifs.enabled(),
+    })))
+}
+
+pub async fn people(State(st): State<AppState>, Authed(_): Authed) -> AppResult<Json<Value>> {
+    let list = sqlx::query_scalar!(
+        r#"SELECT COALESCE(jsonb_agg(jsonb_build_object(
+               'id', u.id, 'username', u.username::text, 'display_name', u.display_name, 'color', u.color, 'role', u.role,
+               'online', EXISTS (SELECT 1 FROM connections c WHERE c.user_id = u.id AND c.last_ping > now() - interval '90 seconds')
+           ) ORDER BY lower(u.display_name)), '[]'::jsonb) AS "list!"
+           FROM users u WHERE u.blocked_at IS NULL"#
+    )
+    .fetch_one(&st.db)
+    .await?;
+    Ok(Json(list))
+}
+
+pub async fn rooms(State(st): State<AppState>, Authed(_): Authed) -> AppResult<Json<Value>> {
+    let list = sqlx::query_scalar!(r#"SELECT rooms_json() AS "list!""#)
+        .fetch_one(&st.db)
+        .await?;
+    Ok(Json(list))
+}
+
+/// Voice tokens arrive with LiveKit (milestone 7).
+pub async fn voice_token(
+    State(st): State<AppState>,
+    Authed(_): Authed,
+    Path(id): Path<i64>,
+) -> AppResult<Json<Value>> {
+    let kind = sqlx::query_scalar!("SELECT kind FROM rooms WHERE id = $1", id)
+        .fetch_optional(&st.db)
+        .await?
+        .ok_or_else(|| AppError::not_found("That room is gone."))?;
+    if kind != "voice" {
+        return Err(AppError::bad("not_voice", "That isn't a voice room."));
+    }
+    Err(AppError::unavailable(
+        "voice_off",
+        "Voice isn't set up on this server yet.",
+    ))
+}

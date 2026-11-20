@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT mods_can_invite FROM treehouse",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "mods_can_invite",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c0444d8ca0b055c93faeff3197c91cbbc3dadf7530630fb363fa6cdfe505ba16"
+}

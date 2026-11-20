@@ -1,0 +1,70 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT u.id, u.username::text AS \"username!\", u.display_name, u.color, u.role, u.is_owner,\n                  s.id AS session_id, (m.confirmed_at IS NOT NULL) AS \"mfa_enabled!\", t.mods_require_mfa\n           FROM sessions s\n           JOIN users u ON u.id = s.user_id\n           LEFT JOIN mfa m ON m.user_id = u.id\n           CROSS JOIN treehouse t\n           WHERE s.token_hash = $1 AND s.expires_at > now() AND u.blocked_at IS NULL",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "username!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "display_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "color",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "role",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "is_owner",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 6,
+        "name": "session_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "mfa_enabled!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
+        "name": "mods_require_mfa",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      false
+    ]
+  },
+  "hash": "3d1152658054a473a7c1df4a518e80ba95f719b68e5c4689f2cc68b20bfa02a3"
+}

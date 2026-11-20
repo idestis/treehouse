@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM events WHERE created_at < now() - interval '2 days'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "75264b646e756a203eaa5e33b6d195ff80f7cfbea7a786dffbfdcd4c91e5e20d"
+}

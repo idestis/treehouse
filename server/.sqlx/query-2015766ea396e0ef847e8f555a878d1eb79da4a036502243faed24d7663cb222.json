@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT (r.kind = 'deck' OR EXISTS (SELECT 1 FROM voice_members v WHERE v.room_id = r.id AND v.user_id = $2)) AS \"ok!\"\n           FROM rooms r WHERE r.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ok!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "2015766ea396e0ef847e8f555a878d1eb79da4a036502243faed24d7663cb222"
+}

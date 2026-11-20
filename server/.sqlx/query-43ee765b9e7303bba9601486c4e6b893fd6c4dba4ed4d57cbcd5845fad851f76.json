@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM messages WHERE id IN (\n                 SELECT m.id FROM messages m, treehouse t\n                 WHERE m.created_at < now() - make_interval(hours => t.message_ttl_hours) LIMIT $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "43ee765b9e7303bba9601486c4e6b893fd6c4dba4ed4d57cbcd5845fad851f76"
+}

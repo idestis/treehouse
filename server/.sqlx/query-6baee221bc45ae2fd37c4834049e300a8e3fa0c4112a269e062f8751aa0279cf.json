@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE mfa_challenges SET attempts = attempts + 1 WHERE token_hash = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6baee221bc45ae2fd37c4834049e300a8e3fa0c4112a269e062f8751aa0279cf"
+}

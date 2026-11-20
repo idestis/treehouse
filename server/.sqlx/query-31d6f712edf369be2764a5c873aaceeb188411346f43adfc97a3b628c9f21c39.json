@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO channel_seq (channel, seq) VALUES ($1, 1)\n         ON CONFLICT (channel) DO UPDATE SET seq = channel_seq.seq + 1\n         RETURNING seq",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "seq",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "31d6f712edf369be2764a5c873aaceeb188411346f43adfc97a3b628c9f21c39"
+}

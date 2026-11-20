@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT max(ends_at) FROM sanctions WHERE target_id = $1 AND kind = 'timeout_all' AND lifted_at IS NULL AND ends_at > now()",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "max",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "c02dc980a3b1e20bcda832b0eced250caf53f9814ba5d469943936be377f3ce8"
+}

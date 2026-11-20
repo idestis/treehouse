@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT name, message_ttl_hours, max_voice_rooms FROM treehouse",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "message_ttl_hours",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "max_voice_rooms",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "af5bdd7d1e38fe155cebcb9f5367e58ecee11a91043d7d367e73a7c89ffcdefc"
+}
