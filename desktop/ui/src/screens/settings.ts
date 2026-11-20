@@ -148,7 +148,7 @@ register("settings", (root, screen) => {
       call.setMicGain(v);
     });
     const outVolume = slider("s-out-gain", t("settings.sound.voicesVolume"), prefs.outputVolume, (v) => { prefs.outputVolume = v; call.setOutputVolume(v); }, undefined, 100);
-    const testSound = h("button", { class: "btn ghost sm", type: "button", onclick: () => playSound(me.join_sound === "none" ? "ding" : me.join_sound) }, t("settings.sound.play"));
+    const testSound = h("button", { class: "btn ghost sm icon-only", type: "button", "aria-label": t("settings.sound.play"), title: t("settings.sound.play"), onclick: () => playSound(me.join_sound === "none" ? "ding" : me.join_sound) }, icon("play", 18));
     const soundsVolume = slider("s-sounds-gain", t("settings.sound.soundsVolume"), prefs.soundsVolume, (v) => { prefs.soundsVolume = v; }, testSound, 100);
     const problem = h("div", { class: "mic-problem", role: "alert", hidden: true });
     let stream: MediaStream | null = null;
@@ -278,7 +278,7 @@ register("settings", (root, screen) => {
         session.me = me;
       } catch (x) { toast(errorText(x), "error"); pick.value = me[kind]; }
     };
-    const play = h("button", { class: "btn ghost sm", type: "button", onclick: () => playSound(pick.value as SoundName) }, t("settings.sound.play"));
+    const play = h("button", { class: "btn ghost sm icon-only", type: "button", "aria-label": t("settings.sound.play"), title: t("settings.sound.play"), onclick: () => playSound(pick.value as SoundName) }, icon("play", 18));
     return h("div", { class: "field" }, h("label", { for: `s-${kind}` }, label),
       h("div", { class: "row gap-14" }, h("div", { class: "grow" }, pick.el), play),
       h("p", { class: "muted small" }, hint));

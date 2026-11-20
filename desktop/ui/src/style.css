@@ -113,6 +113,8 @@ fieldset.plain legend { padding: 0; margin-bottom: 10px; }
 .btn.ghost { border: 1.5px solid #2e3b5e; padding: 14px 20px; font-size: 16px; }
 .btn.ghost:hover { background: var(--raised); }
 .btn.sm { padding: 9px 16px; font-size: 15px; border-radius: 10px; }
+/* Square button with just an icon (it carries an aria-label). */
+.btn.icon-only, .btn.ghost.sm.icon-only { width: 40px; height: 40px; padding: 0; flex: none; }
 .btn.fit { align-self: flex-start; }
 .btn.outline-lantern { border: 1.5px solid var(--lantern); color: var(--lantern); background: #2a2a3a; padding: 12px 20px; }
 .btn.outline-lantern.on { background: #3a3123; }
