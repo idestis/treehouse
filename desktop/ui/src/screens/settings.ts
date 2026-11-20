@@ -7,6 +7,7 @@ import { go, register, session, type SettingsTab } from "../app";
 import { ago, h, icon, initial, mount, toast } from "../dom";
 import { personAvatar, shrinkForUpload } from "../avatars";
 import { ACTIONS, type Action, conflicts, DEFAULTS as DEFAULT_KEYS, format as formatKey, fromEvent, load as loadHotkeys, problem as hotkeyProblem, save as saveHotkeys } from "../hotkeys";
+import { dropdown, dropdownOpen } from "../dropdown";
 import { strengthMeter } from "../password";
 import { AUDIO_CAPTURE, prefs } from "../voice";
 import { colorPicker, tilePreview } from "./auth";
@@ -26,7 +27,7 @@ register("settings", (root, screen) => {
   const body = h("section", { class: "set-body" });
 
   const close = () => go({ name: "home" });
-  const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !(e.target instanceof HTMLInputElement)) close(); };
+  const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !dropdownOpen() && !(e.target instanceof HTMLInputElement)) close(); };
   addEventListener("keydown", onKey);
 
   function select(t: SettingsTab) {
@@ -106,8 +107,8 @@ register("settings", (root, screen) => {
 
   // ─── Sound and hotkeys ───
   function sound(el: HTMLElement) {
-    const mic = h("select", { id: "s-mic", class: "select" });
-    const out = h("select", { id: "s-out", class: "select" });
+    const mic = dropdown("s-mic", [{ value: "", label: "System default" }], prefs.mic);
+    const out = dropdown("s-out", [{ value: "", label: "System default" }], prefs.speaker);
     const bar = h("span", { class: "meter-fill" });
     const problem = h("div", { class: "mic-problem", role: "alert", hidden: true });
     let stream: MediaStream | null = null;
@@ -167,26 +168,22 @@ register("settings", (root, screen) => {
 
     const fill = async () => {
       const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
-      const opts = (kind: MediaDeviceKind, chosen: string) => {
-        const list = devices.filter((d) => d.kind === kind);
-        return [h("option", { value: "" }, "System default"), ...list.filter((d) => d.deviceId && d.deviceId !== "default").map((d, i) =>
-          h("option", { value: d.deviceId, selected: d.deviceId === chosen }, d.label || `${kind === "audioinput" ? "Microphone" : "Speaker"} ${i + 1}`))];
-      };
-      mount(mic, opts("audioinput", prefs.mic));
-      mount(out, opts("audiooutput", prefs.speaker));
-      mic.value = prefs.mic;
-      out.value = prefs.speaker;
+      const opts = (kind: MediaDeviceKind) => [{ value: "", label: "System default" },
+        ...devices.filter((d) => d.kind === kind && d.deviceId && d.deviceId !== "default").map((d, i) =>
+          ({ value: d.deviceId, label: d.label || `${kind === "audioinput" ? "Microphone" : "Speaker"} ${i + 1}` }))];
+      mic.setOptions(opts("audioinput"), prefs.mic);
+      out.setOptions(opts("audiooutput"), prefs.speaker);
     };
-    mic.onchange = () => { prefs.mic = mic.value; void listen(); };
-    out.onchange = () => { prefs.speaker = out.value; };
+    mic.onChange = (v) => { prefs.mic = v; void listen(); };
+    out.onChange = (v) => { prefs.speaker = v; };
 
     mount(el,
       h("h2", { class: "display xs" }, "Sound"),
       h("div", { class: "stack-16 maxw" },
-        h("div", { class: "field" }, h("label", { for: "s-mic" }, "Microphone"), mic),
+        h("div", { class: "field" }, h("label", { for: "s-mic" }, "Microphone"), mic.el),
         h("div", { class: "row gap-14 meter-row" }, h("span", { class: "muted small" }, "Say something"), h("span", { class: "meter" }, bar)),
         problem,
-        h("div", { class: "field" }, h("label", { for: "s-out" }, "Speakers or headphones"), out),
+        h("div", { class: "field" }, h("label", { for: "s-out" }, "Speakers or headphones"), out.el),
         h("p", { class: "info-box" }, "Echo removal, background-noise removal and volume leveling are always on, so your keyboard and fans stay out of the call."),
         h("h3", { class: "subhead" }, "Hotkeys"),
         h("p", { class: "muted small" }, "Click a shortcut, then press the keys you want. Esc cancels; Backspace clears."),
@@ -302,10 +299,9 @@ register("settings", (root, screen) => {
   // ─── Invite friends ───
   function invites(el: HTMLElement) {
     const label = h("input", { id: "inv-label", placeholder: "Who’s it for? (Kai)", maxlength: 40 });
-    const hours = h("select", { id: "inv-hours", class: "select" },
-      [[1, "1 hour"], [24, "1 day"], [72, "3 days"], [168, "7 days"]].map(([v, t]) => h("option", { value: v, selected: v === 168 }, t)));
-    const uses = h("select", { id: "inv-uses", class: "select" }, [1, 2, 3, 4, 5].map((n) => h("option", { value: n }, n === 1 ? "Once" : `Up to ${n} people`)));
-    const role = h("select", { id: "inv-role", class: "select" }, h("option", { value: "member" }, "Member"), h("option", { value: "moderator" }, "Moderator"));
+    const hours = dropdown("inv-hours", [["1", "1 hour"], ["24", "1 day"], ["72", "3 days"], ["168", "7 days"]].map(([value, label]) => ({ value, label })), "168");
+    const uses = dropdown("inv-uses", [1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: n === 1 ? "Once" : `Up to ${n} people` })), "1");
+    const role = dropdown("inv-role", [{ value: "member", label: "Member" }, { value: "moderator", label: "Moderator" }], "member");
     const fresh = h("div");
     const list = h("ul", { class: "rows" });
     const btn = h("button", { class: "btn primary fit", type: "submit" }, "Create invite");
@@ -364,9 +360,9 @@ register("settings", (root, screen) => {
         } },
           h("div", { class: "field" }, h("label", { for: "inv-label" }, "For"), label),
           h("div", { class: "row gap-14 wrap" },
-            h("div", { class: "field grow-180" }, h("label", { for: "inv-hours" }, "Works for"), hours),
-            h("div", { class: "field grow-180" }, h("label", { for: "inv-uses" }, "Uses"), uses),
-            me.role === "admin" && h("div", { class: "field grow-180" }, h("label", { for: "inv-role" }, "Starts as"), role)),
+            h("div", { class: "field grow-180" }, h("label", { for: "inv-hours" }, "Works for"), hours.el),
+            h("div", { class: "field grow-180" }, h("label", { for: "inv-uses" }, "Uses"), uses.el),
+            me.role === "admin" && h("div", { class: "field grow-180" }, h("label", { for: "inv-role" }, "Starts as"), role.el)),
           btn),
         fresh,
         list));

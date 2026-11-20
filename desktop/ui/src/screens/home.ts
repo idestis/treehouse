@@ -594,7 +594,7 @@ register("home", (root) => {
         if (m) { m.reactions = e.reactions; refreshLists(e.channel_id); }
         break;
       }
-      case "presence": { const p = people.get(e.user_id); if (p) { p.online = e.online; renderSidebar(); } break; }
+      case "presence": { const p = people.get(e.user_id); if (p && p.id !== me.id) { p.online = e.online; renderSidebar(); } break; }
       case "people": case "rooms": void load(); break;
       case "offline": if (!offline) { offline = true; renderSidebar(); } break;
       case "ready": if (offline) { offline = false; void load(); } break;
@@ -614,7 +614,8 @@ register("home", (root) => {
       rooms = rs;
       treehouse = th;
       const self = people.get(me.id);
-      if (self) Object.assign(me, { display_name: self.display_name, color: self.color, avatar: self.avatar });
+      // You're online by definition while this screen is open, even before the live connection registers.
+      if (self) { self.online = true; Object.assign(me, { display_name: self.display_name, color: self.color, avatar: self.avatar }); }
       // Rooms that emptied lose their chat; drop what we held.
       for (const r of rooms) if (r.kind === "voice" && !r.members.some((m) => m.user_id === me.id)) cache.delete(r.id);
       renderSidebar();
